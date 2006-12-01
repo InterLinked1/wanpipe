@@ -72,7 +72,7 @@ typedef struct fr_cmd
 	unsigned short dlci	PACKED;	/* DLCI number */
 	unsigned char  attr	PACKED;	/* FECN, BECN, DE and C/R bits */
 	unsigned short rxlost1	PACKED;	/* frames discarded at int. level */
-	unsigned long  rxlost2	PACKED;	/* frames discarded at app. level */
+	unsigned int  rxlost2	PACKED;	/* frames discarded at app. level */
 	unsigned char  rsrv[2]	PACKED;	/* reserved for future use */
 } fr_cmd_t;
 
@@ -141,7 +141,7 @@ typedef struct	fr508_flags
 	unsigned char rsrv2[11]	PACKED;	/* 05h: reserved */
 	unsigned char iflag	PACKED;	/* 10h: interrupt flag */
 	unsigned char imask	PACKED;	/* 11h: interrupt mask */
-	unsigned long tse_offs	PACKED;	/* 12h: Tx status element */
+	unsigned int tse_offs	PACKED;	/* 12h: Tx status element */
 	unsigned short dlci	PACKED; /* 16h: DLCI NUMBER */
 } fr508_flags_t;
 
@@ -172,11 +172,11 @@ typedef struct	fr508_flags
 typedef struct	fr_buf_info
 {
 	unsigned short rse_num	PACKED;	/* 00h: number of status elements */
-	unsigned long rse_base	PACKED;	/* 02h: receive status array base */
-	unsigned long rse_next	PACKED;	/* 06h: next status element */
-	unsigned long buf_base	PACKED;	/* 0Ah: rotational buffer base */
+	unsigned int rse_base	PACKED;	/* 02h: receive status array base */
+	unsigned int rse_next	PACKED;	/* 06h: next status element */
+	unsigned int buf_base	PACKED;	/* 0Ah: rotational buffer base */
 	unsigned short reserved	PACKED;	/* 0Eh:  */
-	unsigned long buf_top	PACKED;	/* 10h: rotational buffer top */
+	unsigned int buf_top	PACKED;	/* 10h: rotational buffer top */
 } fr_buf_info_t;
 
 /*----------------------------------------------------------------------------
@@ -193,7 +193,7 @@ typedef struct	fr_rx_buf_ctl
 	unsigned char attr	PACKED;	/* 05h: FECN/BECN/DE/CR */
 	unsigned short tmstamp	PACKED;	/* 06h: time stamp */
 	unsigned short rsrv[2]	PACKED; /* 08h:  */
-	unsigned long offset	PACKED;	/* 0Ch: buffer absolute address */
+	unsigned int offset	PACKED;	/* 0Ch: buffer absolute address */
 } fr_rx_buf_ctl_t;
 
 typedef struct  fr_tx_buf_ctl
@@ -204,7 +204,7 @@ typedef struct  fr_tx_buf_ctl
         unsigned short dlci     PACKED; /* 07h: DLCI */
         unsigned char attr      PACKED; /* 09h: FECN/BECN/DE/CR */
         unsigned short rsrv1 	PACKED; /* 0Ah:  */
-        unsigned long offset    PACKED; /* 0Ch: buffer absolute address */
+        unsigned int offset    PACKED; /* 0Ch: buffer absolute address */
 } fr_tx_buf_ctl_t;
 
 /*----------------------------------------------------------------------------
@@ -271,7 +271,7 @@ typedef struct {
         unsigned char attr      PACKED; /* trace attributes */
         unsigned short tmstamp  PACKED; /* time stamp */
         unsigned char rsrv1[4]  PACKED; /* reserved */
-        unsigned long offset    PACKED; /* buffer absolute address */
+        unsigned int offset    PACKED; /* buffer absolute address */
 } fr_trc_el_t;
 
 typedef struct {
@@ -418,18 +418,18 @@ typedef struct	fr_link_stat
  */
 typedef struct	fr_dlci_stat
 {
-	unsigned long tx_frames		PACKED;	/* 00h:  */
-	unsigned long tx_bytes		PACKED;	/* 04h:  */
-	unsigned long rx_frames		PACKED;	/* 08h:  */
-	unsigned long rx_bytes		PACKED;	/* 0Ch:  */
-	unsigned long rx_dropped	PACKED;	/* 10h:  */
-	unsigned long rx_inactive	PACKED;	/* 14h:  */
-	unsigned long rx_exceed_CIR	PACKED;	/* 18h:  */
-	unsigned long rx_DE_set		PACKED;	/* 1Ch:  */
-	unsigned long tx_throughput	PACKED;	/* 20h:  */
-	unsigned long tx_calc_timer	PACKED;	/* 24h:  */
-	unsigned long rx_throughput	PACKED;	/* 28h:  */
-	unsigned long rx_calc_timer	PACKED;	/* 2Ch:  */
+	unsigned int tx_frames		PACKED;	/* 00h:  */
+	unsigned int tx_bytes		PACKED;	/* 04h:  */
+	unsigned int rx_frames		PACKED;	/* 08h:  */
+	unsigned int rx_bytes		PACKED;	/* 0Ch:  */
+	unsigned int rx_dropped	PACKED;	/* 10h:  */
+	unsigned int rx_inactive	PACKED;	/* 14h:  */
+	unsigned int rx_exceed_CIR	PACKED;	/* 18h:  */
+	unsigned int rx_DE_set		PACKED;	/* 1Ch:  */
+	unsigned int tx_throughput	PACKED;	/* 20h:  */
+	unsigned int tx_calc_timer	PACKED;	/* 24h:  */
+	unsigned int rx_throughput	PACKED;	/* 28h:  */
+	unsigned int rx_calc_timer	PACKED;	/* 2Ch:  */
 } fr_dlci_stat_t;
 #endif
 
@@ -468,9 +468,9 @@ typedef struct arphdr_fr
 	unsigned char  ar_pln PACKED;		/* length of protocol addr */
 	unsigned short ar_op  PACKED;		/* ARP opcode		   */
 	unsigned short ar_sha PACKED;		/* Sender DLCI addr 2 bytes */
-	unsigned long  ar_sip PACKED;		/* Sender IP   addr 4 bytes */
+	unsigned int  ar_sip PACKED;		/* Sender IP   addr 4 bytes */
 	unsigned short ar_tha PACKED;		/* Target DLCI addr 2 bytes */
-	unsigned long  ar_tip PACKED;		/* Target IP   addr 4 bytes */
+	unsigned int  ar_tip PACKED;		/* Target IP   addr 4 bytes */
 	} arphdr_fr_t;
 
 /*----------------------------------------------------------------------------
@@ -497,52 +497,52 @@ typedef struct arphdr_1490
 #define UDP_OFFSET	12
 
 typedef struct {
-        unsigned long if_send_entry;
-        unsigned long if_send_skb_null;
-        unsigned long if_send_broadcast;
-        unsigned long if_send_multicast;
-        unsigned long if_send_critical_ISR;
-        unsigned long if_send_critical_non_ISR;
-        unsigned long if_send_busy;
-        unsigned long if_send_busy_timeout;
-	unsigned long if_send_DRVSTATS_request;
-        unsigned long if_send_FPIPE_request;
-        unsigned long if_send_wan_disconnected;
-        unsigned long if_send_dlci_disconnected;
-        unsigned long if_send_no_bfrs;
-        unsigned long if_send_adptr_bfrs_full;
-        unsigned long if_send_bfrs_passed_to_adptr;
-	unsigned long if_send_consec_send_fail;
+        unsigned int if_send_entry;
+        unsigned int if_send_skb_null;
+        unsigned int if_send_broadcast;
+        unsigned int if_send_multicast;
+        unsigned int if_send_critical_ISR;
+        unsigned int if_send_critical_non_ISR;
+        unsigned int if_send_busy;
+        unsigned int if_send_busy_timeout;
+	unsigned int if_send_DRVSTATS_request;
+        unsigned int if_send_FPIPE_request;
+        unsigned int if_send_wan_disconnected;
+        unsigned int if_send_dlci_disconnected;
+        unsigned int if_send_no_bfrs;
+        unsigned int if_send_adptr_bfrs_full;
+        unsigned int if_send_bfrs_passed_to_adptr;
+	unsigned int if_send_consec_send_fail;
 } drvstats_if_send_t; 
 
 typedef struct {
-        unsigned long rx_intr_no_socket;
-        unsigned long rx_intr_dev_not_started;
-        unsigned long rx_intr_DRVSTATS_request;
-        unsigned long rx_intr_FPIPE_request;
-        unsigned long rx_intr_bfr_not_passed_to_stack;
-        unsigned long rx_intr_bfr_passed_to_stack;
+        unsigned int rx_intr_no_socket;
+        unsigned int rx_intr_dev_not_started;
+        unsigned int rx_intr_DRVSTATS_request;
+        unsigned int rx_intr_FPIPE_request;
+        unsigned int rx_intr_bfr_not_passed_to_stack;
+        unsigned int rx_intr_bfr_passed_to_stack;
  } drvstats_rx_intr_t;
 
 typedef struct {
-        unsigned long UDP_FPIPE_mgmt_kmalloc_err;
-        unsigned long UDP_FPIPE_mgmt_direction_err;
-        unsigned long UDP_FPIPE_mgmt_adptr_type_err;
-        unsigned long UDP_FPIPE_mgmt_adptr_cmnd_OK;
-        unsigned long UDP_FPIPE_mgmt_adptr_cmnd_timeout;
-        unsigned long UDP_FPIPE_mgmt_adptr_send_passed;
-        unsigned long UDP_FPIPE_mgmt_adptr_send_failed;
-        unsigned long UDP_FPIPE_mgmt_not_passed_to_stack;
-        unsigned long UDP_FPIPE_mgmt_passed_to_stack;
-        unsigned long UDP_FPIPE_mgmt_no_socket;
-        unsigned long UDP_DRVSTATS_mgmt_kmalloc_err;
-        unsigned long UDP_DRVSTATS_mgmt_adptr_cmnd_OK;
-        unsigned long UDP_DRVSTATS_mgmt_adptr_cmnd_timeout;
-        unsigned long UDP_DRVSTATS_mgmt_adptr_send_passed;
-        unsigned long UDP_DRVSTATS_mgmt_adptr_send_failed;
-        unsigned long UDP_DRVSTATS_mgmt_not_passed_to_stack;
-        unsigned long UDP_DRVSTATS_mgmt_passed_to_stack;
-        unsigned long UDP_DRVSTATS_mgmt_no_socket;
+        unsigned int UDP_FPIPE_mgmt_kmalloc_err;
+        unsigned int UDP_FPIPE_mgmt_direction_err;
+        unsigned int UDP_FPIPE_mgmt_adptr_type_err;
+        unsigned int UDP_FPIPE_mgmt_adptr_cmnd_OK;
+        unsigned int UDP_FPIPE_mgmt_adptr_cmnd_timeout;
+        unsigned int UDP_FPIPE_mgmt_adptr_send_passed;
+        unsigned int UDP_FPIPE_mgmt_adptr_send_failed;
+        unsigned int UDP_FPIPE_mgmt_not_passed_to_stack;
+        unsigned int UDP_FPIPE_mgmt_passed_to_stack;
+        unsigned int UDP_FPIPE_mgmt_no_socket;
+        unsigned int UDP_DRVSTATS_mgmt_kmalloc_err;
+        unsigned int UDP_DRVSTATS_mgmt_adptr_cmnd_OK;
+        unsigned int UDP_DRVSTATS_mgmt_adptr_cmnd_timeout;
+        unsigned int UDP_DRVSTATS_mgmt_adptr_send_passed;
+        unsigned int UDP_DRVSTATS_mgmt_adptr_send_failed;
+        unsigned int UDP_DRVSTATS_mgmt_not_passed_to_stack;
+        unsigned int UDP_DRVSTATS_mgmt_passed_to_stack;
+        unsigned int UDP_DRVSTATS_mgmt_no_socket;
 } drvstats_gen_t;
 
 typedef struct {

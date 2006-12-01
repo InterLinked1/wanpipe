@@ -24,11 +24,15 @@
 ******************************************************************************/
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-# include <net/wanpipe_includes.h>
+# include <wanpipe_includes.h>
 # if !defined(CONFIG_PRODUCT_WANPIPE_GENERIC)
-#  include <net/wanpipe_snmp.h>
+#  include <wanpipe_snmp.h>
 # endif
-# include <net/wanpipe.h>	/* WANPIPE common user API definitions */
+# include <wanpipe_defines.h>
+# include <wanpipe_debug.h>
+# include <wanproc.h>
+# include <wanpipe.h>	/* WANPIPE common user API definitions */
+# include <sdla_te3_reg.h>
 #elif (defined __LINUX__) || (defined __KERNEL__)
 # include <linux/wanpipe_includes.h>
 # include <linux/wanpipe_defines.h>
@@ -90,14 +94,16 @@
 **			  FUNCTION DEFINITIONS
 ******************************************************************************/
 
+static int sdla_te3_config(void *p_fe);
+static int sdla_te3_unconfig(void *p_fe);
 static int sdla_te3_get_fe_status(sdla_fe_t *fe, unsigned char *status);
 static int sdla_te3_polling(sdla_fe_t *fe);
 static int sdla_ds3_isr(sdla_fe_t *fe);
 static int sdla_e3_isr(sdla_fe_t *fe);
 static int sdla_te3_isr(sdla_fe_t *fe);
 static int sdla_te3_udp(sdla_fe_t *fe, void*, unsigned char*);
-static unsigned long sdla_te3_alarm(sdla_fe_t *fe, int);
-static int sdla_te3_read_pmon(sdla_fe_t *fe);
+static unsigned int sdla_te3_alarm(sdla_fe_t *fe, int);
+static int sdla_te3_read_pmon(sdla_fe_t *fe, int);
 
 static int sdla_te3_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* stop_cnt);
 static int sdla_te3_update_pmon_info(sdla_fe_t* fe, struct seq_file* m, int* stop_cnt);
@@ -481,10 +487,10 @@ static int sdla_te3_isr(sdla_fe_t *fe)
  * Returns:
  ******************************************************************************
  */
-static unsigned long sdla_te3_alarm(sdla_fe_t *fe, int update)
+static unsigned int sdla_te3_alarm(sdla_fe_t *fe, int update)
 {
 	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
-	unsigned long	alarm = 0;
+	unsigned int	alarm = 0;
 	unsigned char	value;
 	
 	if (fe_cfg->media == WAN_MEDIA_DS3){
@@ -587,7 +593,7 @@ static unsigned long sdla_te3_alarm(sdla_fe_t *fe, int update)
  * Returns:
  ******************************************************************************
  */
-static int sdla_te3_set_alarm(sdla_fe_t *fe, unsigned long alarm)
+static int sdla_te3_set_alarm(sdla_fe_t *fe, unsigned int alarm)
 {
 	DEBUG_EVENT("%s: %s: This function is still not supported!\n",
 			fe->name, __FUNCTION__);
@@ -602,9 +608,9 @@ static int sdla_te3_set_alarm(sdla_fe_t *fe, unsigned long alarm)
  * Returns:
  ******************************************************************************
  */
-static int sdla_te3_read_pmon(sdla_fe_t *fe)
+static int sdla_te3_read_pmon(sdla_fe_t *fe, int action)
 {
-	sdla_te3_pmon_t	*pmon = (sdla_te3_pmon_t*)&fe->fe_pmon.u.te3_pmon;
+	sdla_te3_pmon_t	*pmon = (sdla_te3_pmon_t*)&fe->fe_stats.u.te3_pmon;
 	unsigned char value_msb, value_lsb;
 
 	value_msb = READ_FRAMER(REG_PMON_LCV_MSB);
@@ -658,20 +664,19 @@ static int sdla_te3_udp(sdla_fe_t *fe, void *pudp_cmd, unsigned char *data)
 
 	case WAN_FE_GET_STAT:
  	        /* TE1_56K Read T1/E1/56K alarms */
+#if 0
 	  	*(unsigned long *)&data[0] = sdla_te3_alarm(fe, 0);
+#endif
 		/* TE1 Update T1/E1 perfomance counters */
-    		sdla_te3_read_pmon(fe);
-	        memcpy(&data[sizeof(unsigned long)],
-			&fe->fe_pmon.u.te3_pmon,
-			sizeof(sdla_te3_pmon_t));
+    		sdla_te3_read_pmon(fe, 0);
+	        memcpy(&data[0], &fe->fe_stats, sizeof(sdla_fe_stats_t));
 	        udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
-	    	udp_cmd->wan_cmd_data_len = 
-			sizeof(unsigned long) + sizeof(sdla_te3_pmon_t); 
+	    	udp_cmd->wan_cmd_data_len = sizeof(sdla_fe_stats_t); 
 		break;
 
  	case WAN_FE_FLUSH_PMON:
 		/* TE1 Flush T1/E1 pmon counters */
-//		memset(&fe->fe_pmon.u.te3_pmon, 0, sizeof(sdla_te3_pmon_t));
+//		memset(&fe->fe_stats.u.te3_pmon, 0, sizeof(sdla_te3_pmon_t));
 	        udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
 		break;
  
@@ -820,12 +825,32 @@ static int sdla_te3_liu_config(sdla_fe_t *fe, sdla_te3_liu_cfg_t *liu, char *nam
 	return 0;
 }
 
-int sdla_te3_config(void *p_fe, void *p_fe_iface)
+int sdla_te3_iface_init(void *p_fe_iface)
+{
+	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)p_fe_iface;
+
+	/* Inialize Front-End interface functions */
+	fe_iface->config		= &sdla_te3_config;
+	fe_iface->unconfig		= &sdla_te3_unconfig;
+	fe_iface->polling		= &sdla_te3_polling;
+	fe_iface->isr			= &sdla_te3_isr;
+	fe_iface->process_udp		= &sdla_te3_udp;
+	fe_iface->read_alarm		= &sdla_te3_alarm;
+	fe_iface->read_pmon		= &sdla_te3_read_pmon;
+	fe_iface->set_fe_alarm		= &sdla_te3_set_alarm;
+	fe_iface->get_fe_status		= &sdla_te3_get_fe_status;
+	fe_iface->get_fe_media		= &sdla_te3_get_fe_media;
+	fe_iface->get_fe_media_string	= &sdla_te3_get_fe_media_string;
+	fe_iface->update_alarm_info	= &sdla_te3_update_alarm_info;
+	fe_iface->update_pmon_info	= &sdla_te3_update_pmon_info;
+
+	return 0;
+}
+static int sdla_te3_config(void *p_fe)
 {
 	sdla_fe_t	*fe = (sdla_fe_t*)p_fe;
 	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
 	sdla_te3_cfg_t	*te3_cfg = &fe_cfg->cfg.te3_cfg;
-	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)p_fe_iface;
 	unsigned char	data = 0x00;
 	
 	/* configure Line Interface Unit */
@@ -925,19 +950,6 @@ int sdla_te3_config(void *p_fe, void *p_fe_iface)
 	data |= BIT_IO_CONTROL_RxLINECLK;
 	WRITE_FRAMER(REG_IO_CONTROL, data);
 
-	/* Inialize Front-End interface functions */
-	fe_iface->polling		= &sdla_te3_polling;
-	fe_iface->isr			= &sdla_te3_isr;
-	fe_iface->process_udp		= &sdla_te3_udp;
-	fe_iface->read_alarm		= &sdla_te3_alarm;
-	fe_iface->read_pmon		= &sdla_te3_read_pmon;
-	fe_iface->set_fe_alarm		= &sdla_te3_set_alarm;
-	fe_iface->get_fe_status		= &sdla_te3_get_fe_status;
-	fe_iface->get_fe_media		= &sdla_te3_get_fe_media;
-	fe_iface->get_fe_media_string	= &sdla_te3_get_fe_media_string;
-	fe_iface->update_alarm_info	= &sdla_te3_update_alarm_info;
-	fe_iface->update_pmon_info	= &sdla_te3_update_pmon_info;
-
 	/* Initialize Front-End parameters */
 	fe->fe_status	= FE_DISCONNECTED;
 	DEBUG_EVENT("%s: DS3 disconnected!\n",
@@ -948,7 +960,7 @@ int sdla_te3_config(void *p_fe, void *p_fe_iface)
 	return 0;
 }
 
-int sdla_te3_unconfig(void *p_fe)
+static int sdla_te3_unconfig(void *p_fe)
 {
 	sdla_fe_t	*fe = (sdla_fe_t*)p_fe;
 	DEBUG_EVENT("%s: Unconfiguring T3/E3 interface\n",
@@ -956,7 +968,8 @@ int sdla_te3_unconfig(void *p_fe)
 	return 0;
 }
 
-static int sdla_te3_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* stop_cnt)
+static int
+sdla_te3_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* stop_cnt)
 {
 	if (IS_DS3(&fe->fe_cfg)){
 		PROC_ADD_LINE(m,
@@ -996,26 +1009,26 @@ static int sdla_te3_update_pmon_info(sdla_fe_t* fe, struct seq_file* m, int* sto
 		 (IS_DS3(&fe->fe_cfg)) ? "DS3" : "E3");
 	PROC_ADD_LINE(m,
 		PROC_STATS_PMON_FORMAT,
-		"Line Code Violation", fe->fe_pmon.u.te3_pmon.pmon_lcv,
-		"Framing Bit/Byte Error", fe->fe_pmon.u.te3_pmon.pmon_framing);
+		"Line Code Violation", fe->fe_stats.u.te3_pmon.pmon_lcv,
+		"Framing Bit/Byte Error", fe->fe_stats.u.te3_pmon.pmon_framing);
 	if (IS_DS3(&fe->fe_cfg)){
 		if (fe->fe_cfg.frame == WAN_FR_DS3_Cbit){
 			PROC_ADD_LINE(m,
 				PROC_STATS_PMON_FORMAT,
-				"Parity Error", fe->fe_pmon.u.te3_pmon.pmon_parity,
-				"CP-Bit Error Event", fe->fe_pmon.u.te3_pmon.pmon_cpbit);
+				"Parity Error", fe->fe_stats.u.te3_pmon.pmon_parity,
+				"CP-Bit Error Event", fe->fe_stats.u.te3_pmon.pmon_cpbit);
 		}else{
 			PROC_ADD_LINE(m,
 				PROC_STATS_PMON_FORMAT,
-				"Parity Error", fe->fe_pmon.u.te3_pmon.pmon_parity,
-				"FEBE Event", fe->fe_pmon.u.te3_pmon.pmon_febe);
+				"Parity Error", fe->fe_stats.u.te3_pmon.pmon_parity,
+				"FEBE Event", fe->fe_stats.u.te3_pmon.pmon_febe);
 
 		}
 	}else{
 		PROC_ADD_LINE(m,
 			PROC_STATS_PMON_FORMAT,
-			"Parity Error", fe->fe_pmon.u.te3_pmon.pmon_parity,
-			"FEBE Event", fe->fe_pmon.u.te3_pmon.pmon_febe);
+			"Parity Error", fe->fe_stats.u.te3_pmon.pmon_parity,
+			"FEBE Event", fe->fe_stats.u.te3_pmon.pmon_febe);
 	}
 	
 	return m->count;

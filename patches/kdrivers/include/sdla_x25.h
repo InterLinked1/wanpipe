@@ -750,8 +750,8 @@ typedef struct trace_data {
 	unsigned char  trace_dropped PACKED;
 	unsigned char  reserved[5] PACKED;
 	unsigned short timestamp PACKED;
-	unsigned long  sec PACKED;
-	unsigned long  usec PACKED;
+	unsigned int  sec PACKED;
+	unsigned int  usec PACKED;
         unsigned char  data[0] PACKED;
 } trace_data_t;
 

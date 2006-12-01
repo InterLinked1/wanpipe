@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="148"
+   name=""
+   committed-date="2006-11-28T19:26:43.047920Z"
+   url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk/scripts"
+   last-author="ncorbic"
+   kind="dir"
+   uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
+   revision="148"/>
+<entry
+   committed-rev="79"
+   name="astxs"
+   text-time="2006-07-28T16:03:15.000000Z"
+   committed-date="2006-05-23T15:38:53.790198Z"
+   checksum="e98e8f26dd275cc20245f47316812ad0"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"
+   revision="117"/>
+<entry
+   name="callgen"
+   kind="dir"/>
+</wc-entries>

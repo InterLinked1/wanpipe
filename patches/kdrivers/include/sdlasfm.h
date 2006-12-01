@@ -31,6 +31,10 @@
 #define	SFM_MAX_SDLA	16	/* max number of compatible adapters */
 
 /* Adapter types */
+#if defined(__WINDOWS__)
+#define INVALID_DEVICE_TYPE		0x0000
+#endif
+
 #define SDLA_S502A	5020
 #define SDLA_S502E	5021
 #define SDLA_S503	5030
@@ -95,7 +99,7 @@ typedef struct	sfm_info		/* firmware module information */
 	unsigned short	codeid;		/* firmware ID */
 	unsigned short	version;	/* firmaware version number */
 	unsigned short	adapter[SFM_MAX_SDLA]; /* compatible adapter types */
-	unsigned long	memsize;	/* minimum memory size */
+	unsigned int	memsize;	/* minimum memory size */
 	unsigned short	reserved[2];	/* reserved */
 	unsigned short	startoffs;	/* entry point offset */
 	unsigned short	winoffs;	/* dual-port memory window offset */
@@ -145,6 +149,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define A200_ADPTR_ANALOG_MASK		0x0400	/* AFT-REMORA analog board mask */
 #define A200_ADPTR_ANALOG		0x0401	/* AFT-REMORA analog board */
 
+#define A104_ADPTR_X_TE1_MASK		0x0800	/* Quad T1/E1 type mask  */
+#define A104_ADPTR_X_4TE1		0x0801	/* Quad line T1/E1 */
+
 #define OPERATE_T1E1_AS_SERIAL		0x8000  /* For bitstreaming only 
 						 * Allow the applicatoin to 
 						 * E1 front end */
@@ -152,6 +159,7 @@ typedef struct sfm			/* SDLA firmware file structire */
 /* settings for the 'adapter_subtype' */
 #define AFT_SUBTYPE_NORMAL	0x00
 #define AFT_SUBTYPE_SHARK	0x01
+#define IS_ADPTR_SHARK(type)	((type) == AFT_SUBTYPE_SHARK)
 
 /* settings for the 'adapter_security' */
 #define AFT_SECURITY_NONE	0x00
@@ -161,6 +169,10 @@ typedef struct sfm			/* SDLA firmware file structire */
 /* settings for the 'adptr_subtype' */
 #define AFT_SUBTYPE_SHIFT	8
 #define AFT_SUBTYPE_MASK	0x0F
+
+/* CPLD interface */
+#define AFT_MCPU_INTERFACE_ADDR		0x46
+#define AFT_MCPU_INTERFACE		0x44
 
 /* CPLD definitions */
 #define AFT_SECURITY_1LINE_UNCH		0x00
@@ -173,11 +185,63 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define AFT4_BIT_DEV_ADDR_CLEAR		0x800
 #define AFT4_BIT_DEV_ADDR_CPLD		0x800
 
+/* Maxim CPLD definitions */
+#define AFT8_BIT_DEV_ADDR_CLEAR		0x1800 /* QUAD */
+#define AFT8_BIT_DEV_ADDR_CPLD		0x800
+#define AFT8_BIT_DEV_MAXIM_ADDR_CPLD	0x1000
+
 #define AFT_SECURITY_CPLD_REG		0x09
 #define AFT_SECURITY_CPLD_SHIFT		0x02
 #define AFT_SECURITY_CPLD_MASK		0x03
-#define AFT_MCPU_INTERFACE_ADDR		0x46
-#define AFT_MCPU_INTERFACE		0x44
+
+/* AFT SHARK CPLD */
+#define AFT_SH_CPLD_BOARD_CTRL_REG	0x00
+#define AFT_SH_CPLD_BOARD_STATUS_REG	0x01
+#define A200_SH_CPLD_BOARD_STATUS_REG	0x09
+
+#define AFT_SH_SECURITY_MASK	0x07
+#define AFT_SH_SECURITY_SHIFT	1
+#define AFT_SH_SECURITY(reg)			\
+	(((reg) >> AFT_SH_SECURITY_SHIFT) &  AFT_SH_SECURITY_MASK)
+
+#define A104_SECURITY_32_ECCHAN		0x00
+#define A104_SECURITY_64_ECCHAN		0x01
+#define A104_SECURITY_96_ECCHAN		0x02
+#define A104_SECURITY_128_ECCHAN	0x03
+#define A104_SECURITY_256_ECCHAN	0x04
+#define A104_SECURITY_PROTO_128_ECCHAN	0x05
+#define A104_SECURITY_0_ECCHAN		0x07
+
+#define A108_SECURITY_32_ECCHAN		0x00
+#define A108_SECURITY_64_ECCHAN		0x01
+#define A108_SECURITY_96_ECCHAN		0x02
+#define A108_SECURITY_128_ECCHAN	0x03
+#define A108_SECURITY_256_ECCHAN	0x04
+#define A108_SECURITY_0_ECCHAN		0x05
+
+#define A104_ECCHAN(val)				\
+	((val) == A104_SECURITY_32_ECCHAN)  	? 32 :	\
+	((val) == A104_SECURITY_64_ECCHAN)  	? 64 :	\
+	((val) == A104_SECURITY_96_ECCHAN)  	? 96 :	\
+	((val) == A104_SECURITY_128_ECCHAN)	? 128 :	\
+	((val) == A104_SECURITY_PROTO_128_ECCHAN) ? 128 :	\
+	((val) == A104_SECURITY_256_ECCHAN)	? 256 : 0
+
+#define A108_ECCHAN(val)				\
+	((val) == A108_SECURITY_32_ECCHAN)  	? 32 :	\
+	((val) == A108_SECURITY_64_ECCHAN)  	? 64 :	\
+	((val) == A108_SECURITY_96_ECCHAN)  	? 96 :	\
+	((val) == A108_SECURITY_128_ECCHAN)	? 128 :	\
+	((val) == A108_SECURITY_256_ECCHAN)	? 256 : 0
+
+#define A200_SECURITY_16_ECCHAN	0x00
+#define A200_SECURITY_32_ECCHAN	0x01
+#define A200_SECURITY_0_ECCHAN	0x05
+#define A200_ECCHAN(val)				\
+	((val) == A200_SECURITY_16_ECCHAN) ? 16 :	\
+	((val) == A200_SECURITY_32_ECCHAN) ? 32 : 0
+
+
 
 #define SDLA_ADPTR_NAME(adapter_type)			\
 		(adapter_type == S5141_ADPTR_1_CPU_SERIAL) ? "S514-1-PCI" : \
@@ -190,8 +254,10 @@ typedef struct sfm			/* SDLA firmware file structire */
 		(adapter_type == A101_ADPTR_1TE1) 	   ? "AFT-A101" : \
 		(adapter_type == A101_ADPTR_2TE1)	   ? "AFT-A102" : \
 		(adapter_type == A104_ADPTR_4TE1)	   ? "AFT-A104" : \
+		(adapter_type == A108_ADPTR_8TE1)	   ? "AFT-A108" : \
 		(adapter_type == A300_ADPTR_U_1TE3) 	   ? "AFT-A301" : \
 		(adapter_type == A200_ADPTR_ANALOG) 	   ? "AFT-A200" : \
+		(adapter_type == A104_ADPTR_X_4TE1)	   ? "AFT-X   " : \
 							     "UNKNOWN"
 
 #if 0

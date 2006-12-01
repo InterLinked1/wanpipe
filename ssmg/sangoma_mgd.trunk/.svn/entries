@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   incomplete="true"
+   committed-rev="117"
+   name=""
+   committed-date="2006-11-01T22:49:57.252865Z"
+   url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk"
+   last-author="ncorbic"
+   kind="dir"
+   uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
+   revision="148"/>
+<entry
+   committed-rev="90"
+   name="sigboost.h"
+   text-time="2006-07-28T16:05:50.000000Z"
+   committed-date="2006-07-28T16:08:51.231173Z"
+   checksum="199229818a2ea9db7f725e34cb9b27db"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="141"
+   name="sangoma_mgd.conf.sample"
+   text-time="2006-11-15T20:07:24.000000Z"
+   committed-date="2006-11-15T19:57:56.846743Z"
+   checksum="10a765636bf80a47aeeccf2bb3703cab"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:22.000000Z"
+   revision="145"/>
+<entry
+   committed-rev="106"
+   name="sound.raw"
+   text-time="2006-10-19T20:29:06.000000Z"
+   committed-date="2006-10-19T20:33:28.674794Z"
+   checksum="da36acc78b83d5047481df0cca63d969"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-10-19T20:29:18.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="148"
+   name="chan_woomera.c"
+   text-time="2006-11-28T19:22:48.000000Z"
+   committed-date="2006-11-28T19:26:43.047920Z"
+   checksum="5d6c147fb66b165936931937c950a6fd"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-28T19:22:47.000000Z"/>
+<entry
+   committed-rev="98"
+   name="callgettest.sh"
+   text-time="2006-07-28T16:14:58.000000Z"
+   committed-date="2006-10-10T23:06:24.245444Z"
+   checksum="2403f191bdc1959c4cfd186b5030b9b1"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-10-10T23:06:08.000000Z"
+   revision="117"/>
+<entry
+   name="conf"
+   kind="dir"/>
+<entry
+   name="scripts"
+   kind="dir"/>
+<entry
+   committed-rev="144"
+   name="Changelog"
+   text-time="2006-11-15T20:07:24.000000Z"
+   committed-date="2006-11-15T20:06:35.108544Z"
+   checksum="b3f48723cf093e5348da6a028160e60f"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:22.000000Z"
+   revision="145"/>
+<entry
+   committed-rev="139"
+   name="re-sync.sh"
+   text-time="2006-11-15T20:07:24.000000Z"
+   committed-date="2006-11-15T19:32:22.353625Z"
+   checksum="d5993ad420d5131826d38a3624237871"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:22.000000Z"
+   revision="145"/>
+<entry
+   committed-rev="118"
+   name="call_signal.c"
+   text-time="2006-11-06T21:34:37.000000Z"
+   committed-date="2006-11-06T21:37:44.054312Z"
+   checksum="e96b97183b3442254401709ae4da1f96"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-06T21:34:36.000000Z"
+   revision="118"/>
+<entry
+   committed-rev="91"
+   name="clog.sh"
+   text-time="2006-08-17T15:46:03.000000Z"
+   committed-date="2006-07-28T16:10:34.424709Z"
+   checksum="a94061bf84e9f89de0842eb1249d0975"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:10:18.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="147"
+   name="woomera.conf"
+   text-time="2006-11-28T19:22:48.000000Z"
+   committed-date="2006-11-28T18:53:02.885371Z"
+   checksum="bce553e220a03dca7d3a9ec328f9c831"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-28T19:22:47.000000Z"/>
+<entry
+   committed-rev="148"
+   name="sangoma_mgd.c"
+   text-time="2006-11-28T19:22:48.000000Z"
+   committed-date="2006-11-28T19:26:43.047920Z"
+   checksum="44e2b89843d465ffdb58fc4e2c10cc41"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-28T19:22:47.000000Z"/>
+<entry
+   committed-rev="90"
+   name="call_signal.h"
+   text-time="2006-07-28T16:05:50.000000Z"
+   committed-date="2006-07-28T16:08:51.231173Z"
+   checksum="85d5231cf7f1eb74baab998c6cffdf9f"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="143"
+   name="g711.h"
+   text-time="2006-11-15T20:07:24.000000Z"
+   committed-date="2006-11-15T20:02:00.435766Z"
+   checksum="0f725f95ced42af15dcaef21f3a1722b"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:22.000000Z"
+   revision="145"/>
+<entry
+   name="lib"
+   kind="dir"
+   schedule="add"/>
+<entry
+   committed-rev="104"
+   name="smgss7_ctrl"
+   text-time="2006-10-19T20:27:40.000000Z"
+   committed-date="2006-10-19T20:31:08.983924Z"
+   checksum="967b811ad3552a554094694654af68f4"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-10-19T20:27:40.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="121"
+   name="Makefile"
+   text-time="2006-11-07T00:15:31.000000Z"
+   committed-date="2006-11-07T00:23:43.201009Z"
+   checksum="f6bcd30160e2e2a6a0fec9c363a73779"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"
+   revision="121"/>
+</wc-entries>

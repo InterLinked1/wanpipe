@@ -45,11 +45,11 @@
 # include <linux/if_wanpipe.h>
 #else
 # include <net/if.h>
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_common.h>
-# include <net/sdlapci.h>
-# include <net/sdlasfm.h>
-# include <net/wanpipe.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_common.h>
+# include <sdlapci.h>
+# include <sdlasfm.h>
+# include <wanpipe.h>
 #endif
 
 #include "wan_aft_prg.h"
@@ -72,30 +72,40 @@ extern aftup_flash_iface_t aftup_shark_flash_iface;
 extern aftup_flash_t	aft_flash;
 extern aftup_flash_t	aft4_flash;
 extern aftup_flash_t	aft_shark_flash;
+extern aftup_flash_t	aft_shark_flash_ds;
 
 WAN_LIST_HEAD(wan_aftup_head_t, wan_aftup_) wan_aftup_head = 
 			WAN_LIST_HEAD_INITIALIZER(wan_aftup_head);
 
 aft_core_info_t aft_core_table[] = {
-	{ A101_1TE1_SUBSYS_VENDOR, AFT_CHIP_OLD_X300, 0x01, 0x4F,
+	{ A101_1TE1_SUBSYS_VENDOR, AFT_CHIP_OLD_X300, AFT_HDLC_CORE_ID, 0x01, 0x4F,
 	  "A101_V", "A101_V*.BIN", AFT_CORE_SIZE },
-	{ A101_1TE1_SUBSYS_VENDOR, AFT_CHIP_X400, 0x01, 0x4F,
+	{ A101_1TE1_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_HDLC_CORE_ID, 0x01, 0x4F,
 	  "A101N_V", "A101N_V*.BIN", AFT4_CORE_SIZE },
-	{ A101_2TE1_SUBSYS_VENDOR, AFT_CHIP_OLD_X300, 0x01, 0x4F,
+	{ A101_2TE1_SUBSYS_VENDOR, AFT_CHIP_OLD_X300, AFT_HDLC_CORE_ID, 0x01, 0x4F,
 	  "A101_V", "A101_V*.BIN", AFT_CORE_SIZE },
-	{ A101_2TE1_SUBSYS_VENDOR, AFT_CHIP_X400, 0x01, 0x4F,
+	{ A101_2TE1_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_HDLC_CORE_ID, 0x01, 0x4F,
 	  "A101N_V", "A101N_V*.BIN", AFT4_CORE_SIZE },
-	{ A104_4TE1_SUBSYS_VENDOR, AFT_CHIP_X400, 0x20, 0x53,
+	{ A104_4TE1_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_HDLC_CORE_ID, 0x20, 0x53,
 	  "A104_V", "A104_V*.BIN", AFT4_CORE_SIZE },
-	{ A104_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, 0x20, 0x5B,
+	{ AFT_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, AFT_PMC_FE_CORE_ID, 0x20, 0x5B,
 	  "A104d_0100_V", "A104d_0100_V*.BIN", AFT_CORE_X1000_SIZE },
-	{ A104_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, 0x20, 0x5B,
+	{ AFT_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_PMC_FE_CORE_ID, 0x20, 0x5B,
 	  "A104d_0040_V", "A104d_0040_V*.BIN", AFT_CORE_X400_SIZE },
-	{ A104_8TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, 0x20, 0x5B,
-	  "A108_0100_V", "A108_0100_V*.BIN", AFT_CORE_X1000_SIZE },
-	{ A300_UTE3_SUBSYS_VENDOR, AFT_CHIP_X300, 0x00, 0x00,
+	{ AFT_2TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
+	  "A102dm_0040_V", "A102dm_0040_V*.BIN", AFT_CORE_X400_SIZE },
+	{ AFT_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
+	  "A104dm_0100_V", "A104dm_0100_V*.BIN", AFT_CORE_X1000_SIZE },
+	{ AFT_8TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
+	  "A108dm_0100_V", "A108dm_0100_V*.BIN", AFT_CORE_X1000_SIZE },
+	{ A200_REMORA_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_ANALOG_FE_CORE_ID, 0x01, 0x4F,	
+	  "A200_0040_V", "A200_0040_V*.BIN", AFT_CORE_X400_SIZE },
+	{ A200_REMORA_SHARK_SUBSYS_VENDOR, AFT_CHIP_X200, AFT_ANALOG_FE_CORE_ID, 0x20, 0x5B,	
+	  "A200_0020_V", "A200_0020_V*.BIN", AFT_CORE_X200_SIZE },
+	{ A200_REMORA_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, AFT_ANALOG_FE_CORE_ID, 0x20, 0x5B,	
+	  "A200_0100_V", "A200_0100_V*.BIN", AFT_CORE_X1000_SIZE },
+	{ A300_UTE3_SUBSYS_VENDOR, AFT_CHIP_X300, AFT_HDLC_CORE_ID, 0x00, 0x00,
 	  "A301_V", "A301_V*.BIN", AFT_CORE_SIZE },
-	
 #if 0
 	{ AFT_TE1_ATM_CORE_ID,	
 	  NULL, NULL, 0x00,
@@ -104,7 +114,7 @@ aft_core_info_t aft_core_table[] = {
 	  NULL, NULL, 0x00,
 	  "1/2 T1/E1 line(s) SS7 core" },
 #endif
-	{ 0x00, 0x00, 0x00, 0x00, NULL, NULL, 0x00 }
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, NULL, NULL, 0x00 }
 };
 
 /******************************************************************************
@@ -124,7 +134,9 @@ void hit_any_key(void);
 
 extern int pmc_initialization (int sock);
 extern int update_flash(wan_aft_cpld_t*, int, int, char*);
+extern int set_board_reset(wan_aft_cpld_t *);
 extern int clear_board_reset(wan_aft_cpld_t *);
+extern int board_reset(wan_aft_cpld_t *, int clear);
 
 
 /******************************************************************************
@@ -151,7 +163,7 @@ int progress_bar(char *msg, int ci, int mi)
 	fflush(stdout);
 	return 0;
 }
-int MakeConnection(char *ifname) 
+static int MakeConnection(char *ifname) 
 {
 #if defined(__LINUX__)
 	char			error_msg[100];
@@ -197,13 +209,13 @@ int MakeConnection(char *ifname)
 
 }
 
-int CloseConnection(char *ifname)
+static int CloseConnection(char *ifname)
 {
 	close(sock);
 	return 0;
 }
 
-int wan_aftup_ioctl(wan_cmd_api_t *api_cmd, int cmd, char *ifname)
+static int wan_aftup_ioctl(wan_cmd_api_t *api_cmd, int cmd, char *ifname)
 {
 	int ret;
 
@@ -235,7 +247,7 @@ static int wan_aftup_gettype(wan_aftup_t *aft, char *type)
 		//strcpy(aft->prefix_fw, "A104");
 		aft->cpld.adptr_type = A108_ADPTR_8TE1;
 		aft->cpld.iface	= &aftup_flash_iface;
-	}else if (strncmp(type,"AFT-A301",8) == 0){
+	}else if (strncmp(type,"AFT-A300",8) == 0){
 		//strcpy(aft->prefix_fw, "A301");
 		aft->cpld.adptr_type = A300_ADPTR_U_1TE3;
 		aft->cpld.iface	= &aftup_flash_iface;
@@ -349,19 +361,18 @@ static int wan_aftup_program_card(wan_aftup_t *aft)
 {
 	int	flash_id = 0, tmp = 0, err = -EINVAL;
 	
-	err=wan_aftup_getfile(aft);
-	if (err > 0) {
-		/* Already at same revision */
-		return 0;
-	}else if (err < 0) {
+	if (wan_aftup_getfile(aft)){
 		return -EINVAL;
 	}
 
-	err=-EINVAL;
-
 	/* Release board internal reset (AFT-T1/E1/T3/E3 */
-	if (clear_board_reset(&aft->cpld)){
-		printf("ERROR: %s: Failed access to the board!\n",
+	if (board_reset(&aft->cpld, 0)){
+		printf("ERROR: %s: Failed to set board in reset!\n",
+					aft->if_name);
+		return -EINVAL;
+	}
+	if (board_reset(&aft->cpld, 1)){
+		printf("ERROR: %s: Failed to clear board reset!\n",
 					aft->if_name);
 		return -EINVAL;
 	}
@@ -412,8 +423,8 @@ static int wan_aftup_program_card(wan_aftup_t *aft)
 #else
 	printf("\n");
 #endif
-	printf("%s: Reloading Sangoma flash\t\tDONE\n", aft->if_name);
 	if (aft->cpld.iface){
+		printf("%s: Reloading Sangoma flash\t\tDONE\n", aft->if_name);
 		aft->cpld.iface->reload(&aft->cpld, USER_SECTOR_FLASH);
 	}
 
@@ -427,8 +438,13 @@ static int wan_aftup_program_card(wan_aftup_t *aft)
 	}
 
 	/* Release board internal reset (AFT-T1/E1/T3/E3 */
-	if (clear_board_reset(&aft->cpld)){
-		printf("%s: Failed access to the board!\n", 
+	if (board_reset(&aft->cpld, 0)){
+		printf("ERROR: %s: Failed to set board in reset!\n",
+					aft->if_name);
+		return -EINVAL;
+	}
+	if (board_reset(&aft->cpld, 1)){
+		printf("ERROR: %s: Failed to clear board reset!\n",
 					aft->if_name);
 		return -EINVAL;
 	}
@@ -472,6 +488,7 @@ static int wan_aftup_program_card(wan_aftup_t *aft)
 static int wan_aftup_program(struct wan_aftup_head_t *head)
 {
 	wan_aftup_t	*aft = NULL;
+	int		tmp = 0x00;
 	int		err, i;
 
 	WAN_LIST_FOREACH(aft, head, next){
@@ -502,7 +519,10 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 		exec_read_cmd(aft, 
 			PCI_SUBSYS_VENDOR_WORD, 2, &aft->board_id);
 #endif
-
+		exec_read_cmd(aft, PCI_SUBSYS_ID_WORD, 2, &tmp);
+		aft->core_rev = AFT_CORE_REV(tmp);
+		aft->core_id = AFT_CORE_ID(tmp);
+		
 #if 1
 
 		for(i = 0; aft_core_table[i].board_id; i++){
@@ -510,8 +530,10 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 			if (aft_core_table[i].board_id != aft->board_id){
 				continue;
 			}
-	
-			if (aft_core_table[i].chip_id == aft->chip_id){
+
+				
+			if ((aft_core_table[i].chip_id == aft->chip_id) &&
+			    (aft_core_table[i].core_id == aft->core_id)){
 				aft->cpld.core_info = &aft_core_table[i];
 				break;
 			}
@@ -556,10 +578,13 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 		case A305_CT3_SUBSYS_VENDOR:
 			aft->cpld.iface	= &aftup_flash_iface;
 			break;
-		case A104_4TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
 			aft->cpld.iface	= &aftup_shark_flash_iface;
 			break;
-		case A104_8TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_4TE1_SHARK_SUBSYS_VENDOR:
+			aft->cpld.iface	= &aftup_shark_flash_iface;
+			break;
+		case AFT_8TE1_SHARK_SUBSYS_VENDOR:
 			aft->cpld.iface	= &aftup_shark_flash_iface;
 			break;
 		case A200_REMORA_SHARK_SUBSYS_VENDOR:
@@ -599,7 +624,7 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 			aft->cpld.chip_id = AFT_CHIP_X300;
 			aft->cpld.flash	= &aft_shark_flash;
 			break;
-		case A104_4TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_4TE1_SHARK_SUBSYS_VENDOR:
 			aft->cpld.chip_id = AFT_CHIP_X1000;
 			aft->cpld.flash	= &aft_shark_flash;
 			break;
@@ -607,9 +632,9 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 			aft->cpld.chip_id = AFT_CHIP_X1000;
 			aft->cpld.flash	= &aft_shark_flash;
 			break;
-		case A104_1TE1_SHARK_SUBSYS_VENDOR:
-		case A104_2TE1_SHARK_SUBSYS_VENDOR:
-		case A104_8TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_1TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_8TE1_SHARK_SUBSYS_VENDOR:
 		case A300_UTE3_SHARK_SUBSYS_VENDOR:
 		case A305_CTE3_SHARK_SUBSYS_VENDOR:
 			printf("\n%s: These board are not supported (subvendor_id=%04X)!\n",

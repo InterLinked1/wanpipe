@@ -32,9 +32,9 @@
 # include <linux/wanpipe_cfg.h>
 # include <linux/wanpipe.h>
 #else
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"
@@ -917,17 +917,33 @@ void read_te1_56k_stat(void)
 		pmon = (sdla_te_pmon_t*)&data[sizeof(unsigned long)];
 		printf("\n\n***** %s: %s Performance Monitoring Counters *****\n\n",
 				if_name, (adapter_type == WAN_MEDIA_T1) ? "T1" : "E1");
-		printf("Framing Bit Error:\t%ld\tLine Code Violation:\t%ld\n", 
-				pmon->frm_bit_error,
-				pmon->lcv);
-		if (adapter_type == WAN_MEDIA_T1){
-			printf("Out of Frame Errors:\t%ld\tBit Errors:\t\t%ld\n", 
-					pmon->oof_errors,
-					pmon->bit_errors);
-		}else{
-			printf("Far End Block Errors:\t%ld\tCRC Errors:\t%ld\n", 
-					pmon->far_end_blk_errors,
-					pmon->crc_errors);
+		if (pmon->mask & WAN_TE_BIT_PMON_LCV){
+			printf("Line Code Violation\t: %ld\n",
+						pmon->lcv_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_BEE){
+			printf("Bit Errors\t: %ld\n",
+						pmon->bee_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_OOF){
+			printf("Out of Frame Errors\t: %ld\n",
+						pmon->oof_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_FEB){
+			printf("Far End Block Errors\t: %ld\n",
+						pmon->feb_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_CRC4){
+			printf("CRC4 Errors\t: %ld\n",
+						pmon->crc4_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_FER){
+			printf("Framing Bit Errors\t: %ld\n",
+						pmon->fer_errors);
+		}
+		if (pmon->mask & WAN_TE_BIT_PMON_FAS){
+			printf("FAS Errors\t: %ld\n",
+						pmon->fas_errors);
 		}
 	}
 

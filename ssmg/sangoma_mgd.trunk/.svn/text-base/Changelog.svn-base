@@ -1,0 +1,86 @@
+
+sangoma_mgd.c
+=====================================
+v1.6 Nov 15 2006
+
+Nenad Corbic <ncorbic@sangoma.com>
+
+Only rx/tx ULAW and ALAW from TDM API.
+This greatly reduces system usage, since
+two times less traffic passes from
+kerel to user space layer.
+
+The G.711 transcoding is done in asterisk,
+there is no benefit in the kernel.
+
+Removed rxgain/txgain from SMG.
+
+
+
+chan_woomera.c
+======================================
+v1.5 Nov 15 2006
+
+Nenad Corbic <ncorbic@sangoma.com>
+
+chan_woomera support for SLINEAR/ULAW/ALAW 
+voice formats.  The codec used is autodetected from SMG.
+This option greatly improves system performace
+because ulaw/alaw traffic is two times smaller than 
+SLIN. Resulting in less network traffic.
+
+Added rxgain and txgain to woomera.conf
+Also rxgain and txgain can be globaly changed
+from CLI.
+
+CLI> woomera rxgain 1.0
+CLI> woomera txgain 1.0
+
+
+sangoma_mgd.c
+======================================
+v1.5 Nov 9 2006 
+
+Nenad Corbic <ncorbic@sangoma.com>
+
+Bug fix in START_NACK_ACK handling.
+----------------------------------
+
+When we receive START_NACK we must alwasy pull tank before
+we send out NACK_ACK this way we will not try to send NACK 
+ourself.
+
+
+New RX/TX Gain options
+----------------------
+
+In /etc/sangoma_mgd.conf
+	rxgain=>0
+	txgain=>0
+
+These optinos can be used to adjust
+rx tx gain.  Thes options are identical to
+zaptel options in zapata.conf.
+
+
+
+chan_woomera.c
+======================================
+v.1.4 Nov 2006
+
+Nenad Corbic <ncorbic@sangoma.com>
+
+Added the woomera panic option to gracefully stop 
+all calls.
+
+CLI> woomera panic 10
+
+This command will completely gracefully stop all calls
+and it will disable woomera.
+
+After this point one can gracefully unload woomera module.
+
+CLI> unload chan_woomera.so
+
+
+

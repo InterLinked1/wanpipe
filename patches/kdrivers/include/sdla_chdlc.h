@@ -34,7 +34,7 @@
 #if defined(__LINUX__)
 # include <linux/wanpipe_sppp_iface.h>
 #else
-# include <net/wanpipe_sppp_iface.h>
+# include <wanpipe_sppp_iface.h>
 #endif
 
 /*------------------------------------------------------------------------
@@ -52,6 +52,8 @@
 #define	PACKED __attribute__((packed))
 #endif	/* PACKED */
 
+
+#pragma pack(1)
 
 /* ----------------------------------------------------------------------------
  *        Constants defining the shared memory control block (mailbox)
@@ -230,7 +232,7 @@ typedef struct {
 typedef struct {
 	unsigned short adapter_config_options PACKED;	/* adapter config options */
 	unsigned short app_IRQ_timeout PACKED;		/* application IRQ timeout */
-	unsigned long adapter_operating_frequency PACKED;	/* adapter operating frequency */
+	unsigned int adapter_operating_frequency PACKED;	/* adapter operating frequency */
 	unsigned short frame_transmit_timeout PACKED;
 } GLOBAL_CONFIGURATION_STRUCT;
 
@@ -278,7 +280,7 @@ typedef struct {
 typedef struct {
 	unsigned char trace_config PACKED;		/* trace configuration */
 	unsigned short trace_deactivation_timer PACKED;	/* trace deactivation timer */
-	unsigned long ptr_trace_stat_el_cfg_struct PACKED;	/* a pointer to the line trace element configuration structure */
+	unsigned int ptr_trace_stat_el_cfg_struct PACKED;	/* a pointer to the line trace element configuration structure */
 } LINE_TRACE_CONFIG_STRUCT;
 
 /* 'trace_config' bit settings */
@@ -292,10 +294,10 @@ typedef struct {
 /* the line trace status element configuration structure */
 typedef struct {
 	unsigned short number_trace_status_elements PACKED;	/* number of line trace elements */
-	unsigned long base_addr_trace_status_elements PACKED;	/* base address of the trace element list */
-	unsigned long next_trace_element_to_use PACKED;	/* pointer to the next trace element to be used */
-	unsigned long base_addr_trace_buffer PACKED;		/* base address of the trace data buffer */
-	unsigned long end_addr_trace_buffer PACKED;		/* end address of the trace data buffer */
+	unsigned int base_addr_trace_status_elements PACKED;	/* base address of the trace element list */
+	unsigned int next_trace_element_to_use PACKED;	/* pointer to the next trace element to be used */
+	unsigned int base_addr_trace_buffer PACKED;		/* base address of the trace data buffer */
+	unsigned int end_addr_trace_buffer PACKED;		/* end address of the trace data buffer */
 } TRACE_STATUS_EL_CFG_STRUCT;
 
 /* the line trace status element structure */
@@ -305,8 +307,8 @@ typedef struct {
 	unsigned char trace_type PACKED;		/* trace type */
 	unsigned short trace_time_stamp PACKED;	/* time stamp */
 	unsigned short trace_reserved_1 PACKED;	/* reserved for later use */
-	unsigned long trace_reserved_2 PACKED;		/* reserved for later use */
-	unsigned long ptr_data_bfr PACKED;		/* ptr to the trace data buffer */
+	unsigned int trace_reserved_2 PACKED;		/* reserved for later use */
+	unsigned int ptr_data_bfr PACKED;		/* ptr to the trace data buffer */
 } TRACE_STATUS_ELEMENT_STRUCT;
 
 /* "trace_type" bit settings */
@@ -320,8 +322,8 @@ typedef struct {
 
 /* the line trace statistics structure */
 typedef struct {
-	unsigned long frames_traced_count PACKED;	/* number of frames traced */
-	unsigned long trc_frms_not_recorded_count PACKED;	/* number of trace frames discarded */
+	unsigned int frames_traced_count PACKED;	/* number of frames traced */
+	unsigned int trc_frms_not_recorded_count PACKED;	/* number of trace frames discarded */
 } LINE_TRACE_STATS_STRUCT;
 
 
@@ -343,7 +345,7 @@ typedef struct {
 
 /* the CHDLC configuration structure */
 typedef struct {
-	unsigned long baud_rate PACKED;		/* the baud rate */	
+	unsigned int baud_rate PACKED;		/* the baud rate */	
 	unsigned short line_config_options PACKED;	/* line configuration options */
 	unsigned short modem_config_options PACKED;	/* modem configration options */
 	unsigned short modem_status_timer PACKED;	/* timer for monitoring modem status changes */
@@ -356,11 +358,11 @@ typedef struct {
 	unsigned short receive_keepalive_timer PACKED;		/* the receive keepalive timer */
 	unsigned short keepalive_error_tolerance PACKED;	/* the receive keepalive error tolerance */
 	unsigned short SLARP_request_timer PACKED;		/* the SLARP request timer */
-	unsigned long IP_address PACKED;			/* the IP address */
-	unsigned long IP_netmask PACKED;			/* the IP netmask */
-	unsigned long ptr_shared_mem_info_struct PACKED;	/* a pointer to the shared memory area information structure */
-	unsigned long ptr_CHDLC_Tx_stat_el_cfg_struct PACKED;	/* a pointer to the transmit status element configuration structure */
-	unsigned long ptr_CHDLC_Rx_stat_el_cfg_struct PACKED;	/* a pointer to the receive status element configuration structure */
+	unsigned int IP_address PACKED;			/* the IP address */
+	unsigned int IP_netmask PACKED;			/* the IP netmask */
+	unsigned int ptr_shared_mem_info_struct PACKED;	/* a pointer to the shared memory area information structure */
+	unsigned int ptr_CHDLC_Tx_stat_el_cfg_struct PACKED;	/* a pointer to the transmit status element configuration structure */
+	unsigned int ptr_CHDLC_Rx_stat_el_cfg_struct PACKED;	/* a pointer to the receive status element configuration structure */
 } CHDLC_CONFIGURATION_STRUCT;
 
 /* settings for the 'line_config_options' */
@@ -518,8 +520,8 @@ typedef struct {
 /* the Data frame transmit status element configuration structure */
 typedef struct {
 	unsigned short number_Tx_status_elements PACKED;	/* number of transmit status elements */
-	unsigned long base_addr_Tx_status_elements PACKED;	/* base address of the transmit element list */
-	unsigned long next_Tx_status_element_to_use PACKED;	/* pointer to the next transmit element to be used */
+	unsigned int base_addr_Tx_status_elements PACKED;	/* base address of the transmit element list */
+	unsigned int next_Tx_status_element_to_use PACKED;	/* pointer to the next transmit element to be used */
 } CHDLC_TX_STATUS_EL_CFG_STRUCT;
 
 /* the Data frame transmit status element structure */
@@ -527,9 +529,9 @@ typedef struct {
 	unsigned char opp_flag PACKED;		/* opp flag */
 	unsigned short frame_length PACKED;	/* length of the frame to be transmitted */
 	unsigned char misc_Tx_bits PACKED;	/*  miscellaneous transmit bits */
-	unsigned long reserved_2 PACKED;	/* reserved for internal use */
-	unsigned long reserved_3 PACKED;	/* reserved for internal use */
-	unsigned long ptr_data_bfr PACKED;	/* pointer to the data area */
+	unsigned int reserved_2 PACKED;	/* reserved for internal use */
+	unsigned int reserved_3 PACKED;	/* reserved for internal use */
+	unsigned int ptr_data_bfr PACKED;	/* pointer to the data area */
 } CHDLC_DATA_TX_STATUS_EL_STRUCT;
 
 
@@ -559,10 +561,10 @@ typedef struct {
 /* the Data frame receive status element configuration structure */
 typedef struct {
 	unsigned short number_Rx_status_elements PACKED;	/* number of receive status elements */
-	unsigned long base_addr_Rx_status_elements PACKED;	/* base address of the receive element list */
-	unsigned long next_Rx_status_element_to_use PACKED;	/* pointer to the next receive element to be used */
-	unsigned long base_addr_Rx_buffer PACKED;		/* base address of the receive data buffer */
-	unsigned long end_addr_Rx_buffer PACKED;		/* end address of the receive data buffer */
+	unsigned int base_addr_Rx_status_elements PACKED;	/* base address of the receive element list */
+	unsigned int next_Rx_status_element_to_use PACKED;	/* pointer to the next receive element to be used */
+	unsigned int base_addr_Rx_buffer PACKED;		/* base address of the receive data buffer */
+	unsigned int end_addr_Rx_buffer PACKED;		/* end address of the receive data buffer */
 } CHDLC_RX_STATUS_EL_CFG_STRUCT;
 
 /* the Data frame receive status element structure */
@@ -571,9 +573,9 @@ typedef struct {
 	unsigned short frame_length PACKED;   /* length of the received frame */
         unsigned char error_flag PACKED; /* frame errors (HDLC_STREAMING_MODE)*/
         unsigned short time_stamp PACKED; /* receive time stamp (HDLC_STREAMING_MODE) */
-        unsigned long reserved_1 PACKED; 	/* reserved for internal use */
+        unsigned int reserved_1 PACKED; 	/* reserved for internal use */
         unsigned short reserved_2 PACKED; 	/* reserved for internal use */
-        unsigned long ptr_data_bfr PACKED;	/* pointer to the data area */
+        unsigned int ptr_data_bfr PACKED;	/* pointer to the data area */
 } CHDLC_DATA_RX_STATUS_EL_STRUCT;
 
 
@@ -707,8 +709,8 @@ typedef struct {
 	unsigned char	ip_ttl		PACKED;
 	unsigned char	ip_protocol	PACKED;
 	unsigned short	ip_checksum	PACKED;
-	unsigned long	ip_src_address	PACKED;
-	unsigned long	ip_dst_address	PACKED;
+	unsigned int	ip_src_address	PACKED;
+	unsigned int	ip_dst_address	PACKED;
 	unsigned short	udp_src_port	PACKED;
 	unsigned short	udp_dst_port	PACKED;
 	unsigned short	udp_length	PACKED;
@@ -733,7 +735,9 @@ typedef struct {
 typedef struct {
 	unsigned char	error_flag	PACKED;
 	unsigned short	time_stamp	PACKED;
-	unsigned char	reserved[13]	PACKED;
+	unsigned int	sec		PACKED;
+	unsigned int    usec		PACKED;
+	unsigned char	reserved[5]	PACKED;
 } api_rx_hdr_t;
 
 typedef struct {
@@ -814,7 +818,6 @@ typedef struct {
 #define wan_udp_data wan_udp_hdr.wan_udphdr_u.chdlc.data
 #endif
 
-#ifdef		_MSC_
-#  pragma	pack()
-#endif
+#pragma	pack()
+
 #endif	/* _SDLA_CHDLC_H */

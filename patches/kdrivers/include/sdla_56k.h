@@ -80,9 +80,9 @@
 #ifdef WAN_KERNEL
 
 #if defined(__NetBSD__) || defined (__FreeBSD__) || defined (__OpenBSD__)
-/*# include <net/sdla_front_end.h>*/
+/*# include <sdla_front_end.h>*/
 #elif defined (__WINDOWS__)
-# include "sdla_front_end.h"
+//# include <sdla_front_end.h>
 #else
 //# include <linux/sdla_front_end.h>
 #endif
@@ -97,7 +97,7 @@ typedef struct {
 } sdla_56k_param_t;
 
 extern int sdla_56k_default_cfg(void* arg1, void* p56k_cfg);
-extern int sdla_56k_config(void* pfe, void *pfe_iface);
+extern int sdla_56k_iface_init(void* pfe);
 
 #endif /* WAN_KERNEL */
 

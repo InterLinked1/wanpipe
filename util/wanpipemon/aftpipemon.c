@@ -44,11 +44,11 @@
 # include <linux/wanpipe.h>
 # include <linux/sdla_xilinx.h>
 #else
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe_abstr.h>
-# include <net/wanpipe.h>
-# include <net/sdla_xilinx.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe_abstr.h>
+# include <wanpipe.h>
+# include <sdla_xilinx.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"
@@ -96,6 +96,11 @@ static void flush_operational_stats( void );
 static void flush_comm_err_stats( void );
 static void read_ft1_te1_56k_config( void );
 
+static int aft_read_hwec_status(void);
+
+static int aft_remora_tones(int);
+static int aft_remora_ring(int);
+static int aft_remora_regdump(int);
 
 static wp_trace_output_iface_t trace_iface;
 
@@ -319,7 +324,7 @@ static void comm_err_stats (void)
 static void flush_comm_err_stats( void ) 
 {
 #if 1
-	wan_udp.wan_udphdr_command= FLUSH_COMMS_ERROR_STATS;
+	wan_udp.wan_udphdr_command=FLUSH_COMMS_ERROR_STATS;
 	wan_udp.wan_udphdr_return_code = 0xaa;
 	wan_udp.wan_udphdr_data_len = 0;
 	DO_COMMAND(wan_udp);
@@ -409,7 +414,7 @@ static void operational_stats (void)
 
 
 	} 
-} /* Operational_stats */
+}; /* Operational_stats */
 
 
 static void flush_operational_stats( void ) 
@@ -578,6 +583,169 @@ static void line_trace(int trace_mode)
 	DO_COMMAND(wan_udp);
 }; /* line_trace */
 
+static int aft_read_hwec_status()
+{
+	u_int32_t	hwec_status;
+	int		channel, found = 0;
+
+	/* Disable trace to ensure that the buffers are flushed */
+	wan_udp.wan_udphdr_command	= AFT_HWEC_STATUS;
+	wan_udp.wan_udphdr_return_code	= 0xaa;
+	wan_udp.wan_udphdr_data_len	= 0;
+	DO_COMMAND(wan_udp);
+
+	if (wan_udp.wan_udphdr_return_code) { 
+		printf("Failed to get HW Echo Canceller status!\n"); 
+		fflush(stdout);
+		return 0;
+	}
+	hwec_status = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
+	for(channel = 0; channel < 32; channel++){
+		if (hwec_status & (1 << channel)){
+			printf(
+			"Sangoma HW Echo Canceller is enabled for channel %d\n",
+						channel);
+			found = 1;
+		}	
+	} 
+	if (!found){
+		printf(
+		"Sangoma HW Echo Canceller is disabled for all channels!\n");
+	}
+	fflush(stdout);
+	return 0;
+}
+
+static int aft_remora_tones(int mod_no)
+{
+
+	/* Disable trace to ensure that the buffers are flushed */
+	wan_udp.wan_udphdr_command	= WAN_FE_TONES;
+	wan_udp.wan_udphdr_return_code	= 0xaa;
+	wan_udp.wan_udphdr_data_len	= 1;
+	wan_udp.wan_udphdr_data[0]	= mod_no;
+	DO_COMMAND(wan_udp);
+
+	if (wan_udp.wan_udphdr_return_code) { 
+		printf("Failed to play the AFT Remora tones!\n"); 
+		fflush(stdout);
+		return 0;
+	}
+
+	fflush(stdout);
+	return 0;
+}
+
+static int aft_remora_ring(int mod_no)
+{
+
+	/* Disable trace to ensure that the buffers are flushed */
+	wan_udp.wan_udphdr_command	= WAN_FE_RING;
+	wan_udp.wan_udphdr_return_code	= 0xaa;
+	wan_udp.wan_udphdr_data_len	= 1;
+	wan_udp.wan_udphdr_data[0]	= mod_no;
+	DO_COMMAND(wan_udp);
+
+	if (wan_udp.wan_udphdr_return_code) { 
+		printf("Failed to ring the module!\n"); 
+		fflush(stdout);
+		return 0;
+	}
+
+	fflush(stdout);
+	return 0;
+}
+
+static int aft_remora_regdump(int mod_no)
+{
+	wan_remora_udp_t	*rm_udp;
+	int			reg;
+
+	rm_udp = (wan_remora_udp_t *)&wan_udp.wan_udphdr_data[0];
+	rm_udp->mod_no = mod_no;
+	wan_udp.wan_udphdr_command	= WAN_FE_REGDUMP;
+	wan_udp.wan_udphdr_return_code	= 0xaa;
+	wan_udp.wan_udphdr_data_len	= sizeof(wan_remora_udp_t);
+	DO_COMMAND(wan_udp);
+
+	if (wan_udp.wan_udphdr_return_code || !wan_udp.wan_udphdr_data_len) { 
+		printf("Failed to get register dump!\n"); 
+		fflush(stdout);
+		return 0;
+	}
+	rm_udp = (wan_remora_udp_t *)&wan_udp.wan_udphdr_data[0];
+	printf("\t------- Direct registers (%s,port %d) -------\n",
+					WP_REMORA_DECODE_TYPE(rm_udp->type),
+					rm_udp->mod_no);
+	if (rm_udp->type == MOD_TYPE_FXS){
+
+		for(reg = 0; reg < WAN_FXS_NUM_REGS; reg++){
+			if (reg % 8 == 0) printf("\n\t");
+			printf("%3d. %02X ", reg, rm_udp->u.regs_fxs.direct[reg]);
+		}
+		printf("\n\t-----------------------------\n");
+		printf("\n");
+		printf("\t------- Indirect registers (port %d) -------\n",
+							rm_udp->mod_no);
+		for (reg=0; reg < WAN_FXS_NUM_INDIRECT_REGS; reg++){
+			if (reg % 6 == 0) printf("\n\t");
+			printf("%3d. %04X ", reg, rm_udp->u.regs_fxs.indirect[reg]);
+		}
+		printf("\n\t-----------------------------\n");
+		printf("\n");
+		printf("TIP\t: -%d Volts\n", (rm_udp->u.regs_fxs.direct[80]*376)/1000);
+		printf("RING\t: -%d Volts\n", (rm_udp->u.regs_fxs.direct[81]*376)/1000);
+		printf("VBAT\t: -%d Volts\n", (rm_udp->u.regs_fxs.direct[82]*376)/1000);
+	} else if (rm_udp->type == MOD_TYPE_FXO){
+
+		for(reg = 0; reg < WAN_FXO_NUM_REGS; reg++){
+			if (reg % 8 == 0) printf("\n\t");
+			printf("%3d. %02X ", reg, rm_udp->u.regs_fxo.direct[reg]);
+		}
+		printf("\n\t-----------------------------\n");
+		printf("\n");
+	}
+
+	fflush(stdout);
+	return 0;
+}
+
+static int aft_remora_stats(int mod_no)
+{
+	wan_remora_udp_t	*rm_udp;
+
+	rm_udp = (wan_remora_udp_t *)&wan_udp.wan_udphdr_data[0];
+	rm_udp->mod_no = mod_no;
+	wan_udp.wan_udphdr_command	= WAN_FE_STATS;
+	wan_udp.wan_udphdr_return_code	= 0xaa;
+	wan_udp.wan_udphdr_data_len	= sizeof(wan_remora_udp_t);
+	DO_COMMAND(wan_udp);
+
+	if (wan_udp.wan_udphdr_return_code || !wan_udp.wan_udphdr_data_len) { 
+		printf("Failed to get voltage stats!\n"); 
+		fflush(stdout);
+		return 0;
+	}
+	rm_udp = (wan_remora_udp_t *)&wan_udp.wan_udphdr_data[0];
+	printf("\t------- Voltage Status  (%s,port %d) -------\n\n",
+					WP_REMORA_DECODE_TYPE(rm_udp->type),
+					rm_udp->mod_no);
+	if (rm_udp->type == MOD_TYPE_FXS){
+		printf("TIP\t: -%7.4f Volts\n", (float)(rm_udp->u.stats.tip_volt*376)/1000);
+		printf("RING\t: -%7.4f Volts\n", (float)(rm_udp->u.stats.ring_volt*376)/1000);
+		printf("VBAT\t: -%7.4f Volts\n", (float)(rm_udp->u.stats.bat_volt*376)/1000);
+	}else if (rm_udp->type == MOD_TYPE_FXO){
+		unsigned char	volt = rm_udp->u.stats.volt;
+		if (volt & 0x80){
+			volt = ~volt + 1;
+		}
+		printf("VOLTAGE\t: %d Volts\n", volt);
+	}
+	fflush(stdout);
+	return 0;
+}
+
+
 //CORBA
 int AFTUsage(void)
 {
@@ -627,16 +795,32 @@ int AFTUsage(void)
 	printf("\t   f         c       Flush Communication Error Statistics\n");
 	printf("\t             o       Flush Operational Statistics\n");
 	printf("\t             pm      Flush T1/E1 performance monitoring counters\n");
+	printf("\tEcho Canceller Statistics\n");
+	printf("\t   e         hw      Read HW Echo Canceller Status\n");
+	printf("\tAFT Remora Statistics\n");
+	printf("\t   a         tone    Play a tones ( -m <mod_no> - Module number)\n");
+	printf("\t   a         ring    Rings phone ( -m <mod_no> - Module number)\n");
+	printf("\t   a         regdump Dumps FXS/FXO registers ( -m <mod_no> - Module number)\n");
+	printf("\t   a         stats   Voltage status ( -m <mod_no> - Module number)\n");
+	printf("\tAFT Debugging\n");
+	printf("\t   d         err     Eanble RX RBS debugging\n");
+	printf("\t   d         drr     Disable RX RBS debugging\n");
+	printf("\t   d         ert     Eanble TX RBS debugging\n");
+	printf("\t   d         drt     Disable TX RBS debugging\n");
+	printf("\t   d         rr      Read RX/TX RBS status\n");
+	printf("\t   d         pr      Print current RX/TX RBS status\n");
+	printf("\t   d         sr      Set TX RBS status\n");
 	printf("\tExamples:\n");
 	printf("\t--------\n\n");
 	printf("\tex: wanpipemon -i w1g1 -u 9000 -c xm :View Modem Status \n");
 	printf("\tex: wanpipemon -i 201.1.1.2 -u 9000 -c ti  :Trace and Interpret ALL frames\n\n");
 	return 0;
+
 }
 
 static void aft_router_up_time( void )
 {
-     	unsigned long time;
+     	u_int32_t time;
      
      	wan_udp.wan_udphdr_command= ROUTER_UP_TIME;
 	wan_udp.wan_udphdr_return_code = 0xaa;
@@ -644,7 +828,7 @@ static void aft_router_up_time( void )
      	wan_udp.wan_udphdr_data[0] = 0;
      	DO_COMMAND(wan_udp);
     
-     	time = *(unsigned long*)&wan_udp.wan_udphdr_data[0];
+     	time = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
 	
 	BANNER("ROUTER UP TIME");
 
@@ -659,9 +843,9 @@ static void read_ft1_te1_56k_config (void)
 	if (get_fe_type(&adapter_type)){
 		return;
 	}
-
+#if 0
 	printf("Adapter type %i\n",adapter_type);
-	
+#endif	
 	switch(adapter_type){
 	case WAN_MEDIA_NONE:
 		printf("CSU/DSU Read Configuration Failed");
@@ -669,6 +853,7 @@ static void read_ft1_te1_56k_config (void)
 
 	case WAN_MEDIA_T1:
 	case WAN_MEDIA_E1:
+	case WAN_MEDIA_DS3:
 	case WAN_MEDIA_56K:
 		read_te1_56k_config();
 		break;
@@ -683,7 +868,9 @@ static void read_ft1_te1_56k_config (void)
 
 int AFTMain(char *command,int argc, char* argv[])
 {
-	char *opt=&command[1];
+	char		*opt=&command[1];
+	int		mod_no = 0, i, err;
+	sdla_fe_debug_t	fe_debug;
 
 	switch(command[0]){
 
@@ -740,12 +927,15 @@ int AFTMain(char *command,int argc, char* argv[])
 		case 'f':
 			if (!strcmp(opt, "o")){
 				flush_operational_stats();
-				operational_stats();
+				printf("Operational statistics flushed\n");
+				/*operational_stats();*/
 			}else if (!strcmp(opt, "c")){
 				flush_comm_err_stats();
-				comm_err_stats();
+				printf("Communication statistics flushed\n");
+			/*	comm_err_stats();*/
 			}else if (!strcmp(opt, "pm")){
 				flush_te1_pmon();
+				printf("Performance monitoring counters flushed\n");
 			} else{
 				printf("ERROR: Invalid Flush Command 'f', Type wanpipemon <cr> for help\n\n");
 			}
@@ -782,7 +972,7 @@ int AFTMain(char *command,int argc, char* argv[])
 			break;
 
 		case 'd':
-			if (!strcmp(opt,"err")){	
+			if (!strcmp(opt,"err")){
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_RX_ENABLE);
 			}else if (!strcmp(opt,"ert")){
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_TX_ENABLE);
@@ -790,16 +980,94 @@ int AFTMain(char *command,int argc, char* argv[])
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_RX_DISABLE);
 			}else if (!strcmp(opt,"drt")){
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_TX_DISABLE);
-			}else if (!strcmp(opt,"rbs")){
+			}else if (!strcmp(opt,"rr")){
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_READ);
+			}else if (!strcmp(opt,"pr")){
+				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_PRINT);
+			}else if (!strcmp(opt,"sr")){
+				int		i=0;
+				if (argc < 6){
+					printf("ERROR: Invalid command argument!\n");
+					break;				
+				}
+				fe_debug.abcd	= 0x00;
+				fe_debug.channel= atoi(argv[5]);
+				if (fe_debug.channel < 1 || fe_debug.channel > 31){
+					printf("ERROR: T1/E1 channel number of out range (%d)!\n",
+								fe_debug.channel);
+					break;
+				}
+				if (argc > 6){
+					for(i = 0; i < strlen(argv[6]); i++){
+						switch(argv[6][i]){
+						case 'A': case 'a':
+							fe_debug.abcd |= WAN_RBS_SIG_A;
+							break;
+						case 'B': case 'b':
+							fe_debug.abcd |= WAN_RBS_SIG_B;
+							break;
+						case 'C': case 'c':
+							fe_debug.abcd |= WAN_RBS_SIG_C;
+							break;
+						case 'D': case 'd':
+							fe_debug.abcd |= WAN_RBS_SIG_D;
+							break;
+						}
+					}
+				}
+				fe_debug.type = WAN_FE_DEBUG_RBS;
+				fe_debug.mode = WAN_FE_DEBUG_RBS_SET;
+				set_fe_debug_mode(&fe_debug);
 			}else if (!strcmp(opt,"eais")){
 				set_debug_mode(WAN_FE_DEBUG_ALARM, WAN_FE_DEBUG_ALARM_AIS_ENABLE);
 			}else if (!strcmp(opt,"dais")){
 				set_debug_mode(WAN_FE_DEBUG_ALARM, WAN_FE_DEBUG_ALARM_AIS_DISABLE);
 			}else{
-				printf("ERROR: Invalid Status Command 'x', Type wanpipemon <cr> for help\n\n");
+				printf("ERROR: Invalid Status Command 'd', Type wanpipemon <cr> for help\n\n");
 			}
 			break;	
+		case 'e':
+			if (strcmp(opt,"hw") == 0){	
+				aft_read_hwec_status();
+			}else{
+				printf("ERROR: Invalid Status Command 'e', Type wanpipemon <cr> for help\n\n");
+			}
+			break;
+
+		case 'a':
+			err = 0;
+			for(i=0;i<argc;i++){
+				if (!strcasecmp(argv[i], "-m") && argv[i+1]){
+					err = sscanf(argv[i+1], "%d", &mod_no);
+					if (err){
+						if (mod_no < 1 || mod_no > 16){
+							printf("ERROR: Invalid Module number!\n\n");
+						   	fflush(stdout);
+					   		return 0;
+						}
+						mod_no--;
+					}else{
+						printf("ERROR: Invalid Module number!\n\n");
+					   	fflush(stdout);
+				   		return 0;
+					}
+					break;
+				}
+			}
+
+			if (strcmp(opt,"tone") == 0){	
+				aft_remora_tones(mod_no);
+			}else if (strcmp(opt,"ring") == 0){	
+				aft_remora_ring(mod_no);
+			}else if (strcmp(opt,"regdump") == 0){	
+				aft_remora_regdump(mod_no);
+			}else if (strcmp(opt,"stats") == 0){	
+				aft_remora_stats(mod_no);
+			}else{
+				printf("ERROR: Invalid Status Command 'a', Type wanpipemon <cr> for help\n\n");
+			}
+			break;
+
 		default:
 			printf("ERROR: Invalid Command, Type wanpipemon <cr> for help\n\n");
 			break;

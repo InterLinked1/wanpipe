@@ -12,8 +12,8 @@ DEBUG	= 2
 
 PROD=wanpipemon
 
-SYSINC=$(shell if [ -d /lib/modules/$(uname -r)/build/include ]; then echo "/lib/modules/$(uname -r)/build/include" else echo "/usr/src/linux/include"; fi)
-SYSINC=$(shell echo "/lib/modules/$(uname -r)/build/include")
+SYSINC=$(shell if [ -d /lib/modules/$(shell uname -r)/build/include ]; then echo "/lib/modules/$(shell uname -r)/build/include" else echo "/usr/src/linux/include"; fi)
+SYSINC=$(shell echo "/lib/modules/$(shell uname -r)/build/include")
 
 WAN_VIRTUAL=
 LXDIR=../lxdialog

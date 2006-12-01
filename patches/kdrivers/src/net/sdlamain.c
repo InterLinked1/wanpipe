@@ -62,9 +62,10 @@
 
 #include <linux/wanpipe_includes.h>
 #include <linux/wanpipe_defines.h>
-#include <linux/wanpipe_cfg.h>
 #include <linux/wanpipe_debug.h>
 #include <linux/wanpipe_common.h>
+#include <linux/wanpipe_events.h>
+#include <linux/wanpipe_cfg.h>
 #include <linux/wanrouter.h>	/* WAN router definitions */
 #include <linux/sdladrv.h>
 #include <linux/wanpipe.h>	/* WANPIPE common user API definitions */
@@ -72,6 +73,7 @@
 #include <linux/if_wanpipe.h>
 #include <linux/if_wanpipe_common.h>
 #include <linux/wanproc.h>
+#include <linux/wanpipe_codec_iface.h>
 
 #define KMEM_SAFETYZONE 8
 
@@ -95,6 +97,10 @@
 
   #ifndef CONFIG_WANPIPE_MULTPROT 
    #define wp_mprot_init(a,b) (-EPROTONOSUPPORT) 
+  #endif
+
+  #ifndef CONFIG_WANPIPE_LIP_ATM 
+   #define wp_lip_atm_init(a,b) (-EPROTONOSUPPORT) 
   #endif
 
   #ifndef CONFIG_WANPIPE_MULTFR
@@ -121,6 +127,10 @@
 
   #ifndef CONFIG_PRODUCT_WANPIPE_MULTPROT 
    #define wp_mprot_init(a,b) (-EPROTONOSUPPORT) 
+  #endif
+
+  #ifndef CONFIG_WANPIPE_LIP_ATM 
+   #define wp_lip_atm_init(a,b) (-EPROTONOSUPPORT) 
   #endif
 
   #ifndef CONFIG_PRODUCT_WANPIPE_MULTFR
@@ -176,16 +186,13 @@
 
 #ifndef CONFIG_PRODUCT_WANPIPE_AFT_TE1
  #define wp_aft_te1_init(card,conf) (-EPROTONOSUPPORT)
+ #define wp_aft_analog_init(card,conf) (-EPROTONOSUPPORT)
+ #define aft_global_hw_device_init() 
 #endif
 
 #ifndef CONFIG_PRODUCT_WANPIPE_AFT_TE3
  #define wp_aft_te3_init(card,conf) (-EPROTONOSUPPORT)
 #endif
-
-#ifndef CONFIG_PRODUCT_WANPIPE_AFT_TE1_SS7
- #define wp_aft_te1_ss7_init(card,conf) (-EPROTONOSUPPORT)
-#endif
-
 
 #ifndef CONFIG_PRODUCT_WANPIPE_ADCCP
   #define wp_adccp_init(card,conf) (-EPROTONOSUPPORT)
@@ -329,7 +336,7 @@ static char drvname[]	= "wanpipe";
 static char fullname[]	= "WANPIPE(tm) Multi-Protocol WAN Driver Module";
 static int ncards; 
 
-static sdla_t* card_list;	/* adapter data space */
+sdla_t* card_list;	/* adapter data space */
 sdla_t*  wanpipe_debug;
 
 
@@ -339,7 +346,6 @@ typedef struct{
 
 static int DBG_ARRAY_CNT;
 func_debug_t DEBUG_ARRAY[100];
-
 
 /******* Kernel Loadable Module Entry Points ********************************/
 
@@ -451,8 +457,25 @@ int __init wanpipe_init(void)
 		return err;
 	}
 	
+	
 	err=wanpipe_register_fw_to_api();
+	if (err){
+		return err;
+	}
 
+	err=wanpipe_codec_init();
+	if (err){
+		return err;
+	}
+
+	wanpipe_globals_util_init();
+
+	aft_global_hw_device_init();
+
+#if 0
+	wp_tasklet_per_cpu_init();
+#endif
+	
 	return err;
 }
 
@@ -478,6 +501,9 @@ void __exit wanpipe_exit(void)
 	}
 
 	card_list=NULL;
+
+	wanpipe_codec_free();
+
 	DEBUG_EVENT("\n");
 	DEBUG_EVENT("wanpipe: WANPIPE Modules Unloaded.\n");
 
@@ -551,11 +577,16 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		conf->card_type = WANOPT_AFT104;
 		conf->S514_CPU_no[0] = 'A';
 		break;
+	case WANCONFIG_AFT_ANALOG:
+		conf->card_type = WANOPT_AFT_ANALOG;
+		conf->S514_CPU_no[0] = 'A';
+		break;
 	case WANCONFIG_AFT_TE3:
 		conf->card_type = WANOPT_AFT300;
 		conf->S514_CPU_no[0] = 'A';
 		break;
 	}
+
 	wandev->card_type  = conf->card_type;
 	card->hw = sdla_register(&card->hw_iface, conf, card->devname);
 	if (card->hw == NULL){
@@ -607,6 +638,7 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		case WANOPT_AFT:
 		case WANOPT_AFT104:
 		case WANOPT_AFT300:
+		case WANOPT_AFT_ANALOG:
 		
 			err=0;
 			if ((err=check_aft_conflicts(card,conf,&irq)) != 0){
@@ -621,7 +653,6 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 			sdla_unregister(&card->hw, card->devname);
 			return -EINVAL;
 	}
-
 	
 	card->hw_iface.getcfg(card->hw, SDLA_CARDTYPE, &card->type);
 	card->hw_iface.getcfg(card->hw, SDLA_ADAPTERTYPE, &card->adptr_type);
@@ -638,6 +669,7 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		if (err){
 			DEBUG_EVENT("%s: Hardware setup Failed %i\n",
 					card->devname,err);
+			card->hw_iface.down(card->hw);
 			sdla_unregister(&card->hw, card->devname);
 			return err;
 		}
@@ -646,6 +678,8 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 			if (wanpipe_debug){
 				DEBUG_EVENT("%s: More than 2 debugging cards!\n",
 						card->devname);
+				card->hw_iface.down(card->hw);
+				sdla_unregister(&card->hw, card->devname);
 				return -EINVAL;
 			}
 			wanpipe_debug = card;
@@ -665,11 +699,6 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		}else{
 			irq = conf->irq;
 		}
-
-                /* Initialize the Spin lock */
-              #if defined(CONFIG_SMP) || defined(LINUX_2_4) || defined(LINUX_2_6)
-                DEBUG_EVENT("%s: Initializing for SMP\n",wandev->name);
-              #endif
                	spin_lock_init(&card->wandev.lock);
 
 		/* request an interrupt vector - note that interrupts may be shared */
@@ -681,6 +710,8 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 
 				DEBUG_EVENT("%s: Can't reserve IRQ %d!\n", 
 						wandev->name, irq);
+				card->hw_iface.down(card->hw);
+				sdla_unregister(&card->hw, card->devname);
 				return -EINVAL;
 			}
 		}
@@ -688,6 +719,7 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 	}else{
 		DEBUG_EVENT("%s: Card Configured %li or Piggybacking %i!\n",
 			wandev->name,card->configured,card->wandev.piggyback);
+               	spin_lock_init(&card->wandev.lock);
 	} 
 
 	if (!card->configured){
@@ -849,18 +881,25 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		err = wp_aft_te1_init(card,conf);
 		break;
 
+	case WANCONFIG_AFT_ANALOG:
+		DEBUG_EVENT("%s: Starting AFT Analog Hardware Init.\n",
+					card->devname);
+		err = wp_aft_analog_init(card,conf);
+		break;
+
 	case WANCONFIG_AFT_TE3:
 		DEBUG_EVENT("%s: Starting AFT TE3 Hardware Init.\n",
 					card->devname);
 		err = wp_aft_te3_init(card,conf);
 		break;
 
-	case WANCONFIG_AFT_TE1_SS7:
-		DEBUG_EVENT("%s: Starting AFT TE1 SS7 Hardware Init.\n",
+#if 0
+	case WANCONFIG_LIP_ATM:
+		DEBUG_EVENT("%s: Starting ATM MultiProtocol Driver Init.\n",
 					card->devname);
-		err = wp_aft_te1_ss7_init(card,conf);
+		err = wp_lip_atm_init(card,conf);
 		break;
-		
+#endif		
 	default:
 		DEBUG_EVENT("%s: Error, Protocol is not supported %u!\n",
 			wandev->name, conf->config_id);
@@ -1767,68 +1806,66 @@ int wanpipe_mark_bh (void)
 
 int change_dev_flags (netdevice_t *dev, unsigned flags)
 {
+	int err;
+
+#ifdef LINUX_2_6
+ 	err=dev_change_flags(dev,flags);
+#else
 	struct ifreq if_info;
 	mm_segment_t fs = get_fs();
-	int err;
 
 	memset(&if_info, 0, sizeof(if_info));
 	strcpy(if_info.ifr_name, dev->name);
 	if_info.ifr_flags = flags;	
 
 	set_fs(get_ds());     /* get user space block */ 
-	err = devinet_ioctl(SIOCSIFFLAGS, &if_info);
+	err = wp_devinet_ioctl(SIOCSIFFLAGS, &if_info);
 	set_fs(fs);
-
+#endif
 	return err;
 }
 
 unsigned long get_ip_address (netdevice_t *dev, int option)
 {
 	
-#if defined(LINUX_2_4) || defined(LINUX_2_6) 
 	struct in_ifaddr *ifaddr;
 	struct in_device *in_dev;
+	unsigned long ip=0;
 
 	if ((in_dev = in_dev_get(dev)) == NULL){
 		return 0;
 	}
-	in_dev_put(in_dev);
-
-#elif defined(LINUX_2_1)
-	struct in_ifaddr *ifaddr;
-	struct in_device *in_dev;
-	
-	if ((in_dev = dev->ip_ptr) == NULL){
-		return 0;
-	}
-#endif
 
 	if ((ifaddr = in_dev->ifa_list)== NULL ){
-		return 0;
+		goto wp_get_ip_exit;
 	}
 	
 	switch (option){
 
 	case WAN_LOCAL_IP:
-		return ifaddr->ifa_local;
+		ip = ifaddr->ifa_local;
 		break;
 	
 	case WAN_POINTOPOINT_IP:
-		return ifaddr->ifa_address;
+		ip = ifaddr->ifa_address;
 		break;	
 
 	case WAN_NETMASK_IP:
-		return ifaddr->ifa_mask;
+		ip = ifaddr->ifa_mask;
 		break;
 
 	case WAN_BROADCAST_IP:
-		return ifaddr->ifa_broadcast;
+		ip = ifaddr->ifa_broadcast;
 		break;
 	default:
-		return 0;
+		break;
 	}
 
-	return 0;
+wp_get_ip_exit:
+
+	in_dev_put(in_dev);
+
+	return ip;
 }	
 
 void add_gateway(sdla_t *card, netdevice_t *dev)
@@ -1855,7 +1892,7 @@ void add_gateway(sdla_t *card, netdevice_t *dev)
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	res = ip_rt_ioctl(SIOCADDRT,&route);
+	res = wp_ip_rt_ioctl(SIOCADDRT,&route);
 	set_fs(oldfs);
 
 	if (res == 0){

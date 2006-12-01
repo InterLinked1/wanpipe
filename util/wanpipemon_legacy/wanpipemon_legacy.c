@@ -45,9 +45,9 @@
 # include <netinet/in.h>
 # include <netinet/ip.h>
 # include <netinet/udp.h>  
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"
@@ -959,7 +959,7 @@ void sig_end(int signal)
 
 int main(int argc, char* argv[])
 {
-	char command[5];
+	char command[6];
 
 	strcpy(wan_udp.wan_udphdr_signature, GLOBAL_UDP_SIGNATURE);
 	sprintf(pcap_output_file_name,"wp_trace_pcap.bin");

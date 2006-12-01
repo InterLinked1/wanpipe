@@ -22,9 +22,9 @@
 # include <linux/wanpipe.h>
 # include <linux/sdla_fr.h>
 #else
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"

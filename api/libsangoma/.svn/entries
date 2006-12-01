@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="145"
+   name=""
+   committed-date="2006-11-15T20:10:53.619181Z"
+   url="svn://sangoma.freeswitch.org/libsangoma/trunk"
+   last-author="ncorbic"
+   kind="dir"
+   uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
+   revision="145"/>
+<entry
+   committed-rev="101"
+   name="libsangoma.so.conf"
+   text-time="2006-10-19T19:22:26.000000Z"
+   committed-date="2006-10-19T19:27:09.335085Z"
+   checksum="bcdcb23c5d5fb460cee2ce315ef7bd32"
+   last-author="ncorbic"
+   kind="file"/>
+<entry
+   committed-rev="29"
+   name="sangoma_pri.c"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-03-24T14:48:20.493972Z"
+   checksum="2be241bced87d6617bfa9079bfdac81f"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-04-28T15:08:00.000000Z"/>
+<entry
+   committed-rev="3"
+   name="configure"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:54:28.449115Z"
+   checksum="61b1217bf666dd2d3cb9bd14aab4de2e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="3"
+   name="Makefile.in"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:54:28.449115Z"
+   checksum="840eb8d3fefa4ba6aa6bc0de87b7bb36"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:48.000000Z"/>
+<entry
+   committed-rev="1"
+   name="version"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="35f672d1fb01b542f667952c9dbb26fe"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:48.000000Z"/>
+<entry
+   committed-rev="28"
+   name="sangoma_pri.h"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-03-24T14:19:31.976520Z"
+   checksum="f24c6cf396aeaa6df2747f7f6b32969d"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-04-28T15:08:00.000000Z"/>
+<entry
+   committed-rev="1"
+   name="AUTHORS"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:48.000000Z"/>
+<entry
+   committed-rev="3"
+   name="configure.in"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:54:28.449115Z"
+   checksum="163c5d637364629797a232fb0ab8f6d7"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:48.000000Z"/>
+<entry
+   committed-rev="1"
+   name="depcomp"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="e181e2c8720c60522c4c4c981108e367"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="1"
+   name="ChangeLog"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:48.000000Z"/>
+<entry
+   committed-rev="1"
+   name="compile"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="a7ecc032b527a0d578545f19d3418073"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="1"
+   name="config.guess"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="9ae396244b8f138c76514a6b7531e696"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="6"
+   name="README"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-14T19:06:52.853886Z"
+   checksum="e8a0abce86211364eb60bbe6e07d4b05"
+   last-author="nenad"
+   kind="file"
+   prop-time="2006-02-13T15:57:49.000000Z"/>
+<entry
+   committed-rev="1"
+   name="config.sub"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="3d36962d51070d30b7554203b0d7c01c"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="1"
+   name="ltmain.sh"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="c8215e3aa0858d700783015614f53b79"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:50.000000Z"/>
+<entry
+   committed-rev="145"
+   name="libsangoma.c"
+   text-time="2006-11-15T20:07:14.000000Z"
+   committed-date="2006-11-15T20:10:53.619181Z"
+   checksum="64cf6e32c46811fe19d93436ca3797c1"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:14.000000Z"/>
+<entry
+   committed-rev="1"
+   name="config.h.in"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="5c51918deee8d041af37226bd4b4271e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:50.000000Z"/>
+<entry
+   committed-rev="145"
+   name="libsangoma.h"
+   text-time="2006-11-15T20:07:14.000000Z"
+   committed-date="2006-11-15T20:10:53.619181Z"
+   checksum="bd8efb6f4eb7ad3079f6e7aba0e08277"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-15T20:07:14.000000Z"/>
+<entry
+   committed-rev="119"
+   name="g711.h"
+   text-time="2006-11-07T00:15:14.000000Z"
+   committed-date="2006-11-06T23:11:15.401413Z"
+   checksum="0f725f95ced42af15dcaef21f3a1722b"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-07T00:15:14.000000Z"/>
+<entry
+   committed-rev="94"
+   name="INSTALL"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-08-08T19:52:23.727343Z"
+   checksum="40539bd3eff06e4b82f380103145415b"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-02-13T15:57:58.000000Z"/>
+<entry
+   committed-rev="1"
+   name="COPYING"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:58.000000Z"/>
+<entry
+   committed-rev="3"
+   name="Makefile.am"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:54:28.449115Z"
+   checksum="4cdb125a8e107bb4f5ae33a525b2484d"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:58.000000Z"/>
+<entry
+   committed-rev="1"
+   name="missing"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="fd5dd60aa8cefab9462677280ea74a61"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   committed-rev="1"
+   name="NEWS"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:58.000000Z"/>
+<entry
+   committed-rev="1"
+   name="aclocal.m4"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="e41e60b06c482e1de80a44404e3c4c30"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-02-13T15:57:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="install-sh"
+   text-time="2006-10-11T18:44:19.000000Z"
+   committed-date="2006-02-10T16:20:41.709688Z"
+   checksum="92067666ddce97609bd0ec67d36460cd"
+   last-author="anthm"
+   kind="file"
+   prop-time="2006-10-11T18:44:19.000000Z"/>
+<entry
+   name="examples"
+   kind="dir"/>
+</wc-entries>

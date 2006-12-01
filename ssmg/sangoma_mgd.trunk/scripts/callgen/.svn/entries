@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="148"
+   name=""
+   committed-date="2006-11-28T19:26:43.047920Z"
+   url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk/scripts/callgen"
+   last-author="ncorbic"
+   kind="dir"
+   uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
+   revision="148"/>
+<entry
+   committed-rev="93"
+   name="sample.call.template"
+   text-time="2006-07-28T16:16:16.000000Z"
+   committed-date="2006-07-28T16:16:36.219606Z"
+   checksum="ca4fa1b8a9d0f74e95770edcce98b1bc"
+   last-author="ncorbic"
+   kind="file"
+   revision="117"/>
+<entry
+   committed-rev="148"
+   name="channel-testL.pl"
+   text-time="2006-11-28T19:22:47.000000Z"
+   committed-date="2006-11-28T19:26:43.047920Z"
+   checksum="5dbf3c8b9480d257f7c04e2cb943c2f1"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-11-28T19:22:47.000000Z"/>
+<entry
+   committed-rev="92"
+   name="run.sh"
+   text-time="2006-07-28T16:11:46.000000Z"
+   committed-date="2006-07-28T16:12:17.073145Z"
+   checksum="b7726255f02a83aa5e04d0c08332c2e9"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:12:04.000000Z"
+   revision="117"/>
+<entry
+   committed-rev="93"
+   name="clog.sh"
+   text-time="2006-07-28T16:15:09.000000Z"
+   committed-date="2006-07-28T16:16:36.219606Z"
+   checksum="a94061bf84e9f89de0842eb1249d0975"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:16:22.000000Z"
+   revision="117"/>
+</wc-entries>

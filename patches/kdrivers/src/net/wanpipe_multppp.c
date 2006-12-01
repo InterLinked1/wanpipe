@@ -80,12 +80,7 @@
 #define PPP_HEADER_LEN 	4
 
 #define MAX_TRACE_QUEUE		100
-#define MAX_TRACE_BUFFER	(MAX_LGTH_UDP_MGNT_PKT - 	\
-				 sizeof(iphdr_t) - 		\
-	 			 sizeof(udphdr_t) - 		\
-				 sizeof(wan_mgmt_t) - 		\
-				 sizeof(wan_trace_info_t) - 	\
-		 		 sizeof(wan_cmd_t))
+#define MAX_TRACE_BUFFER	WAN_MAX_DATA_SIZE
 
 #define MAX_RX_QUEUE 100
 /******Data Structures*****************************************************/
@@ -245,7 +240,7 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 {
 	unsigned char port_num;
 	int err;
-	unsigned long max_permitted_baud = 0;
+	u_int32_t max_permitted_baud = 0;
 	union
 		{
 		char str[80];
@@ -330,12 +325,13 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 	if (IS_TE1_MEDIA(&conf->fe_cfg)){
 		
 		memcpy(&card->fe.fe_cfg, &conf->fe_cfg, sizeof(sdla_fe_cfg_t));
+		sdla_te_iface_init(&card->wandev.fe_iface);
 		card->fe.name		= card->devname;
 		card->fe.card		= card;
 		card->fe.write_fe_reg	= write_front_end_reg;
 		card->fe.read_fe_reg	= read_front_end_reg;
 
-		card->wandev.te_enable_timer = chdlc_enable_timer;
+		card->wandev.fe_enable_timer = chdlc_enable_timer;
 		card->wandev.te_link_state = handle_front_end_state;
 		conf->interface = 
 			(IS_T1_CARD(card)) ? WANOPT_V35 : WANOPT_RS232;
@@ -347,6 +343,7 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 	}else if (IS_56K_MEDIA(&conf->fe_cfg)){
 
 		memcpy(&card->fe.fe_cfg, &conf->fe_cfg, sizeof(sdla_fe_cfg_t));
+		sdla_56k_iface_init(&card->wandev.fe_iface);
 		card->fe.name		= card->devname;
 		card->fe.card		= card;
 		card->fe.write_fe_reg	= write_front_end_reg;
@@ -453,7 +450,7 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 				conf->bps = max_permitted_baud;
 				printk(KERN_INFO "%s: Baud too high!\n",
 					card->wandev.name);
- 				printk(KERN_INFO "%s: Baud rate set to %lu bps\n", 
+ 				printk(KERN_INFO "%s: Baud rate set to %u bps\n", 
 					card->wandev.name, max_permitted_baud);
 			}
                              
@@ -497,7 +494,7 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 	mb1->wan_command = READ_CHDLC_CONFIGURATION;
 	err = card->hw_iface.cmd(card->hw, card->mbox_off, mb1);
 	if(err != COMMAND_OK) {
-		clear_bit(1, (void*)&card->wandev.critical);
+		wan_clear_bit(1, (void*)&card->wandev.critical);
 
                 if(card->type != SDLA_S514)
                 	enable_irq(card->wandev.irq/* ALEX_TODAY ard->hw.irq*/);
@@ -1002,7 +999,9 @@ static int del_if (wan_device_t* wandev, netdevice_t* dev)
 
 	/* TE1 - Unconfiging, only on shutdown */
 	if (IS_TE1_CARD(card)) {
-		sdla_te_unconfig(&card->fe);
+		if (card->wandev.fe_iface.unconfig){
+			card->wandev.fe_iface.unconfig(&card->fe);
+		}
 	}
 	return 0;
 }
@@ -1252,7 +1251,7 @@ static int if_send (struct sk_buff* skb, netdevice_t* dev)
 
 	err=0;
 
-    	if (test_and_set_bit(SEND_CRIT, (void*)&card->wandev.critical)){
+    	if (wan_test_and_set_bit(SEND_CRIT, (void*)&card->wandev.critical)){
 	
 		printk(KERN_INFO "%s: Critical in if_send: %lx\n",
 					card->wandev.name,card->wandev.critical);
@@ -1308,7 +1307,7 @@ if_send_crit_exit:
 	}
 
 if_send_crit_exit_down:
-	clear_bit(SEND_CRIT, (void*)&card->wandev.critical);
+	wan_clear_bit(SEND_CRIT, (void*)&card->wandev.critical);
 	if(card->type != SDLA_S514){
 		s508_unlock(card,&smp_flags);
 	}
@@ -1499,7 +1498,7 @@ static int update_comms_stats(sdla_t* card,
 	if (IS_TE1_CARD(card)) {	
 		card->wandev.fe_iface.read_alarm(&card->fe, 0);
 		/* TE1 Update T1/E1 perfomance counters */
-		card->wandev.fe_iface.read_pmon(&card->fe);
+		card->wandev.fe_iface.read_pmon(&card->fe, 0);
 	}else if (IS_56K_CARD(card)) {
 		/* 56K Update CSU/DSU alarms */
 		card->wandev.fe_iface.read_alarm(&card->fe, 1);
@@ -1568,12 +1567,19 @@ static int chdlc_send (sdla_t* card, void* data, unsigned len)
  * TE1
  * Read value from PMC register.
  */
-static unsigned char read_front_end_reg (void* card1, unsigned short reg)
+static unsigned char read_front_end_reg (void* card1, ...)
 {
-        sdla_t* card = (sdla_t*)card1;
+	va_list		args;
+        sdla_t		*card = (sdla_t*)card1;
         wan_mbox_t* mb = &card->wan_mbox;
         char* data = mb->wan_data;
+	u16		reg, line_no;
         int err;
+
+	va_start(args, card1);
+	line_no	= (u16)va_arg(args, int);
+	reg	= (u16)va_arg(args, int);
+	va_end(args);
 
         ((FRONT_END_REG_STRUCT *)data)->register_number = (unsigned short)reg;
 	mb->wan_data_len = sizeof(FRONT_END_REG_STRUCT);
@@ -1588,14 +1594,22 @@ static unsigned char read_front_end_reg (void* card1, unsigned short reg)
  * TE1
  * Write value to PMC register.
  */
-static unsigned char write_front_end_reg (void* card1, unsigned short reg, unsigned char value
-)
+static int write_front_end_reg (void* card1, ... )
 {
+	va_list		args;
         sdla_t* card = (sdla_t*)card1;
         wan_mbox_t* mb = &card->wan_mbox;
+	u16		reg, line_no;
+	u8		value;
         char* data = mb->wan_data;
         int err;
 	int retry=15;
+
+	va_start(args, card1);
+	line_no	= (u16)va_arg(args, int);
+	reg	= (u16)va_arg(args, int);
+	value	= (u8)va_arg(args, int);
+	va_end(args);
 
 	do {
 
@@ -1670,7 +1684,7 @@ STATIC void wsppp_isr (sdla_t* card)
 	}
 	
 	/* Start card isr critical area */
-	set_bit(0,&card->in_isr);
+	wan_set_bit(0,&card->in_isr);
 	card->spurious = 0;
 
 	card->hw_iface.peek(card->hw, card->flags_off, &flags, sizeof(flags));
@@ -1687,7 +1701,7 @@ STATIC void wsppp_isr (sdla_t* card)
 	 * ie. update() or getstats() then reset the interrupt and
 	 * wait for the board to retrigger.
 	 */
-	if(test_bit(PERI_CRIT, (void*)&card->wandev.critical)) {
+	if(wan_test_bit(PERI_CRIT, (void*)&card->wandev.critical)) {
 		card->hw_iface.poke_byte(card->hw, card->intr_type_off, 0x00);
 		goto isr_done;
 	}
@@ -1697,7 +1711,7 @@ STATIC void wsppp_isr (sdla_t* card)
          * Major Error !!!
 	 */
 	if(card->type != SDLA_S514) {
-		if(test_bit(0, (void*)&card->wandev.critical)) {
+		if(wan_test_bit(0, (void*)&card->wandev.critical)) {
 			printk(KERN_INFO "%s: Critical while in ISR: %lx\n",
 				card->devname, card->wandev.critical);
 			goto isr_done;
@@ -1771,7 +1785,7 @@ STATIC void wsppp_isr (sdla_t* card)
 		default:
 
 			if (card->next){
-				set_bit(0,&card->spurious);
+				wan_set_bit(0,&card->spurious);
 				break;
 			}
 			
@@ -2437,7 +2451,7 @@ static int if_do_ioctl(netdevice_t *dev, struct ifreq *ifr, int cmd)
 			
 			/* For performance reasons test the critical
 			 * here before spin lock */
-			if (test_bit(0,&card->in_isr)){
+			if (wan_test_bit(0,&card->in_isr)){
 				atomic_set(&chan->udp_pkt_len,0);
 				return -EBUSY;
 			}
@@ -2453,7 +2467,7 @@ static int if_do_ioctl(netdevice_t *dev, struct ifreq *ifr, int cmd)
 
 			/* We have to check here again because we don't know
 			 * what happened during spin_lock */
-			if (test_bit(0,&card->in_isr)) {
+			if (wan_test_bit(0,&card->in_isr)) {
 				printk(KERN_INFO "%s:%s Pipemon command failed, Driver busy: try again.\n",
 						card->devname,dev->name);
 				atomic_set(&chan->udp_pkt_len,0);
@@ -2577,14 +2591,14 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 			udp_hdr->wan_udphdr_return_code = WAN_CMD_OK;
 			udp_hdr->wan_udphdr_data_len = 0;
 			
-			if (!test_bit(0,&trace_info->tracing_enabled)){
+			if (!wan_test_bit(0,&trace_info->tracing_enabled)){
 						
 				trace_info->trace_timeout = SYSTEM_TICKS;
 					
 				wan_trace_purge(trace_info);
 				DEBUG_UDP("%s: Traceing enabled!\n",
 							card->devname);
-				set_bit (0,&trace_info->tracing_enabled);
+				wan_set_bit (0,&trace_info->tracing_enabled);
 
 			}else{
 				DEBUG_EVENT("%s: Error: Trace running!\n",
@@ -2600,9 +2614,9 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 
 			udp_hdr->wan_udphdr_return_code = WAN_CMD_OK;
 			
-			if(test_bit(0,&trace_info->tracing_enabled)) {
+			if(wan_test_bit(0,&trace_info->tracing_enabled)) {
 					
-				clear_bit(0,&trace_info->tracing_enabled);
+				wan_clear_bit(0,&trace_info->tracing_enabled);
 				wan_trace_purge(trace_info);
 				
 				DEBUG_UDP("%s: Disabling ADSL trace\n",
@@ -2618,7 +2632,7 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 
 		case CPIPE_GET_TRACE_INFO:
 
-			if(test_bit(0,&trace_info->tracing_enabled)){
+			if(wan_test_bit(0,&trace_info->tracing_enabled)){
 				trace_info->trace_timeout = SYSTEM_TICKS;
 			}else{
 				DEBUG_EVENT("%s: Error trace not enabled\n",
@@ -2715,10 +2729,10 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 			do_gettimeofday( &tv );
 			chan->router_up_time = tv.tv_sec - 
 					chan->router_start_time;
-			*(unsigned long *)&wan_udp_pkt->wan_udp_data = 
+			*(u_int32_t *)&wan_udp_pkt->wan_udp_data = 
 					chan->router_up_time;	
-			mb->wan_data_len = sizeof(unsigned long);
-			wan_udp_pkt->wan_udp_data_len = sizeof(unsigned long);
+			mb->wan_data_len = sizeof(u_int32_t);
+			wan_udp_pkt->wan_udp_data_len = sizeof(u_int32_t);
 			wan_udp_pkt->wan_udp_return_code = COMMAND_OK;
 			break;
 
@@ -2828,7 +2842,7 @@ dflt_1:
 
 		/* Must check if we interrupted if_send() routine. The
 		 * tx buffers might be used. If so drop the packet */
-	   	if (!test_bit(SEND_CRIT,&card->wandev.critical)) {
+	   	if (!wan_test_bit(SEND_CRIT,&card->wandev.critical)) {
 		
 			if(!chdlc_send(card, chan->udp_pkt_data, len)) {
 				++ card->wandev.stats.tx_packets;
@@ -3157,10 +3171,14 @@ static int config_chdlc (sdla_t *card)
 	card->hw_iface.poke_byte(card->hw, card->intr_type_off, 0x00);
 	card->hw_iface.poke_byte(card->hw, card->intr_perm_off, 0x00);
 	if (IS_TE1_CARD(card)) {
+		int	err = -EINVAL;
 		printk(KERN_INFO "%s: Configuring onboard %s CSU/DSU\n",
 			card->devname, 
 			(IS_T1_CARD(card))?"T1":"E1");
-		if (sdla_te_config(&card->fe, &card->wandev.fe_iface)){
+		if (card->wandev.fe_iface.config){
+			err = card->wandev.fe_iface.config(&card->fe);
+		}
+		if (err){
 			printk(KERN_INFO "%s: Failed %s configuratoin!\n",
 					card->devname,
 					(IS_T1_CARD(card))?"T1":"E1");
@@ -3169,10 +3187,13 @@ static int config_chdlc (sdla_t *card)
 	}
 
 	if (IS_56K_CARD(card)) {
+		int	err = -EINVAL;
 		printk(KERN_INFO "%s: Configuring 56K onboard CSU/DSU\n",
 			card->devname);
-
-		if(sdla_56k_config(&card->fe, &card->wandev.fe_iface)){
+		if (card->wandev.fe_iface.config){
+			err = card->wandev.fe_iface.config(&card->fe);
+		}
+		if(err){
 			printk (KERN_INFO "%s: Failed 56K configuration!\n",
 				card->devname);
 			return -EINVAL;
@@ -3421,7 +3442,7 @@ static void wp_bh (unsigned long data)
 	netskb_t *skb;
 	int len;
 
-	if (test_bit(PERI_CRIT, (void*)&card->wandev.critical)){
+	if (wan_test_bit(PERI_CRIT, (void*)&card->wandev.critical)){
 		DEBUG_EVENT("%s: WpBH PERI Critical\n",
 				card->devname);
 		WAN_TASKLET_END((&chan->tasklet));

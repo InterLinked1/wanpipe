@@ -1,0 +1,12 @@
+[outb]
+exten => _X.,1,noop
+exten => _X.,n,Dial(WOOMERA/g1/${EXTEN}|60|o)
+exten => _X.,n,Hangup
+
+[sangoma]
+exten => _X.,1,noop
+exten => _X.,n,Playback(demo-congrats)	
+;exten => _X.,n,Goto(1)
+exten => _X.,n,Hangup
+
+

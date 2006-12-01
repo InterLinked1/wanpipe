@@ -451,7 +451,7 @@ int BITSTRMUsage(void)
 
 static void bitstrm_router_up_time( void )
 {
-     	unsigned long time;
+     	u_int32_t time;
      
      	wan_udp.wan_udphdr_command= BPIPE_ROUTER_UP_TIME;
 	wan_udp.wan_udphdr_return_code = 0xaa;
@@ -459,7 +459,7 @@ static void bitstrm_router_up_time( void )
      	wan_udp.wan_udphdr_data[0] = 0;
      	DO_COMMAND(wan_udp);
     
-     	time = *(unsigned long*)&wan_udp.wan_udphdr_data[0];
+     	time = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
 	
 	BANNER("ROUTER UP TIME");
         print_router_up_time(time);

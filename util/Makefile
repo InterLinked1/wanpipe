@@ -1,13 +1,15 @@
-SYSINC=/usr/src/linux/include
+SYSINC=/lib/modules/$(shell uname -r)/build/include
 
 all:
-	make -C ft1 all #SYSINC=$(SYSINC) 
+	make -C ft1 all SYSINC=$(SYSINC) 
 	make -C lxdialog all SYSINC=$(SYSINC)
 	make -C sdladump all SYSINC=$(SYSINC)
 	make -C wanconfig all SYSINC=$(SYSINC)
+	make -C wanec_client all SYSINC=$(SYSINC)
+	make -C wan_plxctrl all SYSINC=$(SYSINC)
 	make -C wanpipemon all SYSINC=$(SYSINC) PROTOCOL_DEFS=$(PROTOCOL_DEFS) ENABLE_WANPIPEMON_ZAP=$(ENABLE_WANPIPEMON_ZAP)  
 	make -C wanpipemon_legacy all SYSINC=$(SYSINC) PROTOCOL_DEFS=$(PROTOCOL_DEFS) 
-#	make -C wancfg all SYSINC=$(SYSINC) 
+	make -C wancfg all SYSINC=$(SYSINC) 
 	make -C bwm all SYSINC=$(SYSINC) PROTOCOL_DEFS=$(PROTOCOL_DEFS)
 
 install:
@@ -16,6 +18,8 @@ install:
 	make -C lxdialog install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C sdladump install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanconfig install WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wanec_client install WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wan_plxctrl install WAN_VIRTUAL=$(WAN_VIRTUAL) 
 	make -C wanpipemon install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanpipemon_legacy install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wancfg install WAN_VIRTUAL=$(WAN_VIRTUAL)
@@ -27,6 +31,8 @@ uninstall:
 	make -C lxdialog uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C sdladump uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanconfig uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wanec_client uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wan_plxctrl uninstall WAN_VIRTUAL=$(WAN_VIRTUAL) 
 	make -C wanpipemon uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanpipemon_legacy uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wancfg uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
@@ -37,6 +43,8 @@ clean:
 	make -C lxdialog clean WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C sdladump clean WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanconfig clean WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wanec_client clean WAN_VIRTUAL=$(WAN_VIRTUAL)
+	make -C wan_plxctrl clean WAN_VIRTUAL=$(WAN_VIRTUAL) 
 	make -C wanpipemon clean WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wanpipemon_legacy clean WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wancfg clean WAN_VIRTUAL=$(WAN_VIRTUAL)

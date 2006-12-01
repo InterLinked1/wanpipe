@@ -168,15 +168,15 @@ typedef struct	ppp_flags
 typedef struct	ppp508_buf_info
 {
 	unsigned short txb_num	PACKED;	/* 00: number of transmit buffers */
-	unsigned long  txb_ptr	PACKED;	/* 02: pointer to the buffer ctl. */
-	unsigned long  txb_nxt  PACKED;
+	unsigned int  txb_ptr	PACKED;	/* 02: pointer to the buffer ctl. */
+	unsigned int  txb_nxt  PACKED;
 	unsigned char  rsrv1[22] PACKED;
 	unsigned short rxb_num	PACKED;	/* 20: number of receive buffers */
-	unsigned long  rxb_ptr	PACKED;	/* 22: pointer to the buffer ctl. */
-	unsigned long  rxb1_ptr	PACKED;	/* 26: pointer to the first buf.ctl. */
-	unsigned long  rxb_base	PACKED;	/* 2A: pointer to the buffer base */
+	unsigned int  rxb_ptr	PACKED;	/* 22: pointer to the buffer ctl. */
+	unsigned int  rxb1_ptr	PACKED;	/* 26: pointer to the first buf.ctl. */
+	unsigned int  rxb_base	PACKED;	/* 2A: pointer to the buffer base */
 	unsigned char  rsrv2[2]	PACKED;
-	unsigned long  rxb_end	PACKED;	/* 30: pointer to the buffer end */
+	unsigned int  rxb_end	PACKED;	/* 30: pointer to the buffer end */
 } ppp508_buf_info_t;
 
 /*----------------------------------------------------------------------------
@@ -193,7 +193,7 @@ typedef struct	ppp_buf_ctl
 	union
 	{
 		unsigned short o_p[2];	/* 1C: buffer offset & page (S502) */
-		unsigned long  ptr;	/* 1C: buffer pointer (S508) */
+		unsigned int  ptr;	/* 1C: buffer pointer (S508) */
 	} buf				PACKED;
 } ppp_buf_ctl_t;
 
@@ -202,7 +202,7 @@ typedef struct	ppp_buf_ctl
  */
 typedef struct	ppp508_conf
 {
-	unsigned long  line_speed	PACKED;	/* 00: baud rate, bps */
+	unsigned int  line_speed	PACKED;	/* 00: baud rate, bps */
 	unsigned short txbuf_percent	PACKED;	/* 04: % of Tx buffer */
 	unsigned short conf_flags	PACKED;	/* 06: configuration bits */
 	unsigned short mtu_local	PACKED;	/* 08: local MTU */
@@ -219,14 +219,14 @@ typedef struct	ppp508_conf
 	unsigned short auth_retry	PACKED;	/* 1E: max. retry */
 	unsigned char  auth_options	PACKED;	/* 20: authentication opt. */
 	unsigned char  ip_options	PACKED;	/* 21: IP options */
-	unsigned long  ip_local		PACKED;	/* 22: local IP address */
-	unsigned long  ip_remote	PACKED;	/* 26: remote IP address */
+	unsigned int  ip_local		PACKED;	/* 22: local IP address */
+	unsigned int  ip_remote	PACKED;	/* 26: remote IP address */
 	unsigned char  ipx_options	PACKED;	/* 2A: IPX options */
 	unsigned char  ipx_netno[4]	PACKED;	/* 2B: IPX net number */
 	unsigned char  ipx_local[6]	PACKED;	/* 2F: local IPX node number*/
 	unsigned char  ipx_remote[6]	PACKED;	/* 35: remote IPX node num.*/
 	unsigned char  ipx_router[48]	PACKED;	/* 3B: IPX router name*/
-	unsigned long  alt_cpu_clock	PACKED;	/* 6B:  */
+	unsigned int  alt_cpu_clock	PACKED;	/* 6B:  */
 } ppp508_conf_t;
 
 /*----------------------------------------------------------------------------
@@ -237,8 +237,8 @@ typedef struct	ppp508_connect_info
 {
 	unsigned short 	mru		PACKED;	/* 00-01 Remote Max Rec' Unit */
 	unsigned char  	ip_options 	PACKED; /* 02: Negotiated ip options  */
-	unsigned long  	ip_local	PACKED;	/* 03-06: local IP address    */
-	unsigned long  	ip_remote	PACKED;	/* 07-0A: remote IP address   */
+	unsigned int  	ip_local	PACKED;	/* 03-06: local IP address    */
+	unsigned int  	ip_remote	PACKED;	/* 07-0A: remote IP address   */
 	unsigned char	ipx_options	PACKED; /* 0B: Negotiated ipx options */
 	unsigned char  	ipx_netno[4]	PACKED;	/* 0C-0F: IPX net number      */
 	unsigned char  	ipx_local[6]	PACKED;	/* 10-1F: local IPX node #    */
@@ -290,7 +290,7 @@ typedef struct	ppp508_connect_info
  */
 typedef struct	ppp508_get_conf
 {
-	unsigned long  bps	PACKED;	/* 00: baud rate, bps */
+	unsigned int  bps	PACKED;	/* 00: baud rate, bps */
 	ppp508_conf_t  conf	PACKED;	/* 04: requested config. */
 	unsigned short txb_num	PACKED;	/* 6F: number of Tx buffers */
 	unsigned short rxb_num	PACKED;	/* 71: number of Rx buffers */
@@ -304,10 +304,10 @@ typedef struct ppp508_stats
 	unsigned short reserved1	PACKED;	/* 00: */
 	unsigned short rx_bad_len	PACKED;	/* 02: */
 	unsigned short reserved2	PACKED;	/* 04: */
-	unsigned long  tx_frames	PACKED;	/* 06: */
-	unsigned long  tx_bytes	PACKED;	/* 0A: */
-	unsigned long  rx_frames	PACKED;	/* 0E: */
-	unsigned long  rx_bytes	PACKED;	/* 12: */
+	unsigned int  tx_frames	PACKED;	/* 06: */
+	unsigned int  tx_bytes	PACKED;	/* 0A: */
+	unsigned int  rx_frames	PACKED;	/* 0E: */
+	unsigned int  rx_bytes	PACKED;	/* 12: */
 } ppp508_stats_t;
 
 /*----------------------------------------------------------------------------

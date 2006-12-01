@@ -47,11 +47,11 @@
 # include <netinet/in.h>
 # include <netinet/ip.h>
 # include <netinet/udp.h>
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe_abstr.h>
-# include <net/wanpipe.h>
-# include <net/sdla_adsl.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe_abstr.h>
+# include <wanpipe.h>
+# include <sdla_adsl.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"
@@ -635,14 +635,15 @@ static void error_counters (void)
 
 		for(j=sizeof(adsl_failures_t);j<wan_udp.wan_udphdr_data_len;j+=2){
 			printf("Cnt %02i\t:\t%s\t%03i",
-				(j-sizeof(adsl_failures_t)),
-				(j-sizeof(adsl_failures_t))>11?"N/A":couter_names[j-sizeof(adsl_failures_t)],
+				(int32_t)(j-sizeof(adsl_failures_t)),
+				(j-sizeof(adsl_failures_t))>11?"N/A":
+					couter_names[j-sizeof(adsl_failures_t)],
 				wan_udp.wan_udphdr_data[j]);
 
 			printf("\t");
 			
 			printf("Cnt %02i\t:\t%s\t%03i\n",
-				(j+1-sizeof(adsl_failures_t)),
+				(int32_t)(j+1-sizeof(adsl_failures_t)),
 				(j+1-sizeof(adsl_failures_t))>11?"N/A":
 				couter_names[j+1-sizeof(adsl_failures_t)],
 				wan_udp.wan_udphdr_data[j+1]);
@@ -656,22 +657,22 @@ static void error_counters (void)
 
 static void router_up_time( void )
 {
-     	unsigned long time;
+     	u_int32_t time;
      	wan_udp.wan_udphdr_command= ADSL_ROUTER_UP_TIME;
 	wan_udp.wan_udphdr_return_code = 0xaa;
      	wan_udp.wan_udphdr_data_len = 0;
      	wan_udp.wan_udphdr_data[0] = 0;
      	DO_COMMAND(wan_udp);
      
-     	time = *(unsigned long*)&wan_udp.wan_udphdr_data[0];
+     	time = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
 
      	if (time < 3600) {
 		if (time<60) 
-     			printf("    Router UP Time:  %lu seconds\n", time);
+     			printf("    Router UP Time:  %u seconds\n", time);
 		else
-     			printf("    Router UP Time:  %lu minute(s)\n", (time/60));
+     			printf("    Router UP Time:  %u minute(s)\n", (time/60));
      	}else
-     		printf("    Router UP Time:  %lu hour(s)\n", (time/3600));
+     		printf("    Router UP Time:  %u hour(s)\n", (time/3600));
       
 }
 
@@ -805,41 +806,41 @@ static void adsl_atm_counters( void )
 
 static void adsl_baud_rate( void )
 {
-     	unsigned long down, up,rxbuf,txbuf;
+     	u_int32_t down, up,rxbuf,txbuf;
      	wan_udp.wan_udphdr_command= ADSL_BAUD_RATE;
 	wan_udp.wan_udphdr_return_code = 0xaa;
      	wan_udp.wan_udphdr_data_len = 0;
      	wan_udp.wan_udphdr_data[0] = 0;
      	DO_COMMAND(wan_udp);
      
-     	down = *(unsigned long*)&wan_udp.wan_udphdr_data[0];
-	up = *(unsigned long*)&wan_udp.wan_udphdr_data[4];
-	rxbuf=*(unsigned long*)&wan_udp.wan_udphdr_data[8];
-	txbuf=*(unsigned long*)&wan_udp.wan_udphdr_data[12];
+     	down = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
+	up = *(u_int32_t*)&wan_udp.wan_udphdr_data[4];
+	rxbuf=*(u_int32_t*)&wan_udp.wan_udphdr_data[8];
+	txbuf=*(u_int32_t*)&wan_udp.wan_udphdr_data[12];
 	
 	BANNER("ADSL BAUD RATE");
 
-	printf("	Down Rate: %li kbps : %s\n",down,rxbuf?"Fast Buf":"Interleave Buf");
-	printf("	Up   Rate: %li kbps : %s\n",up,txbuf?"Fast Buf":"Interleave Buf");
+	printf("	Down Rate: %i kbps : %s\n",down,rxbuf?"Fast Buf":"Interleave Buf");
+	printf("	Up   Rate: %i kbps : %s\n",up,txbuf?"Fast Buf":"Interleave Buf");
 }
 
 static void adsl_atm_config( void )
 {
-     	unsigned long vpi,vci,mode;
+     	u_int32_t vpi,vci,mode;
      	wan_udp.wan_udphdr_command= ADSL_ATM_CONF;
 	wan_udp.wan_udphdr_return_code = 0xaa;
      	wan_udp.wan_udphdr_data_len = 0;
      	wan_udp.wan_udphdr_data[0] = 0;
      	DO_COMMAND(wan_udp);
      
-     	vpi = *(unsigned long*)&wan_udp.wan_udphdr_data[0];
-	vci = *(unsigned long*)&wan_udp.wan_udphdr_data[4];
-	mode =  *(unsigned long*)&wan_udp.wan_udphdr_data[8];
+     	vpi = *(u_int32_t*)&wan_udp.wan_udphdr_data[0];
+	vci = *(u_int32_t*)&wan_udp.wan_udphdr_data[4];
+	mode =  *(u_int32_t*)&wan_udp.wan_udphdr_data[8];
 	
 	BANNER("ADSL ATM CONFIGURATION");
 
-	printf("	VPI: %li\n",vpi);
-	printf("	VCI: %li\n",vci);
+	printf("	VPI: %i\n",vpi);
+	printf("	VCI: %i\n",vci);
 }
 
 int ADSLUsage(void)

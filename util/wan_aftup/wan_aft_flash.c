@@ -18,9 +18,9 @@
 # include <linux/wanpipe_cfg.h>
 #else
 # include <net/if.h>
-# include <net/wanpipe_defines.h>
-# include <net/sdlasfm.h>
-# include <net/wanpipe_cfg.h>
+# include <wanpipe_defines.h>
+# include <sdlasfm.h>
+# include <wanpipe_cfg.h>
 #endif
 
 #include "wan_aft_prg.h"

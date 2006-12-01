@@ -44,11 +44,11 @@
 # include <linux/wanpipe.h>
 # include <linux/sdla_xilinx.h>
 #else
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe_abstr.h>
-# include <net/wanpipe.h>
-# include <net/sdla_xilinx.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe_abstr.h>
+# include <wanpipe.h>
+# include <sdla_xilinx.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"

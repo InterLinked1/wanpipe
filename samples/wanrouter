@@ -173,6 +173,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # wanrouter	WANPIPE WAN Router Initialization Script.
 #
 # copyright	(c) 1999-2002, Sangoma Technologies Inc.
@@ -274,7 +294,11 @@ check_bash ()
 check_awk ()
 {
 	major_ver=${RELEASE%%.*}
-	if [ $OSYSTEM = "Linux" ] || [ $OSYSTEM = "FreeBSD" -a "$major_ver" != "5" ]; then
+	if [ $OSYSTEM = "Linux" ]; then
+		eval "type awk 2> /dev/null > /dev/null"
+	elif [ $OSYSTEM = "FreeBSD" -a "$major_ver" = "5" ]; then
+		eval "type awk 2> /dev/null > /dev/null"
+	elif [ $OSYSTEM = "FreeBSD" -a "$major_ver" = "6" ]; then
 		eval "type awk 2> /dev/null > /dev/null"
 	else
 		eval "awk 2> /dev/null > /dev/null"
@@ -319,6 +343,12 @@ error() {
 	return 0
 }
 
+file_exist() {
+	local ret
+ 	eval "ls $1.* > /dev/null 2> /dev/null"
+        ret=$?
+	return $ret
+}
 
 # ----------------------------------------------------------------------------
 # Configure network interface.
@@ -459,6 +489,15 @@ function unload_driver () {
 		err=`$MODULE_UNLOAD $1  2> /dev/null` 
 		err=`$MODULE_UNLOAD sdladrv  2> /dev/null` 
 	fi
+
+
+#Deprecated: Confirm Alex
+#FIXME
+#	if [ $OSYSTEM = "Linux" ]; then
+#		# try to unload Echo Canceller module
+#		eval "wan_ec_client unload 2>/dev/null"
+#	fi
+
 	return $err
 }
 
@@ -476,11 +515,13 @@ load_module()
 
 	if [ $opt != silent ]; then
 		echo "Starting WAN Router..."
-		echo "`date`: starting WAN router" > $WAN_LOG
+		echo "`date`: starting WAN router" >> $WAN_LOG
 	fi
 
 	if [ $OSYSTEM = "Linux" ]; then
 		if [ -e "/proc/net/wanrouter" ]; then
+			#RuggedCom LedTask
+			touch $WANPIPE_IS_RUNNING
 			return 0
 		fi
 	fi
@@ -495,7 +536,9 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 
 	for i in $MODULES
 	do
-		[ -f "$i" ] || {
+
+	module_name=$i".*"
+		[ -f $module_name ] || {
 			if [ $OSYSTEM = "Linux" ]; then
 				eval "echo $OPT_MODULES | grep $i > /dev/null 2> /dev/null"
 				if [ $? -ne 0 ]; then
@@ -572,15 +615,23 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 	fi
 
 	if ! lip_config LOAD
-	then 
-		unload_module
-		return 1
+        then
+             	unload_module
+                return 1
+        fi
+
+	if ! wanec_config LOAD
+        then
+		lip_config UNLOAD
+	       	unload_module
+	       	return 1
 	fi
 
 	if [ $opt != silent ]; then
 		echo "done."
 	fi
 
+	touch $WANPIPE_IS_RUNNING
 	return 0
 }
 
@@ -722,11 +773,13 @@ interf_config()
 				API=${API// /}
 			fi
 		
-			if [ "$API" = API ]; then
+			if [ "$API" = API ] || [ "$API" = TDM_API ] || [ "$API" = TDM_VOICE_API ]; then
 				echo -n "$int_file "
 				ifconfig $int_file up
 				continue
 			fi
+
+			
 
 			if [ "$API" = TTY ]; then
 				continue
@@ -758,7 +811,7 @@ interf_config()
 				continue
 			fi
 
-			if [ $API = "VoIP" ] || [ $API = "TDM_VOICE" ];then
+			if [ $API = "VoIP" ] || [ $API = "TDM_VOICE" ] || [ $API = "TDM_VOICE_API" ] ;then
 
 				# Bring up VoIP interface
 				echo -n "$int_file "
@@ -858,6 +911,16 @@ unload_module()
 {
 	cd $WAN_HOME
 
+	rm -f $WANPIPE_IS_RUNNING
+	if [ $RUGGEDCOM = "Yes" ]; then
+        	sleep 2
+		if lsof | grep '/proc/net/wanrouter' -q; then
+			echo "/proc/net/wanrouter still busy!  Failed to make ledtask release..."
+			touch $WANPIPE_IS_RUNNING
+			return 0
+		fi   
+	fi
+
 	if [ $OSYSTEM = "Linux" ]; then
 		check_and_print_still_running && cleanup 1
 		wansock_config UNLOAD
@@ -869,6 +932,7 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 		fi	
 	fi
 
+	wanec_config UNLOAD
 	lip_config UNLOAD
 
 	if [ $DEPMOD = YES ]; then
@@ -887,6 +951,57 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 	fi
 }
 
+
+wanec_config ()
+{
+	local opt=$1
+
+	if [ "$WANEC_LOAD" != "YES" ]; then
+		return 0
+	fi
+
+	if [ $OSYSTEM != "FreeBSD" -a $OSYSTEM != "Linux" ]; then
+		return 0
+	fi 
+
+	file_exist $MOD10
+	if [ $? -ne 0 ]; then
+		return 0 
+	fi
+
+	if [ $DEPMOD != YES ]; then
+		return 0
+	fi
+
+	if [ $opt = UNLOAD ]; then
+		lsmods=`$MODULE_STAT`
+
+		for i in $WANEC_UNLOAD_DRIVERS
+		do 
+			echo "$lsmods" | grep -q "$i" && {
+				if ! unload_driver $i
+				then
+					return 1
+				fi
+			}
+		done
+	else 
+		
+		for i in $WANEC_LOAD_DRIVERS
+		do 
+			$MODULE_STAT | grep -q $i && continue
+
+			if ! load_driver $i
+			then
+				return 1
+			fi
+		done
+	fi
+
+	return 0
+}
+
+
 lip_config ()
 {
 	local opt=$1
@@ -899,7 +1014,9 @@ lip_config ()
 		return 0
 	fi 
 
-	if [ ! -f "$MOD9" ]; then
+
+	file_exist $MOD9
+	if [ $? -ne 0 ]; then
 		return 0 
 	fi
 
@@ -1306,7 +1423,8 @@ wansock_config ()
 		return 0
 	fi
 
-	if [ ! -f "$MOD5" ]; then
+	file_exist $MOD5
+	if [ $? -ne 0 ]; then
 		return 0
 	fi
 
@@ -1336,13 +1454,18 @@ annexg_config ()
 		return 0
 	fi
 
-	if [ ! -f "$MOD6" ]; then
+	file_exist $MOD6
+	if [ $? -ne 0 ]; then 	
 		return 0 
 	fi
-	if [ ! -f "$MOD7" ]; then
+
+	file_exist $MOD7
+	if [ $? -ne 0 ]; then
 		return 0
 	fi
-	if [ ! -f "$MOD8" ]; then
+
+	file_exist $MOD8
+	if [ $? -ne 0 ]; then
 		return 0
 	fi
 
@@ -1876,7 +1999,9 @@ fi
 RCDLINKS="0,K10 1,K10 2,S20 3,S20 4,S20 5,S20 6,K10"
 
 
-export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/loca/bin:/usr/local/sbin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
 OSYSTEM=`uname -s`
 RELEASE=`uname -r`
 PROD=wanpipe
@@ -1892,12 +2017,17 @@ ANNEXG_LOAD_DRIVERS="wanpipe_lapb wanpipe_x25 wanpipe_dsp"
 ANNEXG_UNLOAD_DRIVERS="wanpipe_dsp wanpipe_x25 wanpipe_lapb"
 LIP_LOAD_DRIVERS="wanpipe_lip"
 LIP_UNLOAD_DRIVERS="wanpipe_lip"
+WANEC_LOAD_DRIVERS="wanec"
+WANEC_UNLOAD_DRIVERS="wanec"
 WAN_PROG_LOCK=/var/lock/wanrouter_lock
 DEPMOD=YES
 LINEPROBE_PATH=/usr/sbin/lineprobe
+WANPIPE_IS_RUNNING=/var/run/wanpipe_is_running
+
+RUGGEDCOM=No
 
 if [ $OSYSTEM = "Linux" ]; then
-	ROUTER_VERSION=2.3.3-9
+	ROUTER_VERSION=2.3.4-2
 	IFCONFIG_LIST=ifconfig
 	MODULE_STAT=lsmod
 	WAN_DRIVERS="wanpipe"
@@ -1915,55 +2045,58 @@ if [ $OSYSTEM = "Linux" ]; then
 		fi
 	fi
 
-	MOD1=/lib/modules/sdladrv.o
-	MOD2=/lib/modules/wanrouter.o
-	MOD3=/lib/modules/wanpipe_syncppp.o
-	MOD4=/lib/modules/wanpipe.o
-	MOD5=/lib/modules/af_wanpipe.o
+	MOD1=/lib/modules/sdladrv
+	MOD2=/lib/modules/wanrouter
+	MOD3=/lib/modules/wanpipe_syncppp
+	MOD4=/lib/modules/wanpipe
+	MOD5=/lib/modules/af_wanpipe
 
 	if [ -d /lib/modules/$(uname -r) ]; then
 		uname -r | grep "^2.4.*" > /dev/null
 		if [ $? -eq 0 ]; then
 			if [ -d /lib/modules/$(uname -r)/kernel ]; then
-				MOD1=/lib/modules/$(uname -r)/kernel/drivers/net/wan/sdladrv.o
-				MOD2=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanrouter.o
-				MOD3=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_syncppp.o
-				MOD4=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe.o
-				MOD5=/lib/modules/$(uname -r)/kernel/net/wanrouter/af_wanpipe.o
+				MOD1=/lib/modules/$(uname -r)/kernel/drivers/net/wan/sdladrv
+				MOD2=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanrouter
+				MOD3=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_syncppp
+				MOD4=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe
+				MOD5=/lib/modules/$(uname -r)/kernel/net/wanrouter/af_wanpipe
 
-				MOD6=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_lapb.o
-				MOD7=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_x25.o
-				MOD8=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_dsp.o
-				MOD9=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanpipe_lip.o
+				MOD6=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_lapb
+				MOD7=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_x25
+				MOD8=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_dsp
+				MOD9=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanpipe_lip
+				MOD10=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanec
 			fi
 		else
 
 			uname -r | grep "^2.6.*" > /dev/null
 			if [ $? -eq 0 ]; then
 				if [ -d /lib/modules/$(uname -r)/kernel ]; then	
-					MOD1=/lib/modules/$(uname -r)/kernel/drivers/net/wan/sdladrv.ko
-					MOD2=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanrouter.ko
-					MOD3=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_syncppp.ko
-					MOD4=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe.ko
-					MOD5=/lib/modules/$(uname -r)/kernel/net/wanrouter/af_wanpipe.ko
+					MOD1=/lib/modules/$(uname -r)/kernel/drivers/net/wan/sdladrv
+					MOD2=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanrouter
+					MOD3=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_syncppp
+					MOD4=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe
+					MOD5=/lib/modules/$(uname -r)/kernel/net/wanrouter/af_wanpipe
 
-					MOD6=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_lapb.ko
-					MOD7=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_x25.ko
-					MOD8=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_dsp.ko
-					MOD9=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanpipe_lip.ko
+					MOD6=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_lapb
+					MOD7=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_x25
+					MOD8=/lib/modules/$(uname -r)/kernel/drivers/net/wan/wanpipe_dsp
+					MOD9=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanpipe_lip
+					MOD10=/lib/modules/$(uname -r)/kernel/net/wanrouter/wanec
 				fi
 			else
 				if [ -d /lib/modules/$(uname -r)/net ]; then
-					MOD1=/lib/modules/$(uname -r)/net/sdladrv.o
-					MOD2=/lib/modules/$(uname -r)/misc/wanrouter.o
-					MOD3=/lib/modules/$(uname -r)/net/wanpipe_syncppp.o
-					MOD4=/lib/modules/$(uname -r)/net/wanpipe.o
-					MOD5=/lib/modules/$(uname -r)/misc/af_wanpipe.o
+					MOD1=/lib/modules/$(uname -r)/net/sdladrv
+					MOD2=/lib/modules/$(uname -r)/misc/wanrouter
+					MOD3=/lib/modules/$(uname -r)/net/wanpipe_syncppp
+					MOD4=/lib/modules/$(uname -r)/net/wanpipe
+					MOD5=/lib/modules/$(uname -r)/misc/af_wanpipe
 
-					MOD6=/lib/modules/$(uname -r)/net/wanpipe_lapb.o
-					MOD7=/lib/modules/$(uname -r)/net/wanpipe_x25.o
-					MOD8=/lib/modules/$(uname -r)/net/wanpipe_dsp.o
-					MOD9=/lib/modules/$(uname -r)/misc/wanpipe_lip.o
+					MOD6=/lib/modules/$(uname -r)/net/wanpipe_lapb
+					MOD7=/lib/modules/$(uname -r)/net/wanpipe_x25
+					MOD8=/lib/modules/$(uname -r)/net/wanpipe_dsp
+					MOD9=/lib/modules/$(uname -r)/misc/wanpipe_lip
+					MOD10=/lib/modules/$(uname -r)/misc/wanec
 				fi
  			fi
  		fi
@@ -1988,12 +2121,13 @@ elif [ $OSYSTEM = "FreeBSD" ]; then
 	MODULE_LOAD=kldload
 	MODULE_UNLOAD=kldunload
 
-	if [ "$major_ver" = "5" ]; then
+	if [ "$major_ver" = "5" -o "$major_ver" = "6" ]; then
 		MODULE_DIR=/boot/modules
 	else
 		MODULE_DIR=/modules
 	fi
 	MOD9="$MODULE_DIR/wanpipe_lip.ko"
+	MOD10="$MODULE_DIR/wanec.ko"
 	MODULES="$MODULE_DIR/wanrouter.ko $MODULE_DIR/sdladrv.ko $MODULE_DIR/wanpipe.ko"
 	WAN_DRIVERS="wanpipe"
 	
@@ -2062,6 +2196,7 @@ if [ "$WANPIPE_CONF_DIR" != "" -a "$WAN_CONF_DIR" = "" ] || [ "$WAN_ADSL_LIST" =
 fi
 
 WAN_LIP_LOAD=YES
+WANEC_LOAD=YES
 WAN_ANNEXG_LOAD=${WAN_ANNEXG_LOAD:-NO}
 WAN_DYN_WANCONFIG=${WAN_DYN_WANCONFIG:-NO}
 NEW_IF_TYPE=${NEW_IF_TYPE:-NO}
@@ -2322,14 +2457,15 @@ case "$1" in
 			if [ "$WAN_DYN_WANCONFIG" = YES ]; then
 				eval "/usr/sbin/wanconfig_client cmd=start,card=$dev,dev=$if_name" 
 			else
-				eval "/usr/sbin/wanconfig card $dev dev $if_name up"
+				eval "/usr/sbin/wanconfig -v card $dev dev $if_name up >> $WAN_LOG"
 			fi
+
 
 			#Regardles of config try to bring up the interface
 			#Interface up command will fail on its own
 			#if [ $? -ne 0 ]; then
 			#	cleanup 1
-			#fi   
+			#fi    
 			
 			interface_up $if_name
 			if [ $? -ne 0 ]; then
@@ -2516,7 +2652,7 @@ case "$1" in
 			if [ "$WAN_DYN_WANCONFIG" = YES ]; then
 				eval "/usr/sbin/wanconfig_client cmd=stop,card=$dev,dev=$if_name"  
 			else
-				eval "/usr/sbin/wanconfig card $dev dev $if_name down"
+				eval "/usr/sbin/wanconfig -v card $dev dev $if_name down >> $WAN_LOG"
 			fi
 			if [ $? -ne 0 ]; then
 				cleanup 1
@@ -2613,11 +2749,20 @@ case "$1" in
 		if [ $? -ne 0 ]; then
 			cleanup 1
 		fi
-		if [ $OSYSTEM = "Linux" ]; then
-			cat /proc/net/wanrouter/hwprobe
+		if [ "$2" = "verbose" ]; then
+			if [ $OSYSTEM = "Linux" ]; then
+				cat /proc/net/wanrouter/hwprobe_verbose
+			else
+				create_cdev
+				wanconfig hwprobe verbose
+			fi
 		else
-			create_cdev
-			wanconfig hwprobe
+			if [ $OSYSTEM = "Linux" ]; then
+				cat /proc/net/wanrouter/hwprobe
+			else
+				create_cdev
+				wanconfig hwprobe
+			fi
 		fi
 		cleanup 0;
 		;;

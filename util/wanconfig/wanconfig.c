@@ -71,23 +71,23 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
 #include "lib/safe-read.h"
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-# include <net/wanpipe_version.h>
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanproc.h>
-# include <net/wanpipe.h>
+# include <wanpipe_version.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanproc.h>
+# include <wanpipe.h>
 #else
 # include <linux/wanpipe_version.h>
 # include <linux/wanpipe_defines.h>
 # include <linux/wanpipe_cfg.h>
 # include <linux/wanpipe.h>
 #endif
-
 
 /****** Defines *************************************************************/
 
@@ -163,11 +163,14 @@ typedef struct data_buf		/* General data buffer */
 #define ANNEXG_LIP_TTY   9
 #define ANNEXG_LIP_XMTP2 10
 #define ANNEXG_LIP_X25   11
+#define ANNEXG_LIP_ATM   12
+#define ANNEXG_LIP_LAPD  13
 
 #define WANCONFIG_SOCKET "/etc/wanpipe/wanconfig_socket"
 #define WANCONFIG_PID    "/var/run/wanconfig.pid"
 #define WANCONFIG_PID_FILE "/proc/net/wanrouter/pid"
 
+struct link_def;
 typedef struct chan_def			/* Logical Channel definition */
 {
 	char name[WAN_IFNAME_SZ+1];	/* interface name for this channel */
@@ -180,7 +183,9 @@ typedef struct chan_def			/* Logical Channel definition */
 	char* virtual_addr;		/* -> X.25 virtual addr */
 	char* real_addr;		/* -> X.25 real addr */
 	char* protocol;			/* -> protocol */
+	char active_ch[50];		/* -> active channels */
 	wanif_conf_t  *chanconf;	/* channel configuration structure */
+	struct link_def	*link;		/* Point to WAN link definition */
 	struct chan_def* next;		/* -> next channel definition */
 } chan_def_t;
 
@@ -207,6 +212,9 @@ char master_lip_dev[WAN_DRVNAME_SZ+1];
 static char wakeup_ui=0;
 static time_t time_ui=0;
 
+#define MAX_FIRMW_SIZE	40000
+static unsigned char firmware_file_buffer[MAX_FIRMW_SIZE];
+
 #define show_error(x) { show_error_dbg(x, __LINE__);}
 
 /****** Function Prototypes *************************************************/
@@ -224,8 +232,10 @@ int read_conf_record (FILE* file, char* key);
 int configure_link (link_def_t* def, char init);
 int configure_chan (int dev, chan_def_t* def, char init, int id);
 int set_conf_param (char* key, char* val, key_word_t* dtab, void* conf);
+void init_first_time_tokens(char **token);
+void init_tokens(char **token);
 int tokenize (char* str, char **tokens);
-char* strstrip (char* str, char* s);
+char* str_strip (char* str, char* s);
 char* strupcase	(char* str);
 void* lookup (int val, look_up_t* table);
 int name2val (char* name, look_up_t* table);
@@ -269,8 +279,23 @@ void update_adsl_vci_vpi_list(wan_adsl_vcivpi_t* vcivpi_list, unsigned short vci
 
 void wakeup_java_ui(void);
 
-
+#if defined(WAN_HWEC)
+static int config_hwec(char *devname);
+static int enable_hwec(char *devname, char *ifname, char *);
+static int release_hwec(char *devname);
+#endif
 extern	int close (int);
+
+char *time_string(time_t t,char *buf);
+int has_config_changed(link_def_t *linkdef, char *name);
+void free_device_link(char *devname);
+int device_syncup(char *devname);
+void sig_func (int sigio);
+int start_link (void);
+int stop_link(void);
+int exec_command(unsigned char *rx_data);
+void catch_signal(int signum,int nomask);
+
 /****** Global Data *********************************************************/
 
 char prognamed[20] =	"wanconfig";
@@ -508,6 +533,7 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
   { "TE_RBS_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, te_rbs_ch), DTYPE_ULONG },
   { "TE_HIGHIMPEDANCE", offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, high_impedance_mode), DTYPE_UCHAR },
   { "TE_REF_CLOCK",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, te_ref_clock), DTYPE_UINT },
+  { "TE_SIG_MODE",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, sig_mode), DTYPE_UINT },
   /* T1/E1 Front-End parameters (old style) */
   { "LBO",           offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, lbo), DTYPE_UCHAR },
   { "ACTIVE_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, active_ch), DTYPE_ULONG },
@@ -521,6 +547,8 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
   { "TE3_LBMODE",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, lb_mode), DTYPE_UCHAR },
   { "TE3_TXLBO",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, tx_lbo), DTYPE_UCHAR },
   { "TE3_CLOCK",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, clock), DTYPE_UCHAR },
+  { "TDMV_LAW",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, tdmv_law), DTYPE_UINT },
+  { "TDMV_OPERMODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_remora_cfg_t, opermode_name), DTYPE_STR },
 
   { "BAUDRATE",   offsetof(wandev_conf_t, bps),         DTYPE_UINT },
   { "MTU",        offsetof(wandev_conf_t, mtu),         DTYPE_UINT },
@@ -545,11 +573,22 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
   { "TTY_MODE",   offsetof(wandev_conf_t, tty_mode), DTYPE_UINT},
   { "IGNORE_FRONT_END",  offsetof(wandev_conf_t, ignore_front_end_status), DTYPE_UCHAR},
 
-
   { "MAX_RX_QUEUE", offsetof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
   { "LMI_TRACE_QUEUE", offsetof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
   
-  
+  /* ATM can be in the LIP layer but hardware setting stay in hardware section,
+     so this the copy */
+#if 0
+  {"ATM_SYNC_MODE", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
+#endif
+
   { NULL, 0, 0 }
  };
  
@@ -603,12 +642,13 @@ key_word_t sppp_conftab[] =	/* PPP-CHDLC specific configuration */
 
   { "USERID",         offsetof(wan_sppp_if_conf_t, userid), 	DTYPE_STR},
   { "PASSWD",         offsetof(wan_sppp_if_conf_t, passwd),	DTYPE_STR},
-
-  { "KEEPALIVE_ERROR_MARGIN", offsetof(wan_sppp_if_conf_t, keepalive_err_margin),    DTYPE_UINT },
  
+  /* note, the name is NOT "KEEPALIVE_ERR_MARGIN" intentionally, couse this name is defined
+     inside wanif_conf_t, and data gets to wrong place */
+  { "KEEPALIVE_ERROR_MARGIN", offsetof(wan_sppp_if_conf_t, keepalive_err_margin),    DTYPE_UINT },
+
   { NULL, 0, 0 }
 };
-
 
 key_word_t fr_conftab[] =	/* Frame relay-specific configuration */
 {
@@ -634,6 +674,8 @@ key_word_t xilinx_conftab[] =	/* Xilinx specific configuration */
   { "DATA_MUX_MAP",  offsetof(wan_xilinx_conf_t, data_mux_map), DTYPE_UINT },
   { "TDMV_SPAN",     offsetof(wan_xilinx_conf_t, tdmv_span_no), DTYPE_UINT},
   { "TDMV_DCHAN",    offsetof(wan_xilinx_conf_t, tdmv_dchan),   DTYPE_UINT},
+  { "HWEC_CLKSRC",   offsetof(wan_xilinx_conf_t, ec_clk_src),   DTYPE_UINT},
+//  { "TDMV_HWEC",     offsetof(wan_xilinx_conf_t, tdmv_hwec),    DTYPE_UCHAR},
   { "RX_CRC_BYTES",  offsetof(wan_xilinx_conf_t, rx_crc_bytes), DTYPE_UINT},
   { NULL, 0, 0 }
 };
@@ -710,8 +752,25 @@ key_word_t xmtp2_conftab[] =
 {
   { NULL, 0, 0 }
 };
+key_word_t lapd_conftab[] =
+{
+  { NULL, 0, 0 }
+};
 
-
+/*
+key_word_t atm_conftab[] =
+{
+  {"ATM_SYNC_MODE", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
+  { NULL, 0, 0 }
+};
+*/
 
 key_word_t atm_conftab[] =
 {
@@ -726,11 +785,14 @@ key_word_t atm_conftab[] =
   { NULL, 0, 0 }
 };
 
+
 key_word_t atm_if_conftab[] =
 {
-  {"ENCAPMODE",        offsetof(wan_atm_conf_if_t,encap_mode), DTYPE_UCHAR },
-  {"VCI", 	       offsetof(wan_atm_conf_if_t,vci), DTYPE_USHORT },
-  {"VPI", 	       offsetof(wan_atm_conf_if_t,vpi), DTYPE_USHORT },
+	
+  /* Per Interface Configuration */
+  {"ENCAPMODE",        offsetof(wan_atm_conf_if_t, encap_mode), DTYPE_UCHAR },
+  {"VCI", 	       offsetof(wan_atm_conf_if_t, vci), DTYPE_USHORT },
+  {"VPI", 	       offsetof(wan_atm_conf_if_t, vpi), DTYPE_USHORT },
 
   {"OAM_LOOPBACK",	offsetof(wan_atm_conf_if_t,atm_oam_loopback),  DTYPE_UCHAR },
   {"OAM_LOOPBACK_INT",  offsetof(wan_atm_conf_if_t,atm_oam_loopback_intr),  DTYPE_UCHAR },
@@ -738,6 +800,18 @@ key_word_t atm_if_conftab[] =
   {"OAM_CC_CHECK_INT",	offsetof(wan_atm_conf_if_t,atm_oam_continuity_intr),  DTYPE_UCHAR },
   {"ATMARP",		offsetof(wan_atm_conf_if_t,atm_arp),  DTYPE_UCHAR },
   {"ATMARP_INT",	offsetof(wan_atm_conf_if_t,atm_arp_intr),  DTYPE_UCHAR },
+  {"MTU",		offsetof(wan_atm_conf_if_t,mtu),  DTYPE_USHORT },
+
+  /* Profile Section */
+  {"ATM_SYNC_MODE",	       offsetof(wan_atm_conf_if_t,atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA",	       offsetof(wan_atm_conf_if_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", 	       offsetof(wan_atm_conf_if_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", 	       offsetof(wan_atm_conf_if_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", 	       offsetof(wan_atm_conf_if_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", 	       offsetof(wan_atm_conf_if_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", 	       offsetof(wan_atm_conf_if_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", 	       offsetof(wan_atm_conf_if_t,atm_cell_payload), DTYPE_UCHAR },
+
   { NULL, 0, 0 }
 };
 
@@ -753,6 +827,10 @@ key_word_t xilinx_if_conftab[] =
   { "SS7_ENABLE",  offsetof(wan_xilinx_conf_if_t, ss7_enable),  DTYPE_UCHAR},
   { "SS7_MODE",  offsetof(wan_xilinx_conf_if_t, ss7_mode),  DTYPE_UCHAR},
   { "SS7_LSSU_SZ",  offsetof(wan_xilinx_conf_if_t, ss7_lssu_size),  DTYPE_UCHAR},
+//  { "TDMV_HWEC_MAP", offsetof(wan_xilinx_conf_if_t, tdmv_hwec_map),    DTYPE_STR},
+  { "TDMV_HWEC",     offsetof(wan_xilinx_conf_if_t, tdmv_hwec),    DTYPE_UCHAR},
+  { "DTMF_HW",     offsetof(wan_xilinx_conf_if_t, dtmf_hw),    DTYPE_UCHAR},
+  { "RBS_CAS_IDLE",  offsetof(wan_xilinx_conf_if_t, rbs_cas_idle), DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 
@@ -1026,10 +1104,12 @@ key_word_t chan_conftab[] =	/* Channel configuration parameters */
   { "IGNORE_CTS",    	offsetof(wanif_conf_t, ignore_cts),        	DTYPE_UCHAR},
   { "IGNORE_KEEPALIVE", offsetof(wanif_conf_t, ignore_keepalive), 	DTYPE_UCHAR},
   { "HDLC_STREAMING", 	offsetof(wanif_conf_t, hdlc_streaming), 	DTYPE_UCHAR},
+
   { "KEEPALIVE_TX_TIMER",	offsetof(wanif_conf_t, keepalive_tx_tmr), 	DTYPE_UINT },
   { "KEEPALIVE_RX_TIMER",	offsetof(wanif_conf_t, keepalive_rx_tmr), 	DTYPE_UINT },
   { "KEEPALIVE_ERR_MARGIN",	offsetof(wanif_conf_t, keepalive_err_margin),	DTYPE_UINT },
-  { "SLARP_TIMER", 	offsetof(wanif_conf_t, slarp_timer),    DTYPE_UINT },
+  { "SLARP_TIMER", 	offsetof(wanif_conf_t, slarp_timer),    		DTYPE_UINT },
+
   { "TTL",        	offsetof(wanif_conf_t, ttl),         DTYPE_UCHAR },
 
  // { "INTERFACE",  	offsetof(wanif_conf_t, interface),   DTYPE_UCHAR },
@@ -1063,13 +1143,16 @@ key_word_t chan_conftab[] =	/* Channel configuration parameters */
   { "ACTIVE_CH",	       offsetof(wanif_conf_t, active_ch),  DTYPE_ULONG},
   { "SW_DEV_NAME",	       offsetof(wanif_conf_t, sw_dev_name),  DTYPE_STR},
 
+  { "LIP_MTU",        	       offsetof(wanif_conf_t, mtu),  DTYPE_UINT},
+
   { "DLCI_TRACE_QUEUE", offsetof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
   { "MAX_TRACE_QUEUE", offsetof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
 
   { "TDMV_ECHO_OFF",	offsetof(wanif_conf_t, tdmv_echo_off), DTYPE_UCHAR},
+  { "TDMV_CODEC",	offsetof(wanif_conf_t, tdmv_codec), DTYPE_UCHAR},
 
-  { "SINGLE_TX_BUF",    offsetof(wanif_conf_t, single_tx_buf), DTYPE_UCHAR},    
-  
+  { "SINGLE_TX_BUF",    offsetof(wanif_conf_t, single_tx_buf), DTYPE_UCHAR},
+
   { NULL, 0, 0 }
 };
 
@@ -1082,6 +1165,7 @@ look_up_t conf_def_tables[] =
 	{ WANCONFIG_CHDLC,	chdlc_conftab	},
 	{ WANCONFIG_ASYHDLC,	chdlc_conftab	},
 	{ WANCONFIG_MPPP,	chdlc_conftab	},
+	{ WANCONFIG_LIP_ATM,	atm_if_conftab	},
 	{ WANCONFIG_MFR,	fr_conftab	},
 	{ WANCONFIG_SS7,	ss7_conftab 	},
 	{ WANCONFIG_ADSL,	adsl_conftab 	},
@@ -1090,6 +1174,7 @@ look_up_t conf_def_tables[] =
 	{ WANCONFIG_MLINK_PPP,	chdlc_conftab	},
 	{ WANCONFIG_AFT,        xilinx_conftab  },
 	{ WANCONFIG_AFT_TE1,    xilinx_conftab  },
+	{ WANCONFIG_AFT_ANALOG, xilinx_conftab  },
 	{ WANCONFIG_AFT_TE3,    xilinx_conftab  },
 	{ WANCONFIG_BITSTRM,    bitstrm_conftab },
 	{ WANCONFIG_SDLC,	sdlc_conftab 	},
@@ -1099,10 +1184,12 @@ look_up_t conf_def_tables[] =
 look_up_t conf_if_def_tables[] =
 {
 	{ WANCONFIG_ATM,	atm_if_conftab	},
+	{ WANCONFIG_LIP_ATM,	atm_if_conftab	},
 	{ WANCONFIG_BITSTRM,    bitstrm_if_conftab },
 	{ WANCONFIG_AFT,	xilinx_if_conftab },
 	{ WANCONFIG_AFT_TE1,	xilinx_if_conftab },
 	{ WANCONFIG_AFT_TE3,    xilinx_if_conftab },
+	{ WANCONFIG_AFT_ANALOG, xilinx_if_conftab },
 	{ WANCONFIG_ASYHDLC,	chdlc_conftab	},
 	{ 0,			NULL		}
 };
@@ -1114,12 +1201,14 @@ look_up_t conf_annexg_def_tables[] =
 	{ ANNEXG_LIP_XDLC,	xdlc_conftab	},
 	{ ANNEXG_LIP_TTY,	tty_conftab	},
 	{ ANNEXG_LIP_XMTP2,	xmtp2_conftab	},
+	{ ANNEXG_LIP_LAPD,	lapd_conftab	},
 	{ ANNEXG_X25,		x25_annexg_conftab	},
 	{ ANNEXG_DSP,		dsp_annexg_conftab	},
 	{ ANNEXG_FR,		fr_conftab	},
 	{ ANNEXG_CHDLC,		sppp_conftab	},
 	{ ANNEXG_PPP,		sppp_conftab	},
 	{ ANNEXG_LIP_X25,	x25_annexg_conftab	},
+	{ ANNEXG_LIP_ATM,	atm_if_conftab	},
 	{ 0,			NULL		}
 };
 
@@ -1134,6 +1223,7 @@ look_up_t	config_id_str[] =
         { WANCONFIG_HDLC,       "WAN_HDLC"      },
 	{ WANCONFIG_MPPP,       "WAN_MULTPPP"   },
 	{ WANCONFIG_MPROT,      "WAN_MULTPROT"  },
+	{ WANCONFIG_LIP_ATM,    "WAN_LIP_ATM"   },
 	{ WANCONFIG_BITSTRM, 	"WAN_BITSTRM"	},
 	{ WANCONFIG_EDUKIT, 	"WAN_EDU_KIT"	},
 	{ WANCONFIG_SS7,        "WAN_SS7"       },
@@ -1145,6 +1235,7 @@ look_up_t	config_id_str[] =
 	{ WANCONFIG_POS,	"WAN_POS"	},
 	{ WANCONFIG_AFT,	"WAN_AFT"	},
 	{ WANCONFIG_AFT_TE1,	"WAN_AFT_TE1"	},
+	{ WANCONFIG_AFT_ANALOG,	"WAN_AFT_ANALOG" },
 	{ WANCONFIG_AFT_TE3,	"WAN_AFT_TE3"	},
 	{ WANCONFIG_AFT,	"WAN_XILINX"	},
 	{ WANCONFIG_MFR,    	"WAN_MFR"   	},
@@ -1198,6 +1289,7 @@ look_up_t	sym_table[] =
 	{ WANOPT_FR_ANSI,	"ANSI"		}, 
 	{ WANOPT_FR_Q933,	"Q933"		}, 
 	{ WANOPT_FR_LMI,	"LMI"		}, 
+	{ WANOPT_FR_NO_LMI,	"NOLMI"		}, 
 	/*----- PPP IP Mode Options -----------*/
 	{ WANOPT_PPP_STATIC,	"STATIC"	}, 
 	{ WANOPT_PPP_HOST,	"HOST"		}, 
@@ -1224,8 +1316,10 @@ look_up_t	sym_table[] =
 	{ WANOPT_TTY_SYNC,	"SYNC"		},
 	{ WANOPT_TTY_ASYNC,     "ASYNC"		},
 
-        { WANOPT_FR_EEK_REQUEST,	"EEK_REQ"	},
-	{ WANOPT_FR_EEK_REPLY,	"EEK_REPLY"	},       
+	
+	{ WANOPT_FR_EEK_REQUEST, "EEK_REQ"	},
+	{ WANOPT_FR_EEK_REPLY,	"EEK_REPLY"	}, 
+                                                         
 
 
 	/* TE1 T1/E1 defines */
@@ -1237,6 +1331,7 @@ look_up_t	sym_table[] =
 	{ WAN_MEDIA_DS3,     "DS3"           },
 	{ WAN_MEDIA_STS1,    "STS-1"         },
 	{ WAN_MEDIA_E3,      "E3"            },
+	{ WAN_MEDIA_FXOFXS,  "FXO/FXS"       },
         { WAN_LCODE_AMI, 	"AMI"           },
         { WAN_LCODE_B8ZS,       "B8ZS"          },
         { WAN_LCODE_HDB3,       "HDB3"          },
@@ -1260,10 +1355,19 @@ look_up_t	sym_table[] =
         { WAN_T1_330_440,  	"330-440FT"     },
         { WAN_T1_440_550,  	"440-550FT"     },
         { WAN_T1_550_660,  	"550-660FT"     },
+        { WAN_T1_0_133,  	"0-133FT"       },
+        { WAN_T1_133_266,  	"133-266FT"     },
+        { WAN_T1_266_399,  	"266-399FT"     },
+        { WAN_T1_399_533,  	"399-533FT"     },
+        { WAN_T1_533_655,  	"533-655FT"     },
+        { WAN_E1_120,  		"120OH"     	},
+        { WAN_E1_75,  		"75OOH"     	},
         { WAN_NORMAL_CLK,   	"NORMAL"        },
         { WAN_MASTER_CLK,   	"MASTER"        },
 	{ WANOPT_FE_OSC_CLOCK, 	"OSC"     	},
         { WANOPT_FE_LINE_CLOCK, "LINE"          },
+        { WAN_TE1_SIG_CAS,	"CAS"           },
+        { WAN_TE1_SIG_CCS,	"CCS"		},
 
 	/* T3/E3 configuration */
         { WAN_TE3_RDEVICE_ADTRAN,	"ADTRAN"        },
@@ -1283,7 +1387,9 @@ look_up_t	sym_table[] =
 	{ WANCONFIG_XDLC, 	"MP_XDLC"	},
 	{ WANCONFIG_TTY, 	"MP_TTY"	},
 	{ WANCONFIG_X25, 	"MP_X25"	},
+	{ WANCONFIG_LIP_ATM, 	"MP_ATM"	},
 	{ WANCONFIG_XMTP2, 	"MP_XMTP2"	},
+	{ WANCONFIG_LAPD, 	"MP_LAPD"	},
 	{ WANOPT_NO,		"RAW"		},
 	{ WANOPT_NO,		"HDLC"		},
 	{ WANCONFIG_PPP,	"PPP"		}, 
@@ -1310,7 +1416,7 @@ look_up_t	sym_table[] =
 	/*-------------ADSL options--------------*/
 	{ RFC_MODE_BRIDGED_ETH_LLC,	"ETH_LLC_OA" },
 	{ RFC_MODE_BRIDGED_ETH_VC,	"ETH_VC_OA"  },
-	{ RFC_MODE_ROUTED_IP_LLC,	"IP_LLC_OA"  },
+	{ RFC_MODE_ROUTED_IP_LLC,	"IP_LLC_OA"  },//ok
 	{ RFC_MODE_ROUTED_IP_VC,	"IP_VC_OA"   },
 	{ RFC_MODE_PPP_LLC,		"PPP_LLC_OA" },
 	{ RFC_MODE_PPP_VC,		"PPP_VC_OA"  },
@@ -1373,12 +1479,19 @@ look_up_t	sym_table[] =
 	{ WANOPT_TWO_WAY_SIMULTANEOUS, "TWO_WAY_SIMULTANEOUS" },
 	{ WANOPT_PRI_DISC_ON_NO_RESP,     "PRI_DISC_ON_NO_RESP" },
 	{ WANOPT_PRI_SNRM_ON_NO_RESP,	"PRI_SNRM_ON_NO_RESP" },
+
+	{ WP_NONE,	"WP_NONE" },
+	{ WP_SLINEAR,   "WP_SLINEAR" },
+		
+	{ WAN_TDMV_ALAW,	"ALAW" },
+	{ WAN_TDMV_MULAW,	"MULAW" },
 		
 	/*----- End ---------------------------*/
 	{ 0,			NULL		}, 
 };
 
-void init_first_time_tokens(char **token){
+void init_first_time_tokens(char **token)
+{
 	int i;
 
 	for (i=0;i<MAX_TOKENS;i++){
@@ -1889,6 +2002,11 @@ int router_down (char *devname, int ignore_error)
                 return -EINVAL;
 	}
 
+#if defined(WAN_HWEC)
+	//ADBG : We don't know if wanpipe has HWEC enabled or not....
+	//release_hwec(devname, NULL);
+#endif
+
 #if defined(__LINUX__)
         snprintf(filename, sizeof(filename), "%s/%s", router_dir, devname);
 #else
@@ -1912,6 +2030,7 @@ int router_down (char *devname, int ignore_error)
 				progname_sp, devname);
 		fprintf(stderr, "\t%s:\t%d - %s\n", progname_sp, errno, strerror(errno));
 		if( weanie_flag ) {
+			fprintf(stderr, "\n");
 			fprintf(stderr, "\n\tIf you router was not running ignore this message\n !!");
 			fprintf(stderr, "\tOtherwise, check the %s and \n", verbose_log);
 			fprintf(stderr, "\t%s for errors\n", krnl_log_file);
@@ -1922,6 +2041,7 @@ int router_down (char *devname, int ignore_error)
 		}
  		return errno;
        	}
+ 
 
 	if (def.linkconf->config_id == WANCONFIG_ADSL){
 		update_adsl_vci_vpi_list(&def.linkconf->u.adsl.vcivpi_list[0], 	
@@ -1963,6 +2083,11 @@ int router_ifdel (char *card_name, char *dev_name)
 		return -EINVAL;
 	}
 
+#if defined(WAN_HWEC)
+	//ADBG : We don't know if wanpipe has HWEC enabled or not....
+	//release_hwec(card_name, dev_name);
+#endif
+
 #if defined(__LINUX__)
 	snprintf(devicename, sizeof(devicename), "%s", dev_name);
 #else
@@ -1983,6 +2108,7 @@ int router_ifdel (char *card_name, char *dev_name)
 				progname_sp, card_name, devicename);
 		fprintf(stderr, "\t%s:\t%d - %s\n", progname_sp, errno, strerror(errno));
 		if( weanie_flag ) {
+			fprintf(stderr, "\n");
 			fprintf(stderr, "\n\tIf you router was not running ignore this message\n !!");
 			fprintf(stderr, "\tOtherwise, check the %s and \n", verbose_log);
 			fprintf(stderr, "\t%s for errors\n", krnl_log_file);
@@ -1993,6 +2119,7 @@ int router_ifdel (char *card_name, char *dev_name)
 		}
                 return errno;
        	}
+
 
         if (dev >= 0){
 		close(dev);
@@ -2205,6 +2332,10 @@ int build_chandef_list (FILE* file)
 				chandef->annexg = ANNEXG_CHDLC;	
 				chandef->protocol = strdup("MP_CHDLC");
 
+			}else if (!strcmp(token[4],"lip_atm")){
+				chandef->annexg = ANNEXG_LIP_ATM;	
+				chandef->protocol = strdup("MP_ATM");
+
 			}else if (!strcmp(token[4],"lip_x25")){
 				chandef->annexg = ANNEXG_LIP_X25;	
 				chandef->protocol = strdup("MP_X25");
@@ -2215,6 +2346,9 @@ int build_chandef_list (FILE* file)
 			}else if (!strcmp(token[4],"lip_xmtp2")){
 				chandef->annexg = ANNEXG_LIP_XMTP2;
 				chandef->protocol = strdup("MP_XMTP2");
+			}else if (!strcmp(token[4],"lip_lapd")){
+				chandef->annexg = ANNEXG_LIP_LAPD;
+				chandef->protocol = strdup("MP_LAPD");
 			}else if (!strcmp(token[4],"lip_xdlc")){
 				chandef->annexg = ANNEXG_LIP_XDLC;
 				chandef->protocol = strdup("MP_XDLC");
@@ -2237,6 +2371,7 @@ int build_chandef_list (FILE* file)
 					  ( strcmp(chandef->usedby, "BRIDGE_NODE") != 0 ) &&
 					  ( strcmp(chandef->usedby, "TDM_VOICE") 	   != 0 ) &&
 					  ( strcmp(chandef->usedby, "TDM_VOICE_API") 	   != 0 ) &&
+					  ( strcmp(chandef->usedby, "TDM_API") 	   != 0 ) &&
 					  ( strcmp(chandef->usedby, "ANNEXG")      != 0 )))
 		{
 
@@ -2288,6 +2423,8 @@ int build_chandef_list (FILE* file)
 			last->next = chandef;
 		}
 		else linkdef->chan = chandef;
+		/* Alex */
+		chandef->link = linkdef;
 
 	}
 	free(conf);
@@ -2432,14 +2569,12 @@ int configure_link (link_def_t* def, char init)
 		def->linkconf->ft1 = 0;
 	}
 
-	if (!init){
+ 	if (!init){
+		/* copy firmware onto S514 card */
+		def->linkconf->data = firmware_file_buffer;/* must initialize it again here!!! */
 		err=exec_link_cmd(dev,def);
-		if (def->linkconf->data){
-			free(def->linkconf->data);
-			def->linkconf->data=NULL;
-		}
-	}
-	
+ 	}
+
 	/* Configure logical channels */
 	if( !err && !nodev_flag ){ 
 		for (chandef = def->chan; chandef; chandef = chandef->next) {
@@ -2590,6 +2725,7 @@ int exec_link_cmd(int dev, link_def_t *def)
 				progname_sp, def->name);
 		fprintf(stderr, "\t%s:\t%d - %s\n", progname_sp, errno, strerror(errno));
 		if( weanie_flag ) {
+			fprintf(stderr, "\n");
 			fprintf(stderr, "\n\tWanpipe driver did not load properly\n");
 			fprintf(stderr, "\tPlease check %s and\n", verbose_log);
 			fprintf(stderr, "\t%s for errors\n", krnl_log_file); 
@@ -2597,6 +2733,7 @@ int exec_link_cmd(int dev, link_def_t *def)
 		fprintf(stderr, "\n");
 		return errno;
 	}
+	
 	return 0;
 }
 
@@ -2653,7 +2790,6 @@ int configure_chan (int dev, chan_def_t* def, char init, int id)
 	if (def->conf) for (conf_rec = def->conf; *conf_rec; conf_rec += len) {
 		int toknum;
 		
-
 		len = strlen(conf_rec) + 1;
 		toknum = tokenize(conf_rec, token);
 		if (toknum < 2) {
@@ -2668,8 +2804,8 @@ int configure_chan (int dev, chan_def_t* def, char init, int id)
 		if (set_conf_param(token[0], token[1], chan_conftab, def->chanconf)) {
 
 			if (def->annexg && conf_annexg_table){
-				if (def->annexg!=ANNEXG_DSP || 
-				    !conf_annexg_table || 
+
+				if (!conf_annexg_table || 
 				    set_conf_param(token[0], token[1], 
 						  conf_annexg_table, &def->chanconf->u)) {
 				
@@ -2691,6 +2827,11 @@ int configure_chan (int dev, chan_def_t* def, char init, int id)
 						bitstrm_if_conftab);
 				show_error(ERR_CONFIG);
 				return ERR_CONFIG;
+			}
+		}else{
+
+			if (strcmp(token[0], "ACTIVE_CH") == 0){
+				strcpy(def->active_ch, token[1]);
 			}
 		}
 	}
@@ -2769,6 +2910,31 @@ int exec_chan_cmd(int dev, chan_def_t *def)
 			fprintf(stderr, "\n");
 			return errno;
 		}
+
+#if defined(WAN_HWEC)
+		{ /* ALEX */
+			struct link_def	*linkdef = def->link;
+			int		err;
+
+			if ((linkdef->config_id == WANCONFIG_AFT_TE1 || 
+			     linkdef->config_id == WANCONFIG_AFT_ANALOG) &&
+					def->chanconf->u.aft.tdmv_hwec){
+
+				err = config_hwec(linkdef->name);
+				if (err){
+					return err;
+				}
+
+				err = enable_hwec(linkdef->name,
+						  def->name,
+						  def->active_ch);
+				if (err){
+					release_hwec(linkdef->name);
+					return err;
+				}
+			}
+		}
+#endif
 		break;
 
 #if defined(__LINUX__)
@@ -2834,7 +3000,9 @@ int exec_chan_cmd(int dev, chan_def_t *def)
 	case ANNEXG_LIP_XDLC:
 	case ANNEXG_LIP_TTY:
 	case ANNEXG_LIP_XMTP2:
+	case ANNEXG_LIP_LAPD:
 	case ANNEXG_LIP_X25:
+	case ANNEXG_LIP_ATM:
 		strncpy(def->chanconf->master, master_lip_dev, WAN_IFNAME_SZ);
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
@@ -3002,7 +3170,7 @@ int set_conf_param (char* key, char* val, key_word_t* dtab, void* conf)
 	    strcmp(key, "TE_ACTIVE_CH") == 0 || strcmp(key, "ACTIVE_CH") == 0 || 
 	    strcmp(key, "TE_LBO") == 0 || strcmp(key, "LBO") == 0 ||
 	    strcmp(key, "FE_MEDIA") == 0 || strcmp(key, "MEDIA") == 0 || 
-	    strcmp(key, "RBS_CH_MAP") == 0 || strcmp(key, "TE_RBS_CH") == 0) {
+	    strcmp(key, "RBS_CH_MAP") == 0 || strcmp(key, "TE_RBS_CH") == 0){
 		look_up_t* sym;
 		unsigned long tmp_ch;
 
@@ -3014,7 +3182,7 @@ int set_conf_param (char* key, char* val, key_word_t* dtab, void* conf)
 		if (sym->ptr == NULL) {
 
 			/* TE1 */
-			if (strcmp(key, "TE_ACTIVE_CH") && strcmp(key, "ACTIVE_CH") && strcmp(key, "RBS_CH_MAP") && strcmp(key, "TE_RBS_CH")) {		
+			if (strcmp(key, "TE_ACTIVE_CH") && strcmp(key, "ACTIVE_CH") && strcmp(key, "RBS_CH_MAP") && strcmp(key, "TE_RBS_CH")) {	
 				if (verbose) printf(" * invalid term %s ...\n", val);
 				return 1;
 			}
@@ -3164,7 +3332,8 @@ int read_conf_record (FILE* file, char* key)
  *	Return number of tokens.
  */
 
-void init_tokens(char **token){
+void init_tokens(char **token)
+{
 	int i;
 
 	for (i=0;i<MAX_TOKENS;i++){
@@ -3173,7 +3342,7 @@ void init_tokens(char **token){
 }
 
 
-/* Bug Fix by René Scharfe <l.s.r@web.de>
+/* Bug Fix by Renï¿½Scharfe <l.s.r@web.de>
  * removed strtok 
  */
 int tokenize (char *str, char **tokens)
@@ -3199,16 +3368,16 @@ int tokenize (char *str, char **tokens)
 	
        	while (tokens[cnt] && (cnt < MAX_TOKENS-1)) {
 	      
-		tokens[cnt] = strstrip(tokens[cnt], " \t");
+		tokens[cnt] = str_strip(tokens[cnt], " \t");
 		
                	if ((tok = strchr(str, ',')) == NULL){
-			tokens[++cnt] = strstrip(str, " \t");
+			tokens[++cnt] = str_strip(str, " \t");
 			goto end_tokenize;
 		}
 
 		*tok='\0';
 
-		tokens[++cnt] = strstrip(str, " \t");
+		tokens[++cnt] = str_strip(str, " \t");
 		str=++tok;
 	
        	}
@@ -3219,7 +3388,7 @@ end_tokenize:
 /*============================================================================
  * Strip leading and trailing spaces off the string str.
  */
-char* strstrip (char* str, char* s)
+char* str_strip (char* str, char* s)
 {
 	char* eos = str + strlen(str);		/* -> end of string */
 
@@ -3269,7 +3438,6 @@ int read_data_file (char* name, data_buf_t* databuf)
 {
 	int err = 0;
 	FILE* file;
-	void* buf;
 	unsigned long fsize;
 
 	databuf->data = NULL;
@@ -3289,24 +3457,20 @@ int read_data_file (char* name, data_buf_t* databuf)
 		show_error(err);
 	}
 	else {
-		if (verbose) printf(
-			" * Reading %lu bytes from %s ...\n",
-			fsize, name);
-		buf = malloc(fsize);
-		if (buf == NULL) {
+
+		if (verbose){
+			printf(" * Reading %lu bytes from %s ...\n",
+				fsize, name);
+		}
+		if (fread(firmware_file_buffer, 1, fsize, file) != fsize) {
 			err = ERR_SYSTEM;
 			show_error(err);
+			goto done;
 		}
-		else if (fread(buf, 1, fsize, file) < fsize) {
-			free(buf);
-			err = ERR_SYSTEM;
-			show_error(err);
-		}
-		else {
-			databuf->data = buf;
-			databuf->size = fsize;
-		}
+		databuf->data = firmware_file_buffer;
+		databuf->size = fsize;
 	}
+done:
 	fclose(file);
 	return err;
 }
@@ -3368,7 +3532,8 @@ unsigned int get_config_data (int argc, char **argv)
 int get_devices (FILE *fp, int *argc_ptr, char ***argv_ptr, char **device_name){
 
 	int i;
-	int start=0, stop=0;
+	int 
+						start=0, stop=0;
 	int argc = *argc_ptr;
 	char **argv = *argv_ptr;
 
@@ -3732,9 +3897,6 @@ void free_device_link(char *devname)
 			}
 			printf("%s: Freeing Link %s\n",prognamed,linkdef->name);
 			if (linkdef->linkconf){
-				if (linkdef->linkconf->data){
-					free(linkdef->linkconf->data);
-				}
 				free(linkdef->linkconf);
 			}
 			free(linkdef);
@@ -3774,9 +3936,6 @@ void free_linkdefs(void)
 		
 
 		if (linkdef->linkconf){
-			if (linkdef->linkconf->data){
-				free(linkdef->linkconf->data);
-			}
 			free(linkdef->linkconf);
 		}
 
@@ -3975,7 +4134,7 @@ start_cfg_chk:
 }
 
 
-int stop_link()
+int stop_link(void)
 {
 	link_def_t* linkdef; 
 	int err=3;
@@ -4146,7 +4305,7 @@ int start_daemon(void)
 {
 	struct sockaddr_un address;
 	int sock,conn;
-	size_t addrLength;
+	socklen_t addrLength;
 	unsigned char rx_data[100];
 	int err;
 	int fp;
@@ -4357,9 +4516,9 @@ int show_config(void)
 	config.arg = &procfs;
 	memset(&procfs, 0, sizeof(wan_procfs_t));
 	procfs.magic 	= ROUTER_MAGIC;
-	procfs.max_len 	= 1024;
+	procfs.max_len 	= 2048;
 	procfs.cmd	= WANPIPE_PROCFS_CONFIG;
-	procfs.data	= malloc(1024);
+	procfs.data	= malloc(2048);
 	if (procfs.data == NULL){
 		show_error(ERR_SYSTEM);
 		return -EINVAL;
@@ -4409,9 +4568,9 @@ int show_status(void)
 	config.arg = &procfs;
 	memset(&procfs, 0, sizeof(wan_procfs_t));
 	procfs.magic 	= ROUTER_MAGIC;
-	procfs.max_len 	= 1024;
+	procfs.max_len 	= 2048;
 	procfs.cmd	= WANPIPE_PROCFS_STATUS;
-	procfs.data	= malloc(1024);
+	procfs.data	= malloc(2048);
 	if (procfs.data == NULL){
 		show_error(ERR_SYSTEM);
 		return -EINVAL;
@@ -4451,9 +4610,9 @@ int show_hwprobe(void)
 	config.arg = &procfs;
 	memset(&procfs, 0, sizeof(wan_procfs_t));
 	procfs.magic 	= ROUTER_MAGIC;
-	procfs.max_len 	= 1024;
+	procfs.max_len 	= 2048;
 	procfs.cmd	= WANPIPE_PROCFS_HWPROBE;
-	procfs.data	= malloc(1024);
+	procfs.data	= malloc(2048);
 	if (procfs.data == NULL){
 		 show_error(ERR_SYSTEM);
 		 err=-EINVAL;
@@ -4562,8 +4721,8 @@ int debug_read(void)
 debug_read_again:
 	memset(&wan_kernel_msg, 0, sizeof(wan_kernel_msg_t));
 	wan_kernel_msg.magic 	= ROUTER_MAGIC;
-	wan_kernel_msg.max_len 	= 1024;
-	wan_kernel_msg.data	= malloc(1024);
+	wan_kernel_msg.max_len 	= 2048;
+	wan_kernel_msg.data	= malloc(2048);
 	if (wan_kernel_msg.data == NULL){
 		 show_error(ERR_SYSTEM);
 		 err=-EINVAL;
@@ -4728,6 +4887,101 @@ unsigned long get_active_channels(int channel_flag, int start_channel, int stop_
 	}
 	return tmp;
 }
+
+#if defined(WAN_HWEC)	
+
+#define WAN_EC_PID	"/etc/wanpipe/wan_ec/wan_ec_pid"
+#define WAN_EC_DIR      "/etc/wanpipe/wan_ec"
+
+static int config_hwec(char *devname)
+{
+	int	status;
+	char	cmd[100];
+	DIR 	*dir;
+
+	dir = opendir(WAN_EC_DIR);
+
+        if(dir == NULL) {
+        	return 0;
+        }
+
+	closedir(dir);
+
+	/*HW_EC*/
+	sprintf(cmd, "wan_ec_client %s config", devname);
+	status = system(cmd);
+
+	if (WEXITSTATUS(status) != 0){
+		fprintf(stderr,
+		"wanconfig: Failed to configure EC device %s (err=%d)!\n",
+				devname,WEXITSTATUS(status));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int enable_hwec(char *devname, char *ifname, char *channel_list)
+{
+	int	status;
+	char	cmd[100];
+	DIR 	*dir;
+
+return 0;
+	
+	dir = opendir(WAN_EC_DIR);
+
+        if(dir == NULL) {
+        	return 0;
+        }
+	closedir(dir);
+	
+#if 1
+	if (strcasecmp(channel_list, "all") == 0){
+		sprintf(cmd, "wan_ec_client %s mn all",
+					devname);
+	}else{
+		sprintf(cmd, "wan_ec_client %s mn %s",
+					devname,channel_list);
+	}
+#else
+	if (strcasecmp(channel_list, "all") == 0){
+		sprintf(cmd, "wan_ec_client %s enable all",
+					devname);
+	}else{
+		sprintf(cmd, "wan_ec_client %s enable %s",
+					devname,channel_list);
+	}
+#endif
+
+	status = system(cmd);
+
+	if (WEXITSTATUS(status) != 0){
+		fprintf(stderr,
+		"wanconfig: Failed to enable EC device %s : channels %s (err=%d)!\n",
+				devname, channel_list,WEXITSTATUS(status));
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int release_hwec(char *devname)
+{
+	int	status;
+	char	cmd[100];
+	
+       	sprintf(cmd, "wan_ec_client %s release",
+				devname);
+	status = system(cmd);
+	if (WEXITSTATUS(status) != 0){
+		fprintf(stderr,
+		"wanconfig: Failed to release EC device %s (err=%d)!\n",
+				devname,WEXITSTATUS(status));
+		return -EINVAL;
+	}
+	return 0;
+}
+#endif
 
 //****** End *****************************************************************/
 

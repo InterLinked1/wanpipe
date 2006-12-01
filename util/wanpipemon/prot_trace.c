@@ -25,11 +25,11 @@
 # include <netinet/in_systm.h>
 # include <netinet/ip.h>
 # include <netinet/tcp.h>
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe_abstr.h>
-# include <net/wanpipe.h>
-# include <net/sdla_chdlc.h>
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe_abstr.h>
+# include <wanpipe.h>
+# include <sdla_chdlc.h>
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"
@@ -569,7 +569,7 @@ static int decode_chdlc(wp_trace_output_iface_t *trace_iface,
 
 	int inf_frame=0;
 	cisco_header_t *cisco_header = (cisco_header_t *)&data[0];
-	unsigned long time_alive;
+	u_int32_t time_alive;
 	
 	trace_banner(trace_iface,trace_started);
 
@@ -621,7 +621,7 @@ static int decode_chdlc(wp_trace_output_iface_t *trace_iface,
 				  	time_alive = (time_alive << 16) | t2;
 
 				  }
-				  printf("\t\treliability number: 0x%X\t\ttime alive: %lu",
+				  printf("\t\treliability number: 0x%X\t\ttime alive: %u",
 					(unsigned short)ntohs(cisco_slarp->un.keepalive.reliability),
 					time_alive);
 				  break;
@@ -833,7 +833,7 @@ static char* decode_tcp_level_protocol(unsigned short port)
 
 static void print_ipv4_address(unsigned int address)
 {
-	printf("%lu.%u.%u.%u",(unsigned long)address & 0x000000FF,
+	printf("%u.%u.%u.%u",(u_int32_t)address & 0x000000FF,
 				(unsigned int)(address & 0x0000FF00) >> 8,
 				(unsigned int)(address & 0x00FF0000) >>16,
 				(unsigned int)(address & 0xFF000000) >>24);

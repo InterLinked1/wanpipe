@@ -91,130 +91,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #***************************************************************
 # WANCFG :  WANPIPE(tm) Configuration Utility
 #
@@ -1714,7 +1590,7 @@ fi
 
 set_geometry `stty size 2>/dev/null`
 
-DIALOG=${DIALOG=/usr/sbin/wanpipe_lxdialog}
+DIALOG=${DIALOG=${WAN_BIN_DIR}/wanpipe_lxdialog}
 
 if [ ! -f "$DIALOG" ]; then
 	cat <<EOM
@@ -1732,7 +1608,7 @@ EOM
 	exit 1
 fi
 
-PPPCONFIG=/usr/sbin/wp_pppconfig
+PPPCONFIG=${WAN_BIN_DIR}/wp_pppconfig
 
 name_prefix="wp"
 

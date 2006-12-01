@@ -24,12 +24,12 @@
 */
 
 #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-# include <net/wanpipe_includes.h>
-# include <net/wanpipe.h>
-# include <net/wanproc.h>
+# include <wanpipe_includes.h>
+# include <wanpipe.h>
+# include <wanproc.h>
 #elif defined(__WINDOWS__)
-# include <wanpipe\wanpipe_includes.h>
-# include <hdlc_stm_api\driver.h>
+# include <wanpipe_includes.h>
+# include <wanpipe.h>	/* WANPIPE common user API definitions */
 #else
 # include <linux/wanpipe_includes.h>
 # include <linux/wanpipe_defines.h>
@@ -38,45 +38,38 @@
 # include <linux/wanpipe.h>	/* WANPIPE common user API definitions */
 #endif
 
-/*
- ******************************************************************************
+/******************************************************************************
 			  DEFINES AND MACROS
- ******************************************************************************
-*/
-#if 0
-#define WRITE_REG(reg, value)		card->wandev.write_front_end_reg(card, reg, (unsigned char)(value))
-#define READ_REG(reg)			card->wandev.read_front_end_reg(card, reg)
-#endif
+******************************************************************************/
+#define WRITE_REG(reg,val) fe->write_fe_reg(fe->card, (int)(reg),(int)(val))
+#define READ_REG(reg)	   fe->read_fe_reg(fe->card, (int)(reg))
 
-/*
- ******************************************************************************
+
+/******************************************************************************
 			STRUCTURES AND TYPEDEFS
- ******************************************************************************
-*/
+******************************************************************************/
 
 
-/*
- ******************************************************************************
+/******************************************************************************
 			   GLOBAL VARIABLES
- ******************************************************************************
-*/
+******************************************************************************/
 
-/*
- ******************************************************************************
+/******************************************************************************
 			  FUNCTION PROTOTYPES
- ******************************************************************************
-*/
-static void display_Rx_code_condition(sdla_fe_t* fe);
-static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned long);
-static unsigned long sdla_56k_alarm(sdla_fe_t *fe, int manual_read);
-static int sdla_56k_update_alarm_info(sdla_fe_t *fe, struct seq_file* m, int* stop_cnt);
-static int sdla_56k_udp(sdla_fe_t*, void*, unsigned char*);
+******************************************************************************/
 
-/*
- ******************************************************************************
+
+static int sdla_56k_config(void* pfe);
+static unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read);
+static int sdla_56k_udp(sdla_fe_t*, void*, unsigned char*);
+static void display_Rx_code_condition(sdla_fe_t* fe);
+static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned int);
+static int sdla_56k_update_alarm_info(sdla_fe_t *fe, struct seq_file* m, int* stop_cnt);
+
+/******************************************************************************
 			  FUNCTION DEFINITIONS
- ******************************************************************************
-*/
+******************************************************************************/
+
 /******************************************************************************
  *				sdla_56k_get_fe_status()	
  *
@@ -117,7 +110,7 @@ static int sdla_56k_get_fe_status(sdla_fe_t *fe, unsigned char *status)
 	return 0;
 }
 
-static unsigned long sdla_56k_alarm(sdla_fe_t *fe, int manual_read)
+unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read)
 {
 
 	unsigned short status = 0x00;
@@ -213,14 +206,29 @@ int sdla_56k_default_cfg(void* pcard, void* p56k_cfg)
 }
 
 
-int sdla_56k_config(void* pfe, void* pfe_iface)
+int sdla_56k_iface_init(void* pfe_iface)
+{
+	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)pfe_iface;
+
+	fe_iface->config		= &sdla_56k_config;
+	fe_iface->get_fe_status		= &sdla_56k_get_fe_status;
+	fe_iface->get_fe_media		= &sdla_56k_get_fe_media;
+	fe_iface->get_fe_media_string	= &sdla_56k_get_fe_media_string;
+	fe_iface->print_fe_alarm	= &sdla_56k_print_alarm;
+	fe_iface->read_alarm		= &sdla_56k_alarm;
+	fe_iface->update_alarm_info	= &sdla_56k_update_alarm_info;
+	fe_iface->process_udp		= &sdla_56k_udp;
+	return 0;
+}
+
+static int sdla_56k_config(void* pfe)
 {
 	sdla_fe_t	*fe = (sdla_fe_t*)pfe;
-	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)pfe_iface;
 	sdla_t		*card = (sdla_t *)fe->card;
 
 	WAN_ASSERT(fe->write_fe_reg == NULL);
 	WAN_ASSERT(fe->read_fe_reg == NULL);
+
 	/* The 56k CSU/DSU front end status has not been initialized  */
 	fe->fe_status = FE_UNITIALIZED;
 
@@ -276,14 +284,6 @@ int sdla_56k_config(void* pfe, void* pfe_iface)
 		return 1; 
 	}
 
-	/* Initialize function pointer for WANPIPE debugging */
-	fe_iface->get_fe_status		= &sdla_56k_get_fe_status;
-	fe_iface->get_fe_media		= &sdla_56k_get_fe_media;
-	fe_iface->get_fe_media_string	= &sdla_56k_get_fe_media_string;
-	fe_iface->print_fe_alarm	= &sdla_56k_print_alarm;
-	fe_iface->read_alarm		= &sdla_56k_alarm;
-	fe_iface->update_alarm_info	= &sdla_56k_update_alarm_info;
-	fe_iface->process_udp		= &sdla_56k_udp;
 	return 0;
 }
 
@@ -389,9 +389,9 @@ static int sdla_56k_udp(sdla_fe_t *fe, void* pudp_cmd, unsigned char* data)
 	case WAN_FE_GET_STAT:
 		/* 56K Update CSU/DSU alarms */
 		fe->fe_alarm = sdla_56k_alarm(fe, 1); 
-	 	*(unsigned long *)&data[0] = fe->fe_alarm;
+		memcpy(&data[0], &fe->fe_stats, sizeof(sdla_fe_stats_t));
 		udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
-	    	udp_cmd->wan_cmd_data_len = sizeof(unsigned long);
+	    	udp_cmd->wan_cmd_data_len = sizeof(sdla_fe_stats_t);
 		break;
 
 	case WAN_FE_SET_LB_MODE:
@@ -413,9 +413,9 @@ static int sdla_56k_udp(sdla_fe_t *fe, void* pudp_cmd, unsigned char* data)
 ** Arguments:
 ** Returns:
 */
-static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned long status)
+static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned int status)
 {
-	unsigned short	alarms = (unsigned short)status;
+	unsigned int	alarms = (unsigned int)status;
 
 	if (!alarms){
 		alarms = sdla_56k_alarm(fe, 0);
@@ -450,6 +450,7 @@ static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned long status)
 
 static int sdla_56k_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* stop_cnt)
 {
+#if !defined(__WINDOWS__)
 	PROC_ADD_LINE(m,
 		"\n====================== Rx 56K CSU/DSU Alarms ==============================\n");
 	PROC_ADD_LINE(m,
@@ -476,7 +477,7 @@ static int sdla_56k_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* st
 		PROC_STATS_ALARM_FORMAT,
 		"Rx loss of signal", RLOS_ALARM_56K(fe->fe_alarm), 
 		"N/A", "N/A");
-
+#endif
 	return m->count;	
 }
 

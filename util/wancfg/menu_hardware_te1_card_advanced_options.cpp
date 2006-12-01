@@ -22,6 +22,7 @@
 #include "menu_te_select_line_decoding.h"
 #include "menu_te_select_framing.h"
 #include "menu_t1_lbo.h"
+#include "menu_e1_lbo.h"
 #include "input_box_active_channels.h"
 #include "menu_te1_clock_mode.h"
 
@@ -130,10 +131,12 @@ enum TE1_ADVANCED_OPTIONS{
 	TE1_LCODE,
 	TE1_FRAME,
 	T1_LBO,
+	E1_LBO,
 	TE1_CLOCK,
 	TE1_ACTIVE_CH,
   	AFT_FE_TXTRISTATE,
-	TE_REF_CLOCK
+	TE_REF_CLOCK,
+	E1_SIG_MODE
 };
 
 #define DBG_MENU_HARDWARE_TE1_CARD_ADVANCED_OPTIONS 1
@@ -197,7 +200,7 @@ again:
   if(linkconf->fe_cfg.media == WAN_MEDIA_T1){
     number_of_items = 7;
   }else if(linkconf->fe_cfg.media == WAN_MEDIA_E1){
-    number_of_items = 6;
+    number_of_items = 7;
   }else{
     ERR_DBG_OUT(("Unknown Media Type!! te_cfg.media: 0x%X\n", linkconf->fe_cfg.media));
     return NO;
@@ -257,6 +260,18 @@ again:
     menu_str += tmp_buff;
     snprintf(tmp_buff, MAX_PATH_LENGTH, " \"LBO--------------> %s\" ", 
 		    LBO_DECODE(&linkconf->fe_cfg));
+    menu_str += tmp_buff;
+  }else{
+    snprintf(tmp_buff, MAX_PATH_LENGTH, " \"%d\" ", E1_LBO);
+    menu_str += tmp_buff;
+    snprintf(tmp_buff, MAX_PATH_LENGTH, " \"LBO--------------> %s\" ", 
+		    LBO_DECODE(&linkconf->fe_cfg));
+    menu_str += tmp_buff;
+
+    snprintf(tmp_buff, MAX_PATH_LENGTH, " \"%d\" ", E1_SIG_MODE);
+    menu_str += tmp_buff;
+    snprintf(tmp_buff, MAX_PATH_LENGTH, " \"Signalling Mode--> %s\" ", 
+	    (FE_SIG_MODE(&linkconf->fe_cfg) == WAN_TE1_SIG_CCS ? "CCS":"CAS"));
     menu_str += tmp_buff;
   }
 
@@ -349,6 +364,26 @@ again:
       {
         menu_t1_lbo t1_lbo(lxdialog_path, cfr);
         if(t1_lbo.run(selection_index) == NO){
+          rc = NO;
+          exit_dialog = YES;
+        }
+      }
+      break;
+
+    case E1_LBO:
+      {
+        menu_e1_lbo e1_lbo(lxdialog_path, cfr);
+        if(e1_lbo.run(selection_index) == NO){
+          rc = NO;
+          exit_dialog = YES;
+        }
+      }
+      break;
+
+    case E1_SIG_MODE:
+      {
+        menu_e1_signalling_mode e1_signalling_mode(lxdialog_path, cfr);
+        if(e1_signalling_mode.run(selection_index) == NO){
           rc = NO;
           exit_dialog = YES;
         }

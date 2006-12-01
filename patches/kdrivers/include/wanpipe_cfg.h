@@ -3,11 +3,11 @@
 
 
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
-# include <net/sdla_56k.h>
-# include <net/sdla_te1.h>
-# include <net/sdla_te3.h>
-# include <net/sdla_remora.h>
-# include <net/sdla_front_end.h>
+# include <sdla_56k.h>
+# include <sdla_te1.h>
+# include <sdla_te3.h>
+# include <sdla_remora.h>
+# include <sdla_front_end.h>
 #elif defined(__LINUX__)
 # include <linux/sdla_56k.h>
 # include <linux/sdla_te1.h>
@@ -71,6 +71,9 @@
 #define WANOPT_AFT104		5
 #define WANOPT_AFT300		6
 #define WANOPT_AFT_ANALOG	7
+#define WANOPT_AFT108		8
+#define WANOPT_AFT_X		9
+#define WANOPT_AFT102		10
 
 /*
  * Configuration options defines.
@@ -111,7 +114,6 @@
 #define	WANOPT_SECONDARY	0
 #define	WANOPT_PRIMARY		1
 
-
 /* connection options */
 #define	WANOPT_PERMANENT	0	/* DTR always active */
 #define	WANOPT_SWITCHED		1	/* use DTR to setup link (dial-up) */
@@ -122,10 +124,11 @@
 #define	WANOPT_FR_ANSI		1	/* ANSI T1.617 Annex D */
 #define	WANOPT_FR_Q933		2	/* ITU Q.933A */
 #define	WANOPT_FR_LMI		3	/* LMI */
-#define WANOPT_FR_NO_LMI        4
+#define	WANOPT_FR_NO_LMI	4	/* NO LMI */
 
-#define WANOPT_FR_EEK_REQUEST	1
-#define WANOPT_FR_EEK_REPLY	2
+#define WANOPT_FR_EEK_OFF	0	/* Frame Relay EEK Disabled */
+#define WANOPT_FR_EEK_REQUEST	1	/* Frame Relay EEK Request Mode */
+#define WANOPT_FR_EEK_REPLY	2	/* Frame Relay EEK Reply Mode */
 
 /* PPP IP Mode Options */
 #define	WANOPT_PPP_STATIC	0
@@ -300,7 +303,9 @@ enum {
 		(card_type == WANOPT_S51X) ? "S51X" :		\
 		(card_type == WANOPT_ADSL) ? "ADSL" :		\
 		(card_type == WANOPT_AFT)  ? "A101/2" :		\
-		(card_type == WANOPT_AFT104) ? "A104" :		\
+		(card_type == WANOPT_AFT102 ||			\
+		 card_type == WANOPT_AFT104 ||			\
+		 card_type == WANOPT_AFT108) ? "A102/2D/4/4D/8" :	\
 		(card_type == WANOPT_AFT300) ?  "A300"  :	\
 		(card_type == WANOPT_AFT_ANALOG) ?  "A200"  :	\
 					"Unknown"
@@ -511,20 +516,31 @@ typedef struct wan_x25_conf
  */
 typedef struct wan_fr_conf
 {
-	unsigned signalling;	/* local in-channel signalling type */
-	unsigned t391;		/* link integrity verification timer */
-	unsigned t392;		/* polling verification timer */
-	unsigned n391;		/* full status polling cycle counter */
-	unsigned n392;		/* error threshold counter */
-	unsigned n393;		/* monitored events counter */
-	unsigned dlci_num;	/* number of DLCs (access node) */
-	unsigned dlci[100];     /* List of all DLCIs */
+	unsigned int signalling;	/* local in-channel signalling type */
+	unsigned int t391;		/* link integrity verification timer */
+	unsigned int t392;		/* polling verification timer */
+	unsigned int n391;		/* full status polling cycle counter */
+	unsigned int n392;		/* error threshold counter */
+	unsigned int n393;		/* monitored events counter */
+	unsigned int dlci_num;		/* number of DLCs (access node) */
+	unsigned int dlci[100];     	/* List of all DLCIs */
 	unsigned char issue_fs_on_startup;
-	unsigned char station;  /* Node or CPE */
-	unsigned int eek_cfg; 	/* Cisco End-to-End Keepalive: REQUEST/REPY */
-	unsigned int eek_timer; /* EEK Timer */
+	unsigned char station;  	/* Node or CPE */
+	unsigned int eek_cfg;		/* EEK Request Reply Mode */
+	unsigned int eek_timer;		/* EEK Request Reply Timer */
 } wan_fr_conf_t;
 
+/* used by wanpipemon to get DLCI status */
+#define DLCI_NAME_LEN	20
+typedef struct wan_lip_fr_dlci
+{
+	unsigned short 	dlci;
+	unsigned int	dlci_type;
+	unsigned char	dlci_state;
+	unsigned char	name[20];
+	unsigned int	down;
+	unsigned char 	type;
+}wan_fr_dlci_t;
 
 typedef struct wan_xilinx_conf
 {
@@ -535,8 +551,8 @@ typedef struct wan_xilinx_conf
 	unsigned int   tdmv_span_no;
 	unsigned int   tdmv_dchan;	/* hwHDLC: PRI SIG */
 	unsigned int   rx_crc_bytes;
-	unsigned char  tdmv_hwec;	/* Congiure HW EC */
-	unsigned char  tdmv_hwec_map[50];	/* Enable/Disable HW EC */
+	unsigned int   ec_clk_src;	/* Octasic Clock Source Port */
+/*	unsigned char  tdmv_hwec;*/	/* Congiure HW EC */
 }wan_xilinx_conf_t;
 
 
@@ -553,6 +569,10 @@ typedef struct wan_xilinx_conf_if
 	unsigned char 	ss7_mode;
 	unsigned char	ss7_lssu_size;
 	unsigned char	tdmv_master_if;
+	unsigned char   tdmv_hwec;	/* Enable/Disable HW EC */
+	unsigned char   rbs_cas_idle;	/* Initial RBS/CAS value */
+	unsigned char   dtmf_hw;	/* Enable/Disable HW DTMF */
+/*	unsigned char   tdmv_hwec_map[50];*/	/* Enable/Disable HW EC */
 }wan_xilinx_conf_if_t;
 
 
@@ -722,6 +742,7 @@ typedef struct lapb_parms_struct {
 	unsigned char real_addr[WAN_ADDRESS_SZ+1];
 }wan_lapb_if_conf_t;
 
+/* used by both PPP and CHDLC in LIP layer */
 typedef struct sppp_parms_struct {
 
 	unsigned char dynamic_ip;/* Static/Host/Peer (the same as ip_mode) */
@@ -729,7 +750,7 @@ typedef struct sppp_parms_struct {
 	unsigned int  remote_ip;
 	
 	unsigned int  pp_auth_timer;
- 	unsigned int  sppp_keepalive_timer;
+ 	unsigned int  sppp_keepalive_timer;/* if 0, ignore keepalive for link status */
 	unsigned int  pp_timer;
 
 	unsigned char pap;
@@ -741,7 +762,9 @@ typedef struct sppp_parms_struct {
 	
 	unsigned int  gateway;
 	unsigned char ppp_prot;
-	unsigned int keepalive_err_margin; 
+
+	/* CHDLC */
+	unsigned int keepalive_err_margin;
 }wan_sppp_if_conf_t;
 
 
@@ -960,6 +983,7 @@ typedef struct wandev_conf
 #define WANCONFIG_LIP_ATM	131	/* ATM in LIP layer */
 #define WANCONFIG_AFT_ANALOG	132	/* AFT Analog Driver */
 #define WANCONFIG_ZAP		133	/* Used in wanpipemon when working with Zaptel driver */
+#define WANCONFIG_LAPD    	134	/* LIP LAPD Q921 Protocol Support */
 
 /*FIXME: This should be taken out, I just
 //used it so I don't break the apps that are
@@ -993,6 +1017,7 @@ typedef struct wandev_conf
 	(protocol ==  WANCONFIG_MLINK_PPP) ? "Multi-Link PPP": \
 	(protocol ==  WANCONFIG_GENERIC)   ? "WANPIPE Generic driver": \
 	(protocol ==  WANCONFIG_MPCHDLC)   ? "CHDLC": \
+	(protocol ==  WANCONFIG_ZAP)   	   ? "ZAP": \
 	(protocol ==  WANCONFIG_TTY)	   ? "TTY": "Unknown Protocol"
 
 
@@ -1100,7 +1125,7 @@ typedef struct wanif_conf
 
 	unsigned char lip_prot;
 	union {
-		wan_atm_conf_if_t 	atm;		/* per interface configuration */
+		wan_atm_conf_if_t 	atm;  /* per interface configuration */
 		wan_x25_if_conf_t 	x25;
 		wan_lapb_if_conf_t 	lapb;
 		wan_dsp_if_conf_t 	dsp;
@@ -1181,6 +1206,9 @@ typedef struct wplip_prot_reg
 			     unsigned int,
 			     unsigned int);
 	int (*kick_task)     (void *);
+#if 0
+	int (*set_hw_idle_frame) (void *, unsigned char *, int);
+#endif
 	int mtu;
 }wplip_prot_reg_t;
 
@@ -1192,7 +1220,8 @@ enum {
 	WPLIP_FR_ARP,
 	WPLIP_PPP,
 	WPLIP_FR,
-	WPLIP_ETH
+	WPLIP_ETH,
+	WPLIP_LAPD
 };
 
 #endif

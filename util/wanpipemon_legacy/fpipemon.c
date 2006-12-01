@@ -62,10 +62,10 @@
 # include <netinet/in.h>
 # include <netinet/ip.h>
 # include <netinet/udp.h>
-# include <net/wanpipe_defines.h>
-# include <net/wanpipe_cfg.h>
-# include <net/wanpipe.h>
-# include <net/sdla_fr.h>     
+# include <wanpipe_defines.h>
+# include <wanpipe_cfg.h>
+# include <wanpipe.h>
+# include <sdla_fr.h>     
 #endif
 #include "fe_lib.h"
 #include "wanpipemon.h"

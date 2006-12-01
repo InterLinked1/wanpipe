@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="80"
+   name=""
+   committed-date="2006-05-23T17:09:47.585376Z"
+   url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk/conf"
+   last-author="ncorbic"
+   kind="dir"
+   uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
+   revision="117"/>
+<entry
+   committed-rev="80"
+   name="woomera_ext.conf"
+   text-time="2006-07-28T16:03:15.000000Z"
+   committed-date="2006-05-23T17:09:47.585376Z"
+   checksum="30ed2d8ecd7f1af84bc9726495077dd8"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"/>
+<entry
+   committed-rev="80"
+   name="woomera_iax.conf"
+   text-time="2006-07-28T16:03:15.000000Z"
+   committed-date="2006-05-23T17:09:47.585376Z"
+   checksum="ce5b74a26fe35e1c890456ee913c2837"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2006-07-28T16:03:15.000000Z"/>
+</wc-entries>
