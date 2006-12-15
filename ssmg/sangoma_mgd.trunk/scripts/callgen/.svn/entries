@@ -9,7 +9,7 @@
    last-author="ncorbic"
    kind="dir"
    uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
-   revision="148"/>
+   revision="162"/>
 <entry
    committed-rev="93"
    name="sample.call.template"
@@ -17,17 +17,16 @@
    committed-date="2006-07-28T16:16:36.219606Z"
    checksum="ca4fa1b8a9d0f74e95770edcce98b1bc"
    last-author="ncorbic"
-   kind="file"
-   revision="117"/>
+   kind="file"/>
 <entry
    committed-rev="148"
    name="channel-testL.pl"
-   text-time="2006-11-28T19:22:47.000000Z"
+   text-time="2006-11-28T18:23:09.000000Z"
    committed-date="2006-11-28T19:26:43.047920Z"
    checksum="5dbf3c8b9480d257f7c04e2cb943c2f1"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-11-28T19:22:47.000000Z"/>
+   prop-time="2006-07-28T16:12:04.000000Z"/>
 <entry
    committed-rev="92"
    name="run.sh"
@@ -36,8 +35,7 @@
    checksum="b7726255f02a83aa5e04d0c08332c2e9"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-07-28T16:12:04.000000Z"
-   revision="117"/>
+   prop-time="2006-07-28T16:12:04.000000Z"/>
 <entry
    committed-rev="93"
    name="clog.sh"
@@ -46,6 +44,5 @@
    checksum="a94061bf84e9f89de0842eb1249d0975"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-07-28T16:16:22.000000Z"
-   revision="117"/>
+   prop-time="2006-07-28T16:16:22.000000Z"/>
 </wc-entries>

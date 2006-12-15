@@ -1,16 +1,18 @@
 %define WANPIPE_VER	  wanpipe-modules
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           2
+%define release           3
 %define	serial	 	  1
 %define MODULES_DIR	  /lib/modules
+
+%define KVERSION          %{?kern_ver}
  
 
 Summary: 	Sangoma WANPIPE package for Linux. It contains the WANPIPE kernel drivers.  Please install wanpipe-util package for wanpipe utilties and configuration files.
 Name: 		%{name}-%{?kern_ver}
 Version: 	%{version}
 Release: 	%{release}
-Copyright: 	GPL
+License: 	GPL
 Group: 		Applications/Communications
 Vendor:		Sangoma Technologies Inc.
 Url:		www.sangoma.com
@@ -38,20 +40,8 @@ echo "Uninstalling WANPIPE..."
 %post
 
 #check dependancies for the new modules
-depmod -a >> /dev/null 2>> /dev/null
-
-modprobe wanrouter
-if [ $? -eq 0 ]; then
-	echo "Wanpipe kernel modules installed successfully"
-	modprobe -r wanrouter 2>> /dev/null
-else
-	echo "Failed to load Wanpipe modules!"
-	echo
-	echo "Make sure you are installing correct RPMS for you system!"
-	echo
-	echo "Otherwise call Sangoma Tech Support"
-fi
-
+depmod -ae -F /boot/System.map-%{KVERSION} %{KVERSION}
+echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"   
 
 %files
 %{MODULES_DIR}

@@ -8,7 +8,7 @@ all: priserver
 everything:  priserver
 
 priserver: priserver.o 
-	$(CC) $(CCFLAGS) $(INCLUDES) $(CFLAGS) -o priserver priserver.o -L. -lpri -lsangoma 
+	$(CC) $(CCFLAGS) $(INCLUDES) $(CFLAGS) -o priserver priserver.o -L. -lpri -lsangoma -lm
 
 priserver.o: priserver.c
 	$(CC) $(CCFLAGS) $(INCLUDES) $(CFLAGS) -c -o priserver.o priserver.c

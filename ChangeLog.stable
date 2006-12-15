@@ -7,6 +7,40 @@ Author: Nenad Corbic <ncorbic@sangoma.com>
 Copyright (c) 1995-2006 Sangoma Technologies Inc.
 ------------------------------------------------------------------------------
 
+* Tue Dec 12 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-3
+====================================================================
+
+- Bug fix on A301 T3/E3 Drivers
+  The T3/E3 card/drivers could get stuck in connected or disconnected
+  state after which no state changes are reported. Used to happend
+  on noisy lines.
+
+- Bug Fix in A101/2 Drivers
+  Mishandling of skb buffers on rx stream could cause
+  unpredicable behaviour on some systems. 
+  This has now been fixed.
+
+- Updated A101/2/4/8 A301 Drivers
+  Changed the memory allocation scheme in non interrupt context to
+  use KERNEL instead of ATOMIC. The symptopns were on low 
+  memory system wanrouter start could fail due to memory 
+  allocation error when starting up large number of devices.
+
+- TDM API polling bug fix
+  By default TDM API application uses rx and tx streams.
+  However in tx only mode, the select would fail to wakeup.
+
+- A200 A400 Driver Bug Fix
+  If A200/A400 card are started with NO FXO/FXS modules
+  a kernel error is possible on some systems.   
+
+- Update to TDM API sample Makefiles
+  added -lm library to compilation 
+
+- Updated SMG Drivers
+  Sangoma SMG 1.7 Chan Woomera 1.6
+
+
 * Wed Nov 30 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-2
 ====================================================================
 

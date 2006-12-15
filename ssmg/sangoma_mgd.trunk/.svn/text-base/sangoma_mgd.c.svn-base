@@ -11,7 +11,7 @@
  * v1.7 Nenad Corbic <ncorbic@sangoma.com>
  *      Pass trunk group number to incoming call
  *      chan woomera will use it to append to context
- *      name.
+ *      name. Added presentation feature.
  *
  * v1.6	Nenad Corbic <ncorbic@sangoma.com>
  *      Use only ALAW and MLAW not SLIN.
@@ -992,6 +992,7 @@ static int wanpipe_send_dtmf(struct woomera_interface *woomera, char *digits)
 	}
 
 	ms->skip_read_frames = 200;
+	return 0;
 }
 #endif
 
@@ -1303,7 +1304,7 @@ static int woomera_dtmf_transmit(struct media_session *ms, int mtu)
 			}
 		}
 		
-		log_printf(0,woomera->log,"%s: Write DMTF Got %d bytes MTU=%i Coding=%i\n",
+		log_printf(3,woomera->log,"%s: Write DMTF Got %d bytes MTU=%i Coding=%i\n",
 				woomera->interface,bread,mtu,ms->hw_coding);
 		
 		data=(short*)dtmf;
@@ -1330,7 +1331,7 @@ static int woomera_dtmf_transmit(struct media_session *ms, int mtu)
 			}
 		}
 		
-		log_printf(0,woomera->log,"%s: Write DMTF Got %d bytes\n",
+		log_printf(3,woomera->log,"%s: Write DMTF Got %d bytes\n",
 				woomera->interface,bread);
 
 		sangoma_sendmsg_socket(ms->sangoma_sock,
@@ -1509,7 +1510,7 @@ static void *media_thread_run(void *obj)
 		       !woomera_test_flag(woomera, WFLAG_HANGUP) && 
 		       (res = waitfor_socket(ms->udp_sock, 1000, POLLERR | POLLIN)) >= 0) {
 
-			int fromlen = sizeof(struct sockaddr_in);
+			unsigned int fromlen = sizeof(struct sockaddr_in);
 		
 
 			if (res == 0) {
@@ -2429,6 +2430,7 @@ static void interpret_command(struct woomera_interface *woomera, struct woomera_
 		char *raw = woomera_message_header(wmsg, "raw-audio");
 		call_signal_event_t event;
 		char *calling = woomera_message_header(wmsg, "local-number");
+		char *presentation = woomera_message_header(wmsg, "Presentation");
 		char *called = wmsg->callid;
 		char *grp = wmsg->callid;
 		char *p;
@@ -2463,9 +2465,16 @@ static void interpret_command(struct woomera_interface *woomera, struct woomera_
 			} else {
 				socket_printf(woomera->socket, "100 Trying%s", WOOMERA_RECORD_SEPERATOR);
 
-					  
 				call_signal_call_init(&event, calling, called, woomera->index);
+
+				if (presentation) {
+					event.calling_number_presentation = atoi(presentation);
+				} else {
+					event.calling_number_presentation = 0;
+				}
+
 				event.trunk_group = tg;
+
 				if (call_signal_connection_write(&server.mcon, &event) <= 0) {
 					log_printf(0, server.log, 
 					"Critical System Error: Failed to tx on ISUP socket [%s]: %s\n", 
@@ -2973,8 +2982,9 @@ static void handle_call_start(call_signal_event_t *event)
 							 "Protocol: SS7%s"
 							 "User-Agent: sangoma_mgd%s"
 							 "Local-Number: %s%s"
-							 "Channel-Name: Sangoma-w%dg%d%s"
+							 "Channel-Name: SMG-tg%d-w%dg%d%s"
 							 "Trunk-Group: %d%s"
+							 "Presentation: %d%s"
 							 ,
 							 event->span+1,
 							 event->chan+1,
@@ -2987,12 +2997,16 @@ static void handle_call_start(call_signal_event_t *event)
 							 WOOMERA_LINE_SEPERATOR,
 							 event->called_number_digits,
 							 WOOMERA_LINE_SEPERATOR,
+							 event->trunk_group+1,
 							 event->span+1,
 							 event->chan+1,
 							 WOOMERA_LINE_SEPERATOR,
 							 event->trunk_group+1,
+							 WOOMERA_LINE_SEPERATOR,
+							 event->calling_number_presentation,
 							 WOOMERA_RECORD_SEPERATOR
 						 );
+
     	if (enqueue_event_on_listeners(&wevent)) {
 		enqueue_event(&server.master_connection, &wevent, EVENT_KEEP_DATA);
    	} else {
@@ -3151,9 +3165,9 @@ static void handle_call_start_nack_ack(call_signal_event_t *event)
 	return;
 }
 
-static void validate_number(char *s)
+static void validate_number(unsigned char *s)
 {
-	char *p;
+	unsigned char *p;
 	for (p = s; *p; p++) {
 		if (*p < 48 || *p > 57) {
 			log_printf(2, server.log, "Encountered a non-numeric character [%c]!\n", *p);
@@ -3167,8 +3181,8 @@ static int parse_ss7_event(call_signal_event_t *event)
 {
     	int ret = 0;
 	
-	validate_number(event->called_number_digits);
-	validate_number(event->calling_number_digits);
+	validate_number((unsigned char*)event->called_number_digits);
+	validate_number((unsigned char*)event->calling_number_digits);
 
 	log_printf(2, server.log,
                            "\nRX EVENT\n"
@@ -3779,7 +3793,7 @@ static int main_thread(void)
     struct sockaddr_in sock_addr, client_addr;
     struct woomera_interface *new_woomera;
     int client_sock = -1, pid = 0;
-    int len = 0;
+    unsigned int len = 0;
     FILE *tmp;
 
     if ((server.master_connection.socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -4090,9 +4104,9 @@ int main(int argc, char *argv[])
     server.hw_coding=0;
     
 #ifdef LIBSANGOMA_GET_HWCODING
-    fd=sangoma_open_tdmapi_span_chan(1,1);
+    fd=sangoma_open_tdmapi_span(1);
     if (fd < 0 ){
-	printf("Error: Failed to access span 1 chan 1\n");
+	printf("Error: Failed to access a channel on span 1\n");
 	return -1;
     } else {
     	server.hw_coding=sangoma_tdm_get_hw_coding(fd,&tdm_api);		

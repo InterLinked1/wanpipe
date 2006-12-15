@@ -91,13 +91,14 @@ int call_signal_connection_open(call_signal_connection_t *mcon, char *local_ip, 
 
 call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon)
 {
-	int fromlen = sizeof(struct sockaddr_in);
+	unsigned int fromlen = sizeof(struct sockaddr_in);
 	int bytes = 0;
 
 	bytes = recvfrom(mcon->socket, &mcon->event, sizeof(mcon->event), MSG_DONTWAIT, 
 			(struct sockaddr *) &mcon->local_addr, &fromlen);
 
-	if (bytes == sizeof(mcon->event)) {
+	if (bytes == sizeof(mcon->event) || 
+            bytes == (sizeof(mcon->event)-sizeof(uint32_t))) {
 		if (rxseq != mcon->event.seqno) {
 		clog_printf(0, mcon->log, 
 			"------------------------------------------\n");
@@ -108,9 +109,11 @@ call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon)
 			"------------------------------------------\n");
 		}
 		rxseq++;
+
+		return &mcon->event;
 	}
 
-	return (bytes == sizeof(mcon->event)) ? &mcon->event : NULL;
+	return NULL;
 }
 
 int call_signal_connection_write(call_signal_connection_t *mcon, call_signal_event_t *event)
@@ -182,12 +185,12 @@ void call_signal_call_init(call_signal_event_t *event, char *calling, char *call
 	event->event_id = SIGBOOST_EVENT_CALL_START;
 
 	if (calling) {
-		strncpy(event->calling_number_digits, calling, sizeof(event->calling_number_digits)-1);
+		strncpy((char*)event->calling_number_digits, calling, sizeof(event->calling_number_digits)-1);
 		event->calling_number_digits_count = strlen(calling);
 	}
 
 	if (called) {
-		strncpy(event->called_number_digits, called, sizeof(event->called_number_digits)-1);
+		strncpy((char*)event->called_number_digits, called, sizeof(event->called_number_digits)-1);
 		event->called_number_digits_count = strlen(called);
 	}
 		

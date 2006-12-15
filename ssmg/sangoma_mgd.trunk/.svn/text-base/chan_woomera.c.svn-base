@@ -15,7 +15,8 @@
  * v1.6 Nenad Corbic <ncorbic@sangoma.com>
  *      Added incoming trunk group context 
  *      The trunk number will be added to the
- *      profile context name.
+ *      profile context name. 
+ *      Added presentation feature.
  *
  * v1.5	Nenad Corbic <ncorbic@sangoma.com>
  *      Use only ALAW and MLAW not SLIN.
@@ -252,6 +253,7 @@ struct private_object {
 	char dtmfbuf[WOOMERA_STRLEN];
 	char cid_name[WOOMERA_STRLEN];
 	char cid_num[WOOMERA_STRLEN];
+	int  cid_pres;
 	char ds[WOOMERA_STRLEN];
 	struct ast_dsp *dsp;  
 	int ast_dsp;
@@ -947,7 +949,10 @@ retry_activate_again:
 
 		  struct ast_channel *owner = tech_get_owner(tech_pvt);
 		  if (owner) {
-
+#if 0
+/* This code can break cid passing because
+   askterisk looses cid info after tech_call 
+   Only read this info in tech_call */
 		  	if (owner->cid.cid_name) {
 		    		strncpy(tech_pvt->cid_name, owner->cid.cid_name, 
 					sizeof(tech_pvt->cid_name)-1);
@@ -957,12 +962,15 @@ retry_activate_again:
 		    		strncpy(tech_pvt->cid_num, owner->cid.cid_num,
 			 		sizeof(tech_pvt->cid_num)-1);
 		  	}
+
+			tech_pvt->cid_pres = owner->cid.cid_pres;
+#endif
 		 }
 
 		  
 		  woomera_printf(tech_pvt->profile,
 				 tech_pvt->command_channel, 
-				 "CALL %s%sRaw-Audio: %s/%d%sLocal-Name: %s!%s%sLocal-Number:%s%s", 
+				 "CALL %s%sRaw-Audio: %s/%d%sLocal-Name: %s!%s%sLocal-Number:%s%sPresentation:%d%s", 
 				 tech_pvt->dest, 
 				 WOOMERA_LINE_SEPARATOR,
 				 tech_pvt->profile->audio_ip,
@@ -972,6 +980,8 @@ retry_activate_again:
 				 tech_pvt->cid_num,
 				 WOOMERA_LINE_SEPARATOR,
 				 tech_pvt->cid_num,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_pres,
 				 WOOMERA_RECORD_SEPARATOR
 				 );
 
@@ -1508,7 +1518,10 @@ static void *tech_monitor_thread(void *obj)
 			char *cid_name;
 			char *cid_num;
 			char *tg_string="1";
+			char *pres_string;
 			int validext;
+			int presentation=0;
+
 			ast_clear_flag(tech_pvt, TFLAG_PARSE_INCOMING);
 			ast_set_flag(tech_pvt, TFLAG_INCOMING);
 			wmsg = tech_pvt->call_info;
@@ -1539,6 +1552,13 @@ static void *tech_monitor_thread(void *obj)
 				tg_string="1";	
 			}
 
+			pres_string = woomera_message_header(&wmsg, "Presentation");
+			if (!pres_string || ast_strlen_zero(pres_string)) {
+				presentation=0;
+			} else {
+				presentation = atoi(pres_string);
+			}
+
 			cid_name = ast_strdupa(woomera_message_header(&wmsg, "Remote-Name"));
 
 			if ((cid_num = strchr(cid_name, '!'))) {
@@ -1560,6 +1580,7 @@ static void *tech_monitor_thread(void *obj)
 					
 				strncpy(owner->exten, exten, sizeof(owner->exten) - 1);
 				ast_set_callerid(owner, cid_num, cid_name, cid_num);
+				owner->cid.cid_pres=presentation;
 
 				validext = ast_exists_extension(owner,
 							owner->context,
@@ -1568,10 +1589,11 @@ static void *tech_monitor_thread(void *obj)
 							owner->cid.cid_num);
 							
 				if (globals.debug > 3){			
-				ast_log(LOG_NOTICE, "Incoming Call exten %s@%s called %s!\n", 
+				ast_log(LOG_NOTICE, "Incoming Call exten %s@%s called %s pres = %d!\n", 
 							exten, 
 							owner->context,
-							tech_pvt->callid);
+							tech_pvt->callid,
+							presentation);
 				}
 			
 			} else {
@@ -2331,7 +2353,7 @@ static void woomera_config_gain(woomera_profile *profile, float gain_val, int rx
 	int k;
 	float linear_gain = pow(10.0, gain_val / 20.0);
 	unsigned char *gain;
-		
+	
 	if (gain_val == 0) {
 		goto woomera_config_gain_skip;
 	}
@@ -2418,7 +2440,7 @@ static int config_woomera(void)
 
 	memset(&default_profile, 0, sizeof(default_profile));
 	
-	default_profile.coding=AST_FORMAT_SLINEAR;
+	default_profile.coding=0;
 	
 	if ((cfg = ast_config_load(configfile))) {
 		for (entry = ast_category_browse(cfg, NULL); entry != NULL; entry = ast_category_browse(cfg, entry)) {
@@ -2495,13 +2517,21 @@ static int config_woomera(void)
                                                 profile->jb_enable = atoi(v->value);
 					} else if (!strcmp(v->name, "progress_enable")) {
                                                 profile->progress_enable = atoi(v->value);
-					} else if (!strcmp(v->name, "rxgain")) {
+						
+					} else if (!strcmp(v->name, "coding")) {
+						if (strcmp(v->value, "alaw") == 0) {
+							profile->coding=AST_FORMAT_ALAW;
+						}	
+						if (strcmp(v->value, "ulaw") == 0) {
+							profile->coding=AST_FORMAT_ULAW;
+						}	
+					} else if (!strcmp(v->name, "rxgain") && profile->coding) {
                                                 if (sscanf(v->value, "%f", &gain) != 1) {
 							ast_log(LOG_WARNING, "Invalid rxgain: %s\n", v->value);
 						} else {
 							woomera_config_gain(profile,gain,1);
 						}	
-					} else if (!strcmp(v->name, "txgain")) {
+					} else if (!strcmp(v->name, "txgain") && profile->coding) {
 						 if (sscanf(v->value, "%f", &gain) != 1) {
 							ast_log(LOG_WARNING, "Invalid txgain: %s\n", v->value);
 						} else {
@@ -2946,6 +2976,8 @@ static int tech_call(struct ast_channel *self, char *dest, int timeout)
 	if (self->cid.cid_num) {
 		strncpy(tech_pvt->cid_num, self->cid.cid_num, sizeof(tech_pvt->cid_num)-1);
 	}
+	tech_pvt->cid_pres = self->cid.cid_pres;
+
 	if ((workspace = ast_strdupa(dest))) {
 		char *addr, *profile_name, *proto;
 		woomera_profile *profile;

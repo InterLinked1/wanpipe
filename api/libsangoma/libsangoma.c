@@ -144,8 +144,9 @@ int sangoma_open_tdmapi_span(int span)
 		sprintf(fname,"/dev/wptdm_s%dc%d",span,i);
 		fd = open(fname, O_RDWR);
 		if (fd < 0){
-         	continue;
+         		continue;
 		}
+		break;
 	}
 	
     return fd;  

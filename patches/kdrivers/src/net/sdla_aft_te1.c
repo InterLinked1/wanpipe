@@ -394,7 +394,7 @@ static int 	protocol_stop (sdla_t *card, netdevice_t *dev);
 static int 	protocol_shutdown (sdla_t *card, netdevice_t *dev);
 static void 	protocol_recv(sdla_t *card, private_area_t *chan, netskb_t *skb);
 
-static int 	aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num);
+static int 	aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num, int irq);
 static int 	aft_init_requeue_free_skb(private_area_t *chan, netskb_t *skb);
 
 
@@ -1401,7 +1401,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 	 * Allocate and initialize private data 
 	 * =====================================*/
 	
-	chan = wan_malloc(sizeof(private_area_t));
+	chan = wan_kmalloc(sizeof(private_area_t));
 	if(chan == NULL){
 		WAN_MEM_ASSERT(card->devname);
 		return -ENOMEM;
@@ -1829,7 +1829,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 
           
 	
-	err=aft_alloc_rx_dma_buff(card, chan, dma_per_ch);
+	err=aft_alloc_rx_dma_buff(card, chan, dma_per_ch,0);
 	if (err){
 		goto new_if_error;
 	}
@@ -1985,6 +1985,7 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 	}
 #endif                 
 
+	err=-EINVAL;
 	
 	if (strcmp(conf->usedby, "TDM_VOICE") == 0 ||
 	    strcmp(conf->usedby, "TDM_VOICE_API") == 0){
@@ -2059,7 +2060,7 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 	}
 
 	
-	if (err == 0) {
+	if (err == 0 && wan_netif_priv(dev)) {
 		wan_smp_flag_t flags;
 	
 	       /* If FRONT End is down, it means that the DMA
@@ -3972,7 +3973,7 @@ static void aft_rx_post_complete (sdla_t *card, private_area_t *chan,
 		wan_skb_pull(skb, sizeof(wp_rx_element_t));
 		*new_skb=skb;
 
-		aft_alloc_rx_dma_buff(card,chan,1);
+		aft_alloc_rx_dma_buff(card,chan,1,1);
 	}else{
 
 		/* The rx packet is very
@@ -4037,23 +4038,36 @@ static int aft_init_requeue_free_skb(private_area_t *chan, netskb_t *skb)
 	return 0;
 }
 
-static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num)
+static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num, int irq)
 {
 	int i;
 	netskb_t *skb;
 	
 	for (i=0;i<num;i++){
 		if (chan->channelized_cfg && !chan->hdlc_eng){
-#ifdef __LINUX__
-			/* On Systems greater than 4GB we must
+#if 0
+ defined(__LINUX__) && defined(CONFIG_X86_4G)
+			/* On 64bit Systems greater than 4GB we must
 			 * allocated our DMA buffers using GFP_DMA 
 			 * flag */
-      			skb=__dev_alloc_skb(chan->dma_mru,GFP_DMA);  	
+			if (irq) {
+      				skb=__dev_alloc_skb(chan->dma_mru,GFP_DMA|GFP_ATOMIC);  	
+			} else {
+                         	skb=__dev_alloc_skb(chan->dma_mru,GFP_DMA|GFP_KERNEL);
+			}
 #else
-			skb=wan_skb_alloc(chan->dma_mru);
+			if (irq) {
+				skb=wan_skb_alloc(chan->dma_mru);
+			} else {
+				skb=wan_skb_kalloc(chan->dma_mru);
+			}
 #endif	
-		}else{	
-			skb=wan_skb_alloc(chan->dma_mru);
+		} else {
+			if (irq) {
+                        	skb=wan_skb_alloc(chan->dma_mru); 
+			} else {
+			        skb=wan_skb_kalloc(chan->dma_mru); 	
+			}	
 		}
 		if (!skb){
 			DEBUG_EVENT("%s: %s  no rx memory\n",

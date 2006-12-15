@@ -18,6 +18,8 @@ if [ ! -e /usr/local/ss7box/$ss7boxd ]; then
 	exit 1
 fi
 
+eval "ulimit -n 4096"
+
 sangoma_mgd -term
 
 kill -TERM $(pidof asterisk);

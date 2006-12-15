@@ -125,11 +125,6 @@ static ssize_t wp_tdmapi_read(struct file *file, char *usrbuf, size_t count, lof
 static ssize_t wp_tdmapi_write(struct file *file, const char *usrbuf, size_t count, loff_t *ppos);
 static int wp_tdmapi_release(struct inode *inode, struct file *file);
 static int wp_tdmapi_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long data);
-#if !defined(__WINDOWS__)
-static unsigned int wp_tdmapi_poll(struct file *file, struct poll_table_struct *wait_table); 
-static
-#endif
-int wanpipe_tdm_api_ioctl(wanpipe_tdm_api_dev_t *tdm_api, struct ifreq *ifr);
 
 static void wanpipe_tdm_api_rbs_poll(wanpipe_tdm_api_dev_t *tdm_api);
 
@@ -143,6 +138,10 @@ static void wp_tdmapi_ringdetect (void* card_id, wan_event_t *event);
 #if defined(__WINDOWS__)
 static int store_tdm_api_pointer_in_card(sdla_t *card, wanpipe_tdm_api_dev_t *tdm_api);
 static int remove_tdm_api_pointer_from_card(wanpipe_tdm_api_dev_t *tdm_api);
+int wanpipe_tdm_api_ioctl(wanpipe_tdm_api_dev_t *tdm_api, struct ifreq *ifr);
+#else
+static unsigned int wp_tdmapi_poll(struct file *file, struct poll_table_struct *wait_table); 
+static int wanpipe_tdm_api_ioctl(wanpipe_tdm_api_dev_t *tdm_api, struct ifreq *ifr);                   
 #endif
  
 /*==============================================================
@@ -960,7 +959,7 @@ static unsigned int wp_tdmapi_poll(struct file *file, struct poll_table_struct *
 		
 		if (wan_skb_queue_len(&tdm_api->wp_tx_list) <= tdm_api->tx_q_len) {
 			ret |= POLLOUT | POLLWRNORM;
-		}
+		} 
 	}
 	
 	/* Rx Poll */
@@ -977,7 +976,7 @@ static unsigned int wp_tdmapi_poll(struct file *file, struct poll_table_struct *
 		/* Indicate an exception */
 		ret |= POLLPRI;
 	}
-	return(ret); 
+	return ret; 
 }
 
 #endif	/* #if defined(__WINDOWS__) */
@@ -1607,6 +1606,7 @@ static int wanpipe_tdm_api_tx (wanpipe_tdm_api_dev_t *tdm_api, u8 *tx_data, int 
 			return -ENOBUFS;
 		}
 		
+		wp_wakeup_tdmapi(tdm_api);
 		buf=wan_skb_pull(tdm_api->tx_skb,sizeof(wp_tdm_api_tx_hdr_t));
 		memcpy(&tdm_api->tx_hdr, buf, sizeof(wp_tdm_api_tx_hdr_t));
 		
@@ -1631,6 +1631,7 @@ static int wanpipe_tdm_api_tx (wanpipe_tdm_api_dev_t *tdm_api, u8 *tx_data, int 
 		wan_skb_init(tdm_api->tx_skb,16);
 		wan_skb_trim(tdm_api->tx_skb,0);
 		wan_skb_queue_tail(&tdm_api->wp_tx_free_list,tdm_api->tx_skb);
+		
 	
 		tdm_api->tx_skb=NULL;
 		tdm_api->cfg.stats.tx_packets++;

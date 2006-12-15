@@ -15,10 +15,10 @@
 SMG_DTMF=YES
 
 CC = gcc
-INCLUDES = -I/usr/src/linux/include -I. -I/usr/local/freeswitch/include
+INCLUDES = -I/usr/src/linux/include -I. -I/usr/local/include
 CFLAGS = -D__LINUX__ -D_REENTRANT -D_GNU_SOURCE -O6 -march=i686
 CCFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -g
-LDFLAGS=-L. -L/usr/local/freeswitch/lib -lpthread -lsangoma -lm 
+LDFLAGS=-L. -L/usr/local/lib -lpthread -lsangoma -lm 
 
 ifeq "${SMG_DTMF}" "YES"
 LDFLAGS+= -lteletone

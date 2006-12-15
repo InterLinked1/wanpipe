@@ -1,7 +1,7 @@
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           2
+%define release           3
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define PROD_HOME  	  /etc/wanpipe
@@ -217,7 +217,8 @@ EOM
 install_init;
 #create wanrouter.rc in /etc/wanpipe
 #create_metaconf;
-\cp -f %{PROD_HOME}/samples/trixbox/setup-sangoma.pl /usr/local/sbin/setup-sangoma
+\cp -f %{PROD_HOME}/samples/trixbox/setup-sangoma /usr/local/sbin/setup-sangoma
+
 
 
 %files

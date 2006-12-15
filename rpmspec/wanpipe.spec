@@ -2,7 +2,7 @@
 %define WANPIPE_VER	  wanpipe
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           2
+%define release           3
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define PROD_HOME  	  /etc/wanpipe
@@ -24,6 +24,8 @@
 %define WANROUTER_STARTUP         /usr/sbin/wanrouter
 %define NEW_IF_TYPE               NO
 %define PROD_INIT                 /usr/sbin/
+
+%define KVERSION          %{?kern_ver}
  
 
 Summary: 	Sangoma WANPIPE package for Linux. It contains the WANPIPE kernel drivers and configuration/startup/debugging utilities for Linux.
@@ -218,18 +220,9 @@ cat <<EOM
 
 EOM
 #check dependancies for the new modules
-depmod -a >> /dev/null 2>> /dev/null
-echo
-modprobe wanrouter
-if [ $? -eq 0 ]; then
-	modprobe -r wanrouter 2>> /dev/null
-else
-	echo "Failed to load wanpipe modules!"
-	echo
-	echo "Make sure you are installing correct RPMS for you system!"
-	echo
-	echo "Otherwise call Sangoma Tech Support"
-fi
+
+depmod -ae -F /boot/System.map-%{KVERSION} %{KVERSION}
+echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"   
 
 #install start-on-boot scripts
 install_init;

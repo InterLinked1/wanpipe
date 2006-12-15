@@ -193,6 +193,10 @@
 
 
 
+
+
+
+
 # wanrouter	WANPIPE WAN Router Initialization Script.
 #
 # copyright	(c) 1999-2002, Sangoma Technologies Inc.
@@ -2027,7 +2031,7 @@ WANPIPE_IS_RUNNING=/var/run/wanpipe_is_running
 RUGGEDCOM=No
 
 if [ $OSYSTEM = "Linux" ]; then
-	ROUTER_VERSION=2.3.4-2
+	ROUTER_VERSION=2.3.4-3
 	IFCONFIG_LIST=ifconfig
 	MODULE_STAT=lsmod
 	WAN_DRIVERS="wanpipe"

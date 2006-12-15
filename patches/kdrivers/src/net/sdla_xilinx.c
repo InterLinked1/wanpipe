@@ -347,7 +347,7 @@ static int 	protocol_start (sdla_t *card, netdevice_t *dev);
 static int 	protocol_shutdown (sdla_t *card, netdevice_t *dev);
 static void 	protocol_recv(sdla_t *card, private_area_t *chan, netskb_t *skb);
 
-static int 	aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num);
+static int 	aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num, int irq);
 static int 	aft_init_requeue_free_skb(private_area_t *chan, netskb_t *skb);
 #if 0
 static int 	aft_reinit_pending_rx_bufs(private_area_t *chan);
@@ -951,7 +951,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 	}
 
 	/* allocate and initialize private data */
-	chan = wan_malloc(sizeof(private_area_t));
+	chan = wan_kmalloc(sizeof(private_area_t));
 	if(chan == NULL){
 		WAN_MEM_ASSERT(card->devname);
 		return -ENOMEM;
@@ -1362,7 +1362,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 
 	
 
-	err=aft_alloc_rx_dma_buff(card, chan, card->u.aft.cfg.dma_per_ch);
+	err=aft_alloc_rx_dma_buff(card, chan, card->u.aft.cfg.dma_per_ch,0);
 	if (err){
 		goto new_if_error;
 	}
@@ -3278,7 +3278,7 @@ static int xilinx_dma_rx(sdla_t *card, private_area_t *chan)
 		}
 	}
 
-	wan_skb_put(chan->rx_dma_skb, sizeof(wp_rx_element_t));
+	wan_skb_push(chan->rx_dma_skb, sizeof(wp_rx_element_t));
 	rx_el = (wp_rx_element_t *)wan_skb_data(chan->rx_dma_skb);
 	memset(rx_el,0,sizeof(wp_rx_element_t));
 	
@@ -4111,7 +4111,7 @@ static void xilinx_rx_post_complete (sdla_t *card, private_area_t *chan,
 		wan_skb_pull(skb, sizeof(wp_rx_element_t));
 		*new_skb=skb;
 		
-		aft_alloc_rx_dma_buff(card,chan,1);
+		aft_alloc_rx_dma_buff(card,chan,1,1);
 
 	}else{
 
@@ -4273,13 +4273,18 @@ static int aft_reinit_pending_rx_bufs(private_area_t *chan)
 }
 #endif
 
-static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num)
+
+static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num, int irq)
 {
 	int i;
 	netskb_t *skb;
 	
 	for (i=0;i<num;i++){
-		skb=wan_skb_alloc(chan->dma_mru);
+		if (irq) {
+			skb=wan_skb_alloc(chan->dma_mru);
+		} else {
+                        skb=wan_skb_kalloc(chan->dma_mru);
+		}	
 		if (!skb){
 			DEBUG_EVENT("%s: %s  no memory\n",
 					chan->if_name,__FUNCTION__);
@@ -4289,9 +4294,7 @@ static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num)
 	}
 
 	return 0;
-}
-
-
+}                
 
 
 /*============================================================================

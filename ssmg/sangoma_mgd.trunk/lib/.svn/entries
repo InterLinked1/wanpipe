@@ -2,9 +2,11 @@
 <wc-entries
    xmlns="svn:">
 <entry
+   committed-rev="118"
    name=""
+   committed-date="2006-11-06T21:37:44.054312Z"
    url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk/lib"
+   last-author="ncorbic"
    kind="dir"
-   schedule="add"
-   revision="0"/>
+   revision="162"/>
 </wc-entries>

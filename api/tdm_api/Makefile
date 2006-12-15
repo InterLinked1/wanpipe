@@ -29,13 +29,13 @@ all:	$(TARGETS)
 	@echo "Ok."
 
 aft_tdm_voice_api: aft_tdm_voice_api.c ../lib/lib_api.c 
-	$(CC) $(CFLAGS) -o $@ $^ -lsangoma
+	$(CC) $(CFLAGS) -o $@ $^ -lsangoma -lm
 
 aft_tdm_voice_api_rbs: aft_tdm_voice_api_rbs.c ../lib/lib_api.c 
-	$(CC) $(CFLAGS) -o $@ $^ -lsangoma
+	$(CC) $(CFLAGS) -o $@ $^ -lsangoma -lm
 
 aft_tdm_hdlc_test:	aft_tdm_hdlc_test.c ../lib/hdlc/wanpipe_hdlc.c
-	$(CC) $(CFLAGS) -o $@ $^ -lsangoma   
+	$(CC) $(CFLAGS) -o $@ $^ -lsangoma -lm  
 
 clean:
 	rm -f $(TARGETS)

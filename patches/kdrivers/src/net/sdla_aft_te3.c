@@ -2331,24 +2331,17 @@ static void xilinx_rx_post_complete (sdla_t *card, private_area_t *chan,
 		}
 	}
 
-//	wan_skb_pull(skb, sizeof(wp_rx_element_t));
+	wan_skb_pull(skb, sizeof(wp_rx_element_t));
 	
-	
-	if (len > aft_rx_copyback){
+	if (len > aft_rx_copyback) {
 		/* The rx size is big enough, thus
 		 * send this buffer up the stack
 		 * and allocate another one */
-#if 0	
-		memset(&skb->cb[0],0,sizeof(wp_rx_element_t));
-#endif
-
-		memset(wan_skb_data(skb),0,sizeof(wp_rx_element_t));
 		wan_skb_put(skb,len);	
-		wan_skb_pull(skb, sizeof(wp_rx_element_t));
 		*new_skb=skb;
 
 		aft_alloc_rx_dma_buff(card,chan,1);
-	}else{
+	} else {
 
 		/* The rx packet is very
 		 * small thus, allocate a new 
@@ -5267,13 +5260,7 @@ static void aft_rx_dma_chain_handler(private_area_t *chan, int wtd, int reset)
 	card->hw_iface.bus_read_4(card->hw,AFT_TE3_CRNT_DMA_DESC_ADDR_REG,&reg);
 	cur_dma_ptr=get_current_rx_dma_ptr(reg);
 
-	if (cur_dma_ptr == chan->rx_pending_chain_indx){
-		max_dma_cnt = MAX_AFT_DMA_CHAINS;
-	}else if (cur_dma_ptr > chan->rx_pending_chain_indx){ 
-		max_dma_cnt = cur_dma_ptr-chan->rx_pending_chain_indx;
-	}else{
-		max_dma_cnt =  MAX_AFT_DMA_CHAINS - (chan->rx_pending_chain_indx-cur_dma_ptr);
-	}
+	max_dma_cnt = MAX_AFT_DMA_CHAINS;
 
 	DEBUG_TEST("%s: DMA RX %s: CBoardPtr=%i  Driver=%i MaxDMA=%i\n",
 			card->devname,
@@ -5767,26 +5754,26 @@ static void aft_port_task (void * card_ptr, int arg)
 	if (wan_test_bit(AFT_FE_INTR,&card->u.aft.port_task_cmd)){
 		card->hw_iface.hw_lock(card->hw,&smp_flags);
 
-		aft_fe_intr_ctrl(card, 0);
 		wan_spin_lock_irq(&card->wandev.lock,&isr_flags);
+		__aft_fe_intr_ctrl(card, 0);
 		front_end_interrupt(card,0);
-		wan_spin_unlock_irq(&card->wandev.lock,&isr_flags);
-		aft_fe_intr_ctrl(card, 1);
-		
 		wan_clear_bit(AFT_FE_INTR,&card->u.aft.port_task_cmd);
+		__aft_fe_intr_ctrl(card, 1);
+		wan_spin_unlock_irq(&card->wandev.lock,&isr_flags);
+		
 		card->hw_iface.hw_unlock(card->hw,&smp_flags);
 	}
 
 	if (wan_test_bit(AFT_FE_POLL,&card->u.aft.port_task_cmd)){
 		card->hw_iface.hw_lock(card->hw,&smp_flags);
 		
-		aft_fe_intr_ctrl(card, 0);
 		wan_spin_lock_irq(&card->wandev.lock,&isr_flags);
+		__aft_fe_intr_ctrl(card, 0);
 		WAN_FECALL(&card->wandev, polling, (&card->fe));
-		wan_spin_unlock_irq(&card->wandev.lock,&isr_flags);
-		aft_fe_intr_ctrl(card, 1);
-		
 		wan_clear_bit(AFT_FE_POLL,&card->u.aft.port_task_cmd);
+		__aft_fe_intr_ctrl(card, 1);
+		wan_spin_unlock_irq(&card->wandev.lock,&isr_flags);
+		
 		card->hw_iface.hw_unlock(card->hw,&smp_flags);
 	}
 }
