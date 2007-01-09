@@ -1465,8 +1465,8 @@ static ssize_t router_proc_read(struct file* file, char* buf, size_t count,
 
 	if (count <= 0)
 		return 0;
-	
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,18)
+
+#if defined(WANPIPE_USE_I_PRIVATE)
 	dent = inode->i_private;
 #else
 	dent = inode->u.generic_ip;
@@ -1520,8 +1520,9 @@ static ssize_t router_proc_write (struct file *file, const char *buf, size_t cou
 
 	if (count <= 0)
 		return 0;
-		
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
+
+
+#if defined(WANPIPE_USE_I_PRIVATE)
         dent = inode->i_private;
 #else
         dent = inode->u.generic_ip;
@@ -1814,7 +1815,7 @@ static int device_write(
 
         if (err) return err;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,18)
+#if defined(WANPIPE_USE_I_PRIVATE)
         dent = inode->i_private;
 #else
         dent = inode->u.generic_ip;

@@ -163,8 +163,8 @@ typedef struct wp_tdmv_pvt_area
 	unsigned char	rbs_tx1[31];
 	unsigned char	rbs_rx[31];
 	unsigned long	rbs_rx_pending;
-	int 		intcount;
-	int 		rbscount;
+	u32 		intcount;
+	u32 		rbscount;
 	unsigned int	brt_ctrl;
 	unsigned char	echo_off;
 	unsigned long	echo_off_map;

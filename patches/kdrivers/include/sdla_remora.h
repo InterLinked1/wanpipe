@@ -310,7 +310,7 @@ typedef struct sdla_remora_param {
 	unsigned char		timer_cmd;
 	int			timer_mod_no;
 
-	int			intcount;
+	u32			intcount;
 	unsigned long		last_watchdog;	
 } sdla_remora_param_t;
 

@@ -1,7 +1,7 @@
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           3
+%define release           4
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define PROD_HOME  	  /etc/wanpipe
@@ -228,6 +228,72 @@ install_init;
 
 
 %changelog
+* Tue Jan 9 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-4
+====================================================================
+
+- Critical Bug fix A200/A400 Analog Cards
+  Critical bug fix in fxo sanity check control.
+  All customers that are running stable 2.3.4 release
+  must upgrade to 2.3.4-4.
+
+- Updates for 2.6.18 and 2.6.19 kernels.
+
+- Critical Bug fix for A108D and A102D cards.
+  It was possible for the front end interrupt handler to
+  miss-handle a pending interrup, which would caused system 
+  instability.
+
+- TDM API Update
+  Removed Zaptel dependency for A200/A400 cards when
+  running in TDM API mode only.
+
+
+* Tue Dec 12 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-3
+====================================================================
+
+- Bug fix on A301 T3/E3 Drivers
+  The T3/E3 card/drivers could get stuck in connected or disconnected
+  state after which no state changes are reported. Used to happend
+  on noisy lines.
+
+- Bug Fix in A101/2 Drivers
+  Mishandling of skb buffers on rx stream could cause
+  unpredicable behaviour on some systems. 
+  This has now been fixed.
+
+- Updated A101/2/4/8 A301 Drivers
+  Changed the memory allocation scheme in non interrupt context to
+  use KERNEL instead of ATOMIC. The symptopns were on low 
+  memory system wanrouter start could fail due to memory 
+  allocation error when starting up large number of devices.
+
+- TDM API polling bug fix
+  By default TDM API application uses rx and tx streams.
+  However in tx only mode, the select would fail to wakeup.
+
+- A200 A400 Driver Bug Fix
+  If A200/A400 card are started with NO FXO/FXS modules
+  a kernel error is possible on some systems.   
+
+- Update to TDM API sample Makefiles
+  added -lm library to compilation 
+
+- Updated SMG Drivers
+  Sangoma SMG 1.7 Chan Woomera 1.6
+
+
+* Wed Nov 30 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-2
+====================================================================
+
+- A200 Sanity Check Bug Fix
+  This is an IMPORTANT update! This bug fix fixes a bug in FXO
+  sanity checker that on some machine could cause instability.
+
+- Wanpipemon A200 Voltage Check bug fix.
+  wanpipemon command was showing over 50V voltage 
+  the sign was not observed.
+
+
 
 * Wed Nov 23 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-1
 ====================================================================

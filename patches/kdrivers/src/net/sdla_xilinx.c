@@ -54,6 +54,11 @@ enum wp_device_down_states{
 };
 
 enum {
+	AFT_CHIP_CONFIGURED,
+	AFT_FRONT_END_UP,
+};     
+
+enum {
 	AFT_FE_CFG_ERR,
 	AFT_FE_CFG,
 	AFT_FE_INTR,
@@ -384,7 +389,8 @@ static int	wan_aft_get_info(void* pcard, struct seq_file* m, int* stop_cnt);
 static int 	aft_tdmv_init(sdla_t *card, wandev_conf_t *conf);
 static int 	aft_tdmv_free(sdla_t *card);
 static int	aft_tdmv_if_init(sdla_t *card, private_area_t *chan, wanif_conf_t *conf);
-static int aft_tdmv_if_free(sdla_t *card, private_area_t *chan);
+static int 	aft_tdmv_if_free(sdla_t *card, private_area_t *chan);
+static void	aft_critical_shutdown (sdla_t *card);
 
 #ifdef AFT_TDM_API_SUPPORT
 static int aft_read_rbs_bits(void *chan_ptr, u32 ch, u8 *rbs_bits);
@@ -628,22 +634,36 @@ int wp_xilinx_init (sdla_t* card, wandev_conf_t* conf)
 
 	WAN_TASKQ_INIT((&card->u.aft.port_task),0,aft_port_task,card);
 
+ 	/* Set protocol link state to disconnected,
+	 * After seting the state to DISCONNECTED this
+	 * function must return 0 i.e. success */
+	port_set_state(card,WAN_CONNECTING); 
+
 	xilinx_delay(1);
 #if !defined(CONFIG_PRODUCT_WANPIPE_GENERIC)
+        card->isr = &wp_xilinx_isr;
 	err=xilinx_chip_configure(card);
 	if (err){
 		xilinx_chip_unconfigure(card);
 		return err;
 	}
-        card->isr = &wp_xilinx_isr;
 #endif
 
-	xilinx_delay(1);
+	wan_set_bit(AFT_CHIP_CONFIGURED,&card->u.aft.chip_cfg_status);
 
-	/* Set protocol link state to disconnected,
-	 * After seting the state to DISCONNECTED this
-	 * function must return 0 i.e. success */
-	port_set_state(card,WAN_CONNECTING);
+	if (wan_test_bit(AFT_FRONT_END_UP,&card->u.aft.chip_cfg_status)){
+		wan_smp_flag_t smp_flags;
+		DEBUG_TEST("%s: Front end up, retrying enable front end!\n",
+				card->devname);
+		wan_spin_lock_irq(&card->wandev.lock,&smp_flags);
+		handle_front_end_state(card);
+		wan_spin_unlock_irq(&card->wandev.lock,&smp_flags);
+
+		wan_clear_bit(AFT_FRONT_END_UP,&card->u.aft.chip_cfg_status);
+	}     
+                                                                          
+
+	xilinx_delay(1);
 
 	DEBUG_EVENT("%s: Configuring Device   :%s FrmVr=%02X\n",
 			card->devname,card->devname,card->u.aft.firm_ver);
@@ -1583,6 +1603,7 @@ static int del_if_private (wan_device_t* wandev, netdevice_t* dev)
 	private_area_t* 	chan = wan_netif_priv(dev);
 	sdla_t*			card = (sdla_t*)chan->common.card;
 	netskb_t 		*skb;
+	wan_smp_flag_t 		flags;
 	
 	if (wan_test_bit(0,&chan->tdmv_sync)){
 		wan_clear_bit(0,&card->u.aft.tdmv_sync);
@@ -1621,6 +1642,8 @@ static int del_if_private (wan_device_t* wandev, netdevice_t* dev)
 		wan_iface.detach(dev, chan->common.is_netdev);
 	}
 #endif
+
+        wan_spin_lock_irq(&card->wandev.lock,&flags);            
 
 	while ((skb=wan_skb_dequeue(&chan->wp_rx_free_list)) != NULL){
 		wan_skb_free(skb);
@@ -1675,6 +1698,8 @@ static int del_if_private (wan_device_t* wandev, netdevice_t* dev)
 	}
 		
 	chan->logic_ch_num=-1;
+        
+	wan_spin_unlock_irq(&card->wandev.lock,&flags);            
 
 	/* Delete interface name from proc fs. */
 #if 0
@@ -1889,12 +1914,12 @@ static int wanpipe_xilinx_open (netdevice_t* dev)
 	int err = 0;
 
 #ifdef CONFIG_PRODUCT_WANPIPE_GENERIC
+        card->isr = &wp_xilinx_isr;
 	err=xilinx_chip_configure(card);
 	if (err){
 		xilinx_chip_unconfigure(card);
 		return -EINVAL;
 	}
-        card->isr = &wp_xilinx_isr;
 	
 	err=xilinx_dev_configure(card, chan);
 	if (err){
@@ -1914,7 +1939,11 @@ static int wanpipe_xilinx_open (netdevice_t* dev)
 
 	wan_spin_lock_irq(&card->wandev.lock,&flags);
 
-	aft_dev_open(card,chan);
+	err=aft_dev_open(card,chan);
+	if (err) {
+		wan_spin_unlock_irq(&card->wandev.lock,&flags);
+         	return err;
+	}
 	
 	if (wan_test_bit(0,&chan->tdmv_sync) &&
 	    (card->wandev.state == WAN_CONNECTED ||
@@ -1997,8 +2026,6 @@ static int wanpipe_xilinx_close (netdevice_t* dev)
 	sdla_t* card = (sdla_t*)chan->common.card;
 	
 
-	wan_clear_bit(0,&chan->up);
-
 #ifdef CONFIG_PRODUCT_WANPIPE_GENERIC
 	xilinx_dev_unconfigure(card, chan);
 	xilinx_chip_unconfigure(card);
@@ -2037,6 +2064,17 @@ static void disable_comm (sdla_t *card)
 {
 	wan_smp_flag_t	flags;
 
+	/* TE1 - Unconfiging, only on shutdown */
+	if (IS_TE1_CARD(card)) {
+		wan_smp_flag_t smp_flags,smp_flags1;
+		card->hw_iface.hw_lock(card->hw,&smp_flags1);
+		wan_spin_lock_irq(&card->wandev.lock, &smp_flags);
+		if (card->wandev.fe_iface.unconfig){
+			card->wandev.fe_iface.unconfig(&card->fe);
+		}
+		wan_spin_unlock_irq(&card->wandev.lock, &smp_flags);
+		card->hw_iface.hw_unlock(card->hw,&smp_flags1);
+	}
 
 	wan_spin_lock_irq(&card->wandev.lock,&flags);
 
@@ -2047,21 +2085,7 @@ static void disable_comm (sdla_t *card)
 
 	wan_set_bit(CARD_DOWN,&card->wandev.critical);
 
-	card->isr=NULL;
-	
 	wan_spin_unlock_irq(&card->wandev.lock,&flags);
-
-	/* TE1 - Unconfiging, only on shutdown */
-	if (IS_TE1_CARD(card)) {
-		wan_smp_flag_t smp_flags,smp_flags1;
-		wan_spin_lock_irq(&card->wandev.lock, &smp_flags);
-		card->hw_iface.hw_lock(card->hw,&smp_flags1);
-		if (card->wandev.fe_iface.unconfig){
-			card->wandev.fe_iface.unconfig(&card->fe);
-		}
-		card->hw_iface.hw_unlock(card->hw,&smp_flags1);
-		wan_spin_unlock_irq(&card->wandev.lock, &smp_flags);
-	}
 
 
 	WP_DELAY(10);
@@ -2118,9 +2142,20 @@ static void wanpipe_xilinx_tx_timeout (netdevice_t* dev)
                         reg_lo, reg_hi);
 
         wan_clear_bit(TX_BUSY,&chan->dma_status);
+
+	xilinx_tx_fifo_under_recover(card,chan);
+	
 	wan_netif_set_ticks(dev, SYSTEM_TICKS);
 
 	WAN_NETIF_WAKE_QUEUE(dev);	/*netif_wake_queue (dev);*/
+
+	if (chan->common.usedby == API){
+# if defined(__LINUX__)
+		wan_wakeup_api(chan);
+# endif
+	}else if (chan->common.usedby == STACK){
+		wanpipe_lip_kick(chan,0);
+	}                 
 }
 
 
@@ -2781,6 +2816,7 @@ static int xilinx_dev_configure(sdla_t *card, private_area_t *chan)
 {
 	u32 reg;
 	long free_logic_ch,i;
+	int err=0;
 
     	DEBUG_TEST("-- Configure Xilinx. --\n");
 
@@ -2887,10 +2923,13 @@ static int xilinx_dev_configure(sdla_t *card, private_area_t *chan)
 			DEBUG_TEST("Setting Timeslot %ld to logic ch %ld Reg=0x%X\n",
 				        i, chan->logic_ch_num,reg);
 
-			xilinx_write_ctrl_hdlc(card, 
+			err=xilinx_write_ctrl_hdlc(card, 
                                                i,
                                                XILINX_CONTROL_RAM_ACCESS_BUF,
 					       reg);
+			if (err) {
+                         	return err;
+			}
 
 		}
 	}
@@ -2938,10 +2977,13 @@ static int xilinx_dev_configure(sdla_t *card, private_area_t *chan)
                                         i, free_logic_ch,reg);
 
 
-				xilinx_write_ctrl_hdlc(card, 
+				err=xilinx_write_ctrl_hdlc(card, 
                                                        i,
                                                        XILINX_CONTROL_RAM_ACCESS_BUF,
 						       reg);
+				if (err){
+                                 	return err;
+				}
 
 				free_ch_used=1;
 			}
@@ -2974,10 +3016,13 @@ static int xilinx_dev_configure(sdla_t *card, private_area_t *chan)
 
 	        	wan_set_bit(HDLC_RX_ADDR_RECOGN_DIS_BIT,&reg);
 
-			xilinx_write_ctrl_hdlc(card,
+			err=xilinx_write_ctrl_hdlc(card,
                                                chan->first_time_slot,
                                                XILINX_HDLC_CONTROL_REG,
                                                reg);
+			if (err){
+                         	return err;
+			}
 		}
 	}
 
@@ -3009,22 +3054,22 @@ static int xilinx_dev_configure(sdla_t *card, private_area_t *chan)
                  * comms as soon as the HDLC is enabled */
 
 
-		xilinx_write_ctrl_hdlc(card,
+		err=xilinx_write_ctrl_hdlc(card,
                                        chan->first_time_slot,
                                        XILINX_HDLC_CONTROL_REG,
                                        0);
-		return 0;
+		return err;
 	}
 
 	wan_set_bit(HDLC_TX_CHAN_ENABLE_BIT,&reg);
 	wan_set_bit(HDLC_RX_ADDR_RECOGN_DIS_BIT,&reg);
 
-	xilinx_write_ctrl_hdlc(card,
+	err=xilinx_write_ctrl_hdlc(card,
                                chan->first_time_slot,
                                XILINX_HDLC_CONTROL_REG,
                                reg);
 
-	return 0;
+	return err;
 }
 
 
@@ -3272,13 +3317,12 @@ static int xilinx_dma_rx(sdla_t *card, private_area_t *chan)
 					wan_skb_queue_len(&chan->wp_rx_free_list),
 					wan_skb_queue_len(&chan->wp_rx_complete_list));
 
-			port_set_state(card,WAN_DISCONNECTED);
-			disable_data_error_intr(card,DEVICE_DOWN);
+			aft_critical_shutdown(card);
 			return -ENOMEM;
 		}
 	}
 
-	wan_skb_push(chan->rx_dma_skb, sizeof(wp_rx_element_t));
+	wan_skb_put(chan->rx_dma_skb, sizeof(wp_rx_element_t));
 	rx_el = (wp_rx_element_t *)wan_skb_data(chan->rx_dma_skb);
 	memset(rx_el,0,sizeof(wp_rx_element_t));
 	
@@ -4735,8 +4779,7 @@ static void wp_xilinx_isr (sdla_t* card)
 			DEBUG_EVENT("%s: Please call Sangoma Tech Support (www.sangoma.com)!\n",
 				card->devname);
 
-			port_set_state(card,WAN_DISCONNECTED);
-			disable_data_error_intr(card,DEVICE_DOWN);
+			aft_critical_shutdown(card);
 			goto isr_end;
 		}
 	}else{
@@ -5331,11 +5374,19 @@ static void handle_front_end_state(void *card_id)
 	if (card->wandev.ignore_front_end_status == WANOPT_YES){
 		return;
 	}
+	
+	if (!wan_test_bit(AFT_CHIP_CONFIGURED,&card->u.aft.chip_cfg_status)&&
+	    card->fe.fe_status == FE_CONNECTED){
+		DEBUG_TEST("%s: Skipping Front Front End State = %x\n",
+				card->devname,card->fe.fe_status);
+				
+		wan_set_bit(AFT_FRONT_END_UP,&card->u.aft.chip_cfg_status);
+		return;
+	}           
 
 	if (card->fe.fe_status == FE_CONNECTED){
 
 		if (!wan_test_bit(0,&card->u.aft.comm_enabled)){
-			port_set_state(card,WAN_CONNECTED);
 #if defined(CONFIG_PRODUCT_WANPIPE_TDM_VOICE)
 			if (card->wan_tdmv.sc){
 				int	err;
@@ -5343,6 +5394,7 @@ static void handle_front_end_state(void *card_id)
 			}
 #endif
 			enable_data_error_intr(card);
+			port_set_state(card,WAN_CONNECTED);
 
 			aft_red_led_ctrl(card, AFT_LED_OFF);
 			card->wandev.fe_iface.led_ctrl(&card->fe, AFT_LED_ON);
@@ -5369,7 +5421,7 @@ static void handle_front_end_state(void *card_id)
 			}
 #endif
 			enable_data_error_intr(card);
-			card->wandev.state = WAN_CONNECTED;
+			port_set_state(card,WAN_CONNECTED);
 			aft_red_led_ctrl(card, AFT_LED_OFF);
 			card->wandev.fe_iface.led_ctrl(&card->fe, AFT_LED_ON);
 
@@ -6087,7 +6139,7 @@ static int xilinx_write_ctrl_hdlc(sdla_t *card, u32 timeslot, u8 reg_off, u32 da
 			return 0;
 		}
 
-		if ((SYSTEM_TICKS-timeout) > 1){
+		if ((SYSTEM_TICKS-timeout) > 10){
 			DEBUG_EVENT("%s: Error: Access to timeslot %d timed out!\n",
 				card->devname,ts_orig);
 			return -EIO;
@@ -7365,6 +7417,32 @@ static int aft_tdm_api_rx_tx_channelized(sdla_t *card, private_area_t *chan, net
 }		
 
 #endif
+
+
+static void aft_critical_shutdown (sdla_t *card)
+{
+
+#ifdef __LINUX__
+	printk(KERN_ERR "%s: Error: Card Critically Shutdown!\n",
+			card->devname);
+#else
+	DEBUG_EVENT("%s: Error: Card Critically Shutdown!\n",
+			card->devname);
+#endif  	
+
+	 if (IS_TE1_CARD(card)) {
+		if (card->wandev.fe_iface.unconfig){
+			card->wandev.fe_iface.unconfig(&card->fe);
+		}
+	}
+
+       	port_set_state(card,WAN_DISCONNECTED);
+	disable_data_error_intr(card,DEVICE_DOWN);
+	wan_set_bit(CARD_DOWN,&card->wandev.critical);	  
+
+	aft_red_led_ctrl(card, AFT_LED_ON);	
+	card->wandev.fe_iface.led_ctrl(&card->fe, AFT_LED_OFF);
+}
 
 
 

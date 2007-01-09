@@ -223,7 +223,11 @@
 */
 # include <linux/init.h>
 # include <linux/version.h>	/**/
+
+# if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 # include <linux/config.h>	/* OS configuration options */
+# endif
+
 # if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
 #  if !(defined __NO_VERSION__) && !defined(_K22X_MODULE_FIX_)
 #   define __NO_VERSION__	

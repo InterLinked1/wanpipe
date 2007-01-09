@@ -3177,8 +3177,12 @@ static ssize_t router_proc_read(struct file* file, char* buf, size_t count,
 
 	if (count <= 0)
 		return 0;
-		
+
+#if defined(WANPIPE_USE_I_PRIVATE)
+	dent = inode->i_private;
+#else	
 	dent = inode->u.generic_ip;
+#endif
 	if ((dent == NULL) || (dent->get_info == NULL)){
 		printk(KERN_INFO "NO DENT\n");
 		return 0;
@@ -3257,7 +3261,11 @@ static ssize_t router_proc_write(struct file *file, const char *buf, size_t coun
 	if (count <= 0 || count > PROC_BUFSZ)
 		return -EIO;
 		
+#if defined(WANPIPE_USE_I_PRIVATE)
+	dent = inode->i_private;
+#else	
 	dent = inode->u.generic_ip;
+#endif
 	if ((dent == NULL) || (dent->get_info == NULL))
 		return -EIO;
 

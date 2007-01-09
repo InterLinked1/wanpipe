@@ -362,14 +362,11 @@ int aft_analog_global_chip_config(sdla_t *card)
 
 	DEBUG_EVENT("%s: Global Front End Configuraton!\n",card->devname);
 	err = -EINVAL;
-#ifndef CONFIG_PRODUCT_WANPIPE_TDM_VOICE 
-	DEBUG_EVENT("%s: Error: Analog card only supported in TDM mode!\n",
-					card->devname);
-#else
+	
 	if (card->wandev.fe_iface.config){
 		err = card->wandev.fe_iface.config(&card->fe);
 	}
-#endif
+	
 	if (err){
 		DEBUG_EVENT("%s: Failed Front End configuration!\n",
 					card->devname);
@@ -388,11 +385,9 @@ int aft_analog_global_chip_unconfig(sdla_t *card)
 {
 	u32	reg=0;
 
-#ifdef CONFIG_PRODUCT_WANPIPE_TDM_VOICE
 	if (card->wandev.fe_iface.unconfig){
 		card->wandev.fe_iface.unconfig(&card->fe);
 	}
-#endif
 
 	/* Set Octasic to reset */
 #if 0

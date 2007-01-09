@@ -9,15 +9,18 @@
 #               as published by the Free Software Foundation; either version
 #               2 of the License, or (at your option) any later version.
 # ----------------------------------------------------------------------------
-# October 13, 2006  David Yat Sin      Added --opermode and --law option
-# October 12, 2006  David Yat Sin      Initial version
+# Jan 5,   2007  David Yat Sin  v2.1 fix for analog cards inserted in wrong
+#				context
+# Dec 12,  2006  David Yat Sin  v2.0 support for T1/E1 cards
+# Oct 13,  2006  David Yat Sin  Added --opermode and --law option
+# Oct 12,  2006  David Yat Sin  Initial version
 # ============================================================================
 
 print "\n###################################################################";
 print "\n#                                                                 #";
 print "\n#                Sangoma Configuration Script                     #";
 print "\n#                                                                 #";
-print "\n#                            v2.0                                 #";
+print "\n#                            v2.1                                 #";
 print "\n#                                                                 #";
 print "\n#                  Sangoma Technologies Inc.                      #";
 print "\n#                     Copyright(c) 2006.                          #";
@@ -123,15 +126,15 @@ sub add_zap_channel {
        		$zp_file .= $_;
 	}
 	close (FH);
-	if ( $type eq 'fxs'){
+	if ( $type eq 'fxo'){
 		 $zp_file.="context = from-internal\n";
 		 $zp_file.="group = 1\n";
-		 $zp_file.="signalling = fxs_ks\n";
+		 $zp_file.="signalling = fxo_ks\n";
 		 $zp_file.="channel => $channel\n\n";	 
 	}else{
         	$zp_file.="context = from-zaptel\n";
 		$zp_file.="group = 0\n";
-	        $zp_file.="signalling = fxo_ks\n";
+	        $zp_file.="signalling = fxs_ks\n";
 	        $zp_file.="channel => $channel\n\n";
 	}
 

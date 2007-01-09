@@ -2031,7 +2031,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 							fe->name);
 			}
 		}
-		WRITE_REG(REG_RLS1, 0xFF);
+		WRITE_REG(REG_RLS1, rls1);
 		if (IS_T1_FEMEDIA(fe)){
 			if (IS_TE_OOF_ALARM(fe->fe_alarm) &&
 			    IS_TE_LOS_ALARM(fe->fe_alarm)){
@@ -2071,7 +2071,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 						fe->name);
 			}
 		}
-		WRITE_REG(REG_RLS2, 0xFF);
+		WRITE_REG(REG_RLS2, rls2);
 	}
 	if (istatus & BIT_RIIR_RLS3){
 		unsigned char	rls3 = READ_REG(REG_RLS3);
@@ -2100,7 +2100,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 						fe->name);
 			}
 		}
-		WRITE_REG(REG_RLS3, 0xFF);
+		WRITE_REG(REG_RLS3, rls3);
 	}
 	if (istatus & BIT_RIIR_RLS4){
 		unsigned char	rls4 = READ_REG(REG_RLS4);
@@ -2123,7 +2123,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 					fe->name);
 			sdla_ds_te1_pmon(fe, WAN_FE_PMON_READ);
 		}
-		WRITE_REG(REG_RLS4, 0xFF);
+		WRITE_REG(REG_RLS4, rls4);
 	}
 	if (istatus & BIT_RIIR_RLS5){
 		unsigned char	rls5 = READ_REG(REG_RLS5);
@@ -2153,7 +2153,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 			DEBUG_EVENT("%s: Receive FIFO Not Empty Set Event (HDLC)!\n",
 					fe->name);
 		}					
-		WRITE_REG(REG_RLS5, 0xFF);
+		WRITE_REG(REG_RLS5, rls5);
 	}
 #if 0	
 	if (istatus & BIT_RIIR_RLS6){
@@ -2187,7 +2187,7 @@ static int sdla_ds_te1_framer_rx_intr(sdla_fe_t *fe)
 			DEBUG_EVENT("%s: BOC Detect Event!\n",
 					fe->name);
 		}					
-		WRITE_REG(REG_RLS7, 0xFF);
+		WRITE_REG(REG_RLS7, rls7);
 	}
 	
 	return 0;
@@ -2211,17 +2211,19 @@ static int sdla_ds_te1_framer_tx_intr(sdla_fe_t *fe)
 			"%s: Loss of Transmit Clock condition Clear!\n",
 					fe->name);
 		}
-		WRITE_REG(REG_TLS1, 0xFF);
+		WRITE_REG(REG_TLS1, status);
 	}
 	if (istatus & BIT_TIIR_TLS2){
 		DEBUG_EVENT("%s: Internal Error (%s:%d)!\n",
 				fe->name, __FUNCTION__,__LINE__);
-		WRITE_REG(REG_TLS2, 0xFF);
+		status = READ_REG(REG_TLS2);
+		WRITE_REG(REG_TLS2, status);
 	}
 	if (istatus & BIT_TIIR_TLS3){
 		DEBUG_EVENT("%s: Internal Error (%s:%d)!\n",
 				fe->name, __FUNCTION__,__LINE__);
-		WRITE_REG(REG_TLS3, 0xFF);
+		status = READ_REG(REG_TLS3);
+		WRITE_REG(REG_TLS3, status);    
 	}
 	return 0;
 }
@@ -2259,7 +2261,7 @@ static int sdla_ds_te1_bert_intr(sdla_fe_t *fe)
 					fe->name);	
 	}
 
-	WRITE_REG(REG_BLSR, 0xFF);
+	WRITE_REG(REG_BLSR, blsr);
 	return 0;
 }
 

@@ -7,6 +7,26 @@ Author: Nenad Corbic <ncorbic@sangoma.com>
 Copyright (c) 1995-2006 Sangoma Technologies Inc.
 ------------------------------------------------------------------------------
 
+* Tue Jan 9 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-4
+====================================================================
+
+- Critical Bug fix A200/A400 Analog Cards
+  Critical bug fix in fxo sanity check control.
+  All customers that are running stable 2.3.4 release
+  must upgrade to 2.3.4-4.
+
+- Updates for 2.6.18 and 2.6.19 kernels.
+
+- Critical Bug fix for A108D and A102D cards.
+  It was possible for the front end interrupt handler to
+  miss-handle a pending interrup, which would caused system 
+  instability.
+
+- TDM API Update
+  Removed Zaptel dependency for A200/A400 cards when
+  running in TDM API mode only.
+
+
 * Tue Dec 12 2006 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-3
 ====================================================================
 

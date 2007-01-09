@@ -174,7 +174,11 @@
 
  static inline struct proc_dir_entry *WP_PDE(const struct inode *inode)
  {
+#if defined(WANPIPE_USE_I_PRIVATE)
+        return (struct proc_dir_entry *)inode->i_private;
+#else
         return (struct proc_dir_entry *)inode->u.generic_ip;
+#endif
  }
 
  #define wp_rcu_read_lock(in_dev)     read_lock_bh(&in_dev->lock) 
@@ -333,7 +337,11 @@
 
  static inline struct proc_dir_entry *WP_PDE(const struct inode *inode)
  {
+#if defined(WANPIPE_USE_I_PRIVATE)
+        return (struct proc_dir_entry *)inode->i_private;
+#else
         return (struct proc_dir_entry *)inode->u.generic_ip;
+#endif
  }
 
 #else
@@ -345,7 +353,11 @@
 
  static inline struct proc_dir_entry *WP_PDE(const struct inode *inode)
  {
+#if defined(WANPIPE_USE_I_PRIVATE)
+        return (struct proc_dir_entry *)inode->i_private;
+#else
         return (struct proc_dir_entry *)inode->u.generic_ip;
+#endif
  }
 
  #define test_and_set_bit set_bit

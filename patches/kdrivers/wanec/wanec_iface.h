@@ -440,9 +440,10 @@ typedef struct wan_ec_ {
 	int		ec_channels_no;	
 	int		max_channels;		/* max number of ec channels (security) */
 	void		*ec_dev;
-	int		intcount;
+	u_int32_t	intcount;
 	u_int32_t	critical;
 
+	//wan_spinlock_t	lock;
 	u_int32_t	events;			/* enable events map */
 	
 	PUINT8				pImageData;

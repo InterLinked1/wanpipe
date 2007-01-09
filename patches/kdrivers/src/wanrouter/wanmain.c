@@ -542,7 +542,7 @@ int wanrouter_ioctl(struct inode *inode, struct file *file,
 		
 	dent = WP_PDE(inode);
 	if ((dent == NULL) || (dent->data == NULL)){
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18) 
+#if defined(WANPIPE_USE_I_PRIVATE) 
 		DEBUG_EVENT("%s: Invalid dent %p\n",
 				__FUNCTION__,inode->i_private);
 #else		

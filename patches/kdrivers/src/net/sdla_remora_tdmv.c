@@ -136,12 +136,12 @@ typedef struct wp_tdmv_remora_ {
 
 	/* Global configuration */
 
-	int		intcount;
+	u32		intcount;
 	int		pollcount;
 	unsigned char	ec_chunk1[31][ZT_CHUNKSIZE];
 	unsigned char	ec_chunk2[31][ZT_CHUNKSIZE];
 	int		usecount;
-	int		max_timeslots;		/* up to MAX_REMORA_MODULES */
+	u16		max_timeslots;		/* up to MAX_REMORA_MODULES */
 	int		max_rxtx_len;
 	int		channelized;
 	unsigned long	echo_off_map;

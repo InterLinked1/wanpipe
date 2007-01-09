@@ -1130,13 +1130,23 @@ aft_tdm_api_init(sdla_t *card, private_area_t *chan, wanif_conf_t *conf)
 	chan->wp_tdm_api_dev.cfg.rx_disable = 0;
 	chan->wp_tdm_api_dev.cfg.tx_disable = 0;
  
-	if (IS_T1_CARD(card)){
-		chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_MULAW;	
-		chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot+1;
-	}else{
-		chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_ALAW;
-		chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot;
-	}
+	if (IS_TE1_CARD(card)) {
+		if (IS_T1_CARD(card)){
+			chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_MULAW;	
+			chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot+1;
+		}else{
+			chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_ALAW;
+			chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot;
+		}
+	} else {
+        	if (card->fe.fe_cfg.tdmv_law == WAN_TDMV_MULAW){ 
+		       	chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_MULAW;	
+			chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot+1; 
+		} else {
+                        chan->wp_tdm_api_dev.cfg.hw_tdm_coding=WP_ALAW;	
+			chan->wp_tdm_api_dev.tdm_chan = chan->first_time_slot+1;
+		}	
+ 	}          
 	
 	if (IS_T1_CARD(card) || IS_FXOFXS_CARD(card)){
 		/* Convert active_ch bit map to user */

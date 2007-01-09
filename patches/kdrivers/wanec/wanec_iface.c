@@ -11,6 +11,7 @@
 /*=============================================================
  * Includes
  */
+#undef WAN_DEBUG_FUNC
 
 #if defined(__FreeBSD__) || defined(__OpenBSD__)
 # include <wanpipe_includes.h>
@@ -175,11 +176,13 @@ static u32 convert_addr(u32 addr)
 \*===========================================================================*/
 int wan_ec_read_internal_dword(wan_ec_dev_t *ec_dev, u32 addr1, u32 *data)
 {
-	sdla_t	*card = ec_dev->card;
+	sdla_t	*card = NULL;
 	u32	addr;
 	int err;
 
-	WAN_ASSERT(card == NULL);
+	WAN_ASSERT(ec_dev == NULL);
+	WAN_ASSERT(ec_dev->card == NULL);
+	card = ec_dev->card;
 	addr = convert_addr(addr1);
 	if (addr == 0x00){
 		DEBUG_EVENT("%s: %s:%d: Internal Error (EC off %X)\n",
@@ -201,11 +204,13 @@ int wan_ec_read_internal_dword(wan_ec_dev_t *ec_dev, u32 addr1, u32 *data)
 \*===========================================================================*/
 int wan_ec_write_internal_dword(wan_ec_dev_t *ec_dev, u32 addr1, u32 data)
 {
-	sdla_t	*card = ec_dev->card;
+	sdla_t	*card = NULL;
 	u32	addr;
 	int	err;
 
-	WAN_ASSERT(card == NULL);
+	WAN_ASSERT(ec_dev == NULL);
+	WAN_ASSERT(ec_dev->card == NULL);
+	card = ec_dev->card;
 	addr = convert_addr(addr1);
 	if (addr == 0x00){
 		DEBUG_EVENT("%s: %s:%d: Internal Error (EC off %X)\n",
@@ -1182,7 +1187,8 @@ int wanec_ioctl(void *data, void *pcard)
 #if defined(__LINUX__)
 	ec_api = wan_malloc(sizeof(wan_ec_api_t));
 	if (ec_api == NULL){
-		DEBUG_EVENT("wanec_lip: Failed allocate memory (%d) [%s:%d]!\n",
+		DEBUG_EVENT(
+    		"wanec: Failed allocate memory (%d) [%s:%d]!\n",
 				sizeof(wan_ec_api_t),
 				__FUNCTION__,__LINE__);
 		return -EINVAL;
@@ -1192,7 +1198,8 @@ int wanec_ioctl(void *data, void *pcard)
 				data,
 				sizeof(wan_ec_api_t));
 	if (err){
-		DEBUG_EVENT("wanec_lip: Failed to copy data from user space [%s:%d]!\n",
+		DEBUG_EVENT(
+       		"wanec: Failed to copy data from user space [%s:%d]!\n",
 				__FUNCTION__,__LINE__);
 		wan_free(ec_api);
 		return -EINVAL;
@@ -1220,6 +1227,7 @@ int wanec_ioctl(void *data, void *pcard)
 	}
 	WAN_ASSERT(ec_dev->ec == NULL);
 	ec = ec_dev->ec;
+//	wan_spin_lock(&ec->lock);
 
 	if (wan_test_bit(WAN_EC_BIT_CRIT_DOWN, &ec_dev->critical)){
 		PRINT1(ec_api->verbose,
@@ -1300,6 +1308,7 @@ int wanec_ioctl(void *data, void *pcard)
 	wan_clear_bit(WAN_EC_BIT_CRIT_CMD, &ec->critical);
 
 wanec_ioctl_done:
+//	wan_spin_unlock(&ec->lock);
 #if defined(__LINUX__)
 	err = WAN_COPY_TO_USER(
 			data,
@@ -1419,6 +1428,7 @@ static void* wanec_register(void *pcard, int max_channels)
 		ec->state		= WAN_OCT6100_STATE_RESET;
 		ec->ec_channels_no	= 0;
 		ec->max_channels	= max_channels;
+		//wan_spin_lock_init(&ec->lock);
 		sprintf(ec->name, "%s%d", WANEC_DEV_NAME, ec->chip_no);
 		Oct6100InterruptServiceRoutineDef(&ec->f_InterruptFlag);
 
@@ -1491,6 +1501,7 @@ static int wanec_unregister(void *arg, void *pcard)
 	WAN_DEBUG_FUNC_START;
 
 	ec = ec_dev->ec;
+//	wan_spin_lock(&ec->lock);
 	DEBUG_EVENT("%s: Unregister interface from %s (chip id %d, usage %d)!\n",
 					card->devname,
 					ec->name,
@@ -1550,6 +1561,7 @@ static int wanec_unregister(void *arg, void *pcard)
 		ec_dev->ec = NULL;
 		wan_free(ec_dev);
 	}
+//	wan_spin_unlock(&ec->lock);
 	WAN_DEBUG_FUNC_END;
 	return 0;
 }
@@ -1623,9 +1635,11 @@ static int wanec_poll(void *arg, void *pcard)
 	
 	WAN_DEBUG_FUNC_START;
 		
+//	wan_spin_lock(&ec->lock);
 	wan_clear_bit(WAN_EC_BIT_TIMER_RUNNING,(void*)&ec_dev->critical);
 	if (wan_test_bit(WAN_EC_BIT_CRIT_DOWN, &ec_dev->critical)){
 		ec_dev->poll_cmd = WAN_EC_POLL_NONE;
+//		wan_spin_unlock(&ec->lock);
 		return -EINVAL;
 	}
 	switch(ec_dev->poll_cmd){
@@ -1646,7 +1660,7 @@ static int wanec_poll(void *arg, void *pcard)
 	case WAN_EC_POLL_INTR:
 	default:	/* by default, can be only schedule from interrupt */
 		if (ec->state != WAN_OCT6100_STATE_CHIP_READY){
-			return 0;
+			break;
 		}
 
 		if ((wan_test_bit(WAN_EC_BIT_CRIT_DOWN, &ec_dev->critical)) || 
@@ -1668,6 +1682,7 @@ static int wanec_poll(void *arg, void *pcard)
 	ec_dev->poll_cmd = WAN_EC_POLL_NONE;
 	
 wanec_poll_done:	
+//	wan_spin_unlock(&ec->lock);
 	WAN_DEBUG_FUNC_END;	
 	return err;
 }
@@ -1684,10 +1699,7 @@ static int wanec_event_ctrl(void *arg, void *pcard, wan_event_ctrl_t *event_ctrl
 	ec = ec_dev->ec;
 	
 	if (wan_test_and_set_bit(WAN_EC_BIT_CRIT_CMD, &ec->critical)){
-#if !defined(__WINDOWS__)
-		wan_free(event_ctrl);
-#endif
-		return 0;
+		return -EBUSY;
 	}
 
 	switch(event_ctrl->type){
@@ -1705,9 +1717,11 @@ static int wanec_event_ctrl(void *arg, void *pcard, wan_event_ctrl_t *event_ctrl
 		err = -EINVAL;
 		break;		
 	}
+	if (!err){
 #if !defined(__WINDOWS__)
-	wan_free(event_ctrl);
+		wan_free(event_ctrl);
 #endif
+	}
 	wan_clear_bit(WAN_EC_BIT_CRIT_CMD, &ec->critical);
 	return err;
 }

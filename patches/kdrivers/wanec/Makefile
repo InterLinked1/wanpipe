@@ -33,6 +33,7 @@ all:
 
 clean:
 	$(shell find  . -name '*.*o'  | xargs rm)
+	$(shell find . -name '.*.o.cmd' | xargs rm)
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) clean
 
 distclean: clean
