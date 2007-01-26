@@ -670,6 +670,7 @@ sdla_save_hw_probe (sdlahw_t* hw, int port)
 			break;
 
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			/*sprintf(tmp_hw_probe->hw_info,*/
 			snprintf(tmp_hw_probe->hw_info, 
 				sizeof(tmp_hw_probe->hw_info),
@@ -941,6 +942,7 @@ static int sdla_get_cpld_info(sdlahw_t* hw)
 		default:
 			switch(hw->hwcard->adptr_type){
 			case A200_ADPTR_ANALOG:
+			case A400_ADPTR_ANALOG:
 				/* Enable memory access */	
 				sdla_bus_read_4(hw, AFT_CHIP_CFG_REG, &reg1);
 				reg = reg1;
@@ -1056,6 +1058,7 @@ static int sdla_get_cpld_info(sdlahw_t* hw)
 		break;
 
 	case A200_ADPTR_ANALOG:
+	case A400_ADPTR_ANALOG:
 		/* Enable memory access */	
 		sdla_bus_read_4(hw, AFT_CHIP_CFG_REG, &reg1);
 		reg = reg1;
@@ -1430,6 +1433,7 @@ static int sdla_aft_hw_select (sdlahw_card_t* hwcard, int cpu_no, int irq, void*
 		break;
 
 	case A200_ADPTR_ANALOG:
+	case A400_ADPTR_ANALOG:
 		hwcard->cfg_type = WANOPT_AFT_ANALOG;
 		sdla_adapter_cnt.aft200_adapters++;
 
@@ -1646,6 +1650,11 @@ static int sdla_pci_probe(sdlahw_t *hw)
 
 		case A200_REMORA_SHARK_SUBSYS_VENDOR:
 			hwcard->adptr_type	= A200_ADPTR_ANALOG;
+			hwcard->adptr_subtype	= AFT_SUBTYPE_SHARK;
+			break;
+	
+		case A400_REMORA_SHARK_SUBSYS_VENDOR:
+			hwcard->adptr_type	= A400_ADPTR_ANALOG;
 			hwcard->adptr_subtype	= AFT_SUBTYPE_SHARK;
 			break;
 	
@@ -2619,6 +2628,7 @@ void* sdla_register(sdlahw_iface_t* hw_iface, wandev_conf_t* conf, char* devname
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			DEBUG_EVENT("%s: Found: %s card, CPU %c, PciSlot=%d, PciBus=%d, Port=%d\n",
 					devname, 
 					SDLA_DECODE_CARDTYPE(hwcard->cfg_type),
@@ -2916,6 +2926,7 @@ static int sdla_setup (void* phw, wandev_conf_t* conf)
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			if (hw->used > 1){
 				if (conf) conf->irq = hw->irq;
 				return 0;
@@ -3564,6 +3575,7 @@ static int sdla_down (void* phw)
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			if (hw->used > 1){
 				break;
 			}
@@ -5235,6 +5247,7 @@ static int sdla_memory_map(sdlahw_t* hw, int cpu_no)
 			break;
 		case A104_ADPTR_4TE1:
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			hw->memory = AFT4_PCI_MEM_SIZE; 
 			break;
 		case A108_ADPTR_8TE1:
@@ -5531,6 +5544,7 @@ adapter_found:
 		case S5147_ADPTR_2_CPU_T1E1:
 		case A101_ADPTR_1TE1:
 		case A200_ADPTR_ANALOG:
+		case A400_ADPTR_ANALOG:
 			conf->comm_port = 0;
 			conf->fe_cfg.line_no = 0;
 			break;
@@ -6401,7 +6415,11 @@ static int sdla_pci_bridge_read_config_dword(void* phw, int reg, u32* value)
 	WAN_ASSERT(hw == NULL);
 	SDLA_MAGIC(hw);
 	WAN_ASSERT(hw->hwcard == NULL);
-	WAN_ASSERT(hw->hwcard->pci_bridge_dev == NULL);
+
+        if (hw->hwcard->pci_bridge_dev == NULL){
+		return 0;	
+	}   
+	
 	card = hw->hwcard;
 #if defined(__FreeBSD__)
 # if (__FreeBSD_version > 400000)
@@ -6426,7 +6444,11 @@ static int sdla_pci_bridge_write_config_dword(void* phw, int reg, u32 value)
 	WAN_ASSERT(hw == NULL);
 	SDLA_MAGIC(hw);
 	WAN_ASSERT(hw->hwcard == NULL);
-	WAN_ASSERT(hw->hwcard->pci_bridge_dev == NULL);
+
+        if (hw->hwcard->pci_bridge_dev == NULL){
+		return 0;	
+	}       
+	
 	card = hw->hwcard;
 #if defined(__FreeBSD__)
 # if (__FreeBSD_version > 400000)
@@ -6714,6 +6736,7 @@ static int sdla_hw_read_cpld(void *phw, u16 off, u8 *data)
 		default:
 			switch(hw->hwcard->adptr_type){
 			case A200_ADPTR_ANALOG:
+			case A400_ADPTR_ANALOG:
 				off &= ~AFT4_BIT_DEV_ADDR_CLEAR;
 				off |= AFT4_BIT_DEV_ADDR_CPLD;
 				/* Save current original address */
@@ -6779,6 +6802,7 @@ static int sdla_hw_read_cpld(void *phw, u16 off, u8 *data)
 		break;
 
 	case A200_ADPTR_ANALOG:
+	case A400_ADPTR_ANALOG:
 		off &= ~AFT4_BIT_DEV_ADDR_CLEAR;
 		off |= AFT4_BIT_DEV_ADDR_CPLD;
 		/* Save current original address */
@@ -6884,6 +6908,7 @@ static int sdla_hw_write_cpld(void *phw, u16 off, u8 data)
 		default:
 			switch(hw->hwcard->adptr_type){
 			case A200_ADPTR_ANALOG:
+			case A400_ADPTR_ANALOG:
 				off &= ~AFT4_BIT_DEV_ADDR_CLEAR;
 				off |= AFT4_BIT_DEV_ADDR_CPLD;
 				/* Save current original address */
@@ -6948,6 +6973,7 @@ static int sdla_hw_write_cpld(void *phw, u16 off, u8 data)
 		break;
 
 	case A200_ADPTR_ANALOG:
+	case A400_ADPTR_ANALOG:
 		off &= ~AFT4_BIT_DEV_ADDR_CLEAR;
 		off |= AFT4_BIT_DEV_ADDR_CPLD;
 		/* Save current original address */

@@ -591,7 +591,8 @@ int menu_hardware_probe::parse_selected_card_line(char *selected_card_line,
   //
   //Analog card
   //
-  if( strstr(selected_card_line, "AFT-A200-SH") != NULL){
+  if( strstr(selected_card_line, "AFT-A200-SH") != NULL || 
+      strstr(selected_card_line, "AFT-A400-SH") != NULL){
     rc = YES;
     *card_type = WANOPT_AFT;
     *card_version = A200_ADPTR_ANALOG;

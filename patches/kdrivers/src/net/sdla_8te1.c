@@ -589,7 +589,7 @@ static int sdla_ds_te1_config(void* pfe)
 	WAN_ASSERT(fe->read_fe_reg == NULL);
 
 	/* Initial FE state */
-	fe->fe_status=FE_DISCONNECTED;
+	fe->fe_status=FE_UNITIALIZED;	//FE_DISCONNECTED;
 
 	/* Revision/Chip ID (Reg. 0x0D) */
 	if (sdla_ds_te1_device_id(fe)) return -EINVAL;
@@ -1216,6 +1216,9 @@ static void sdla_ds_te1_set_status(sdla_fe_t* fe, unsigned long alarms)
 				DEBUG_EVENT("%s: %s connected!\n", 
 						fe->name,
 						FE_MEDIA_DECODE(fe));
+				if (card->wandev.te_report_alarms){
+					card->wandev.te_report_alarms(card, alarms);
+				}
 			}else{
 				if (!fe->te_param.status_cnt){
 					DEBUG_TEST("%s: %s connecting...\n", 
@@ -1234,9 +1237,9 @@ static void sdla_ds_te1_set_status(sdla_fe_t* fe, unsigned long alarms)
 					fe->name,
 					FE_MEDIA_DECODE(fe));
 			fe->te_param.status_cnt = 0;
-		}
-		if (card->wandev.te_report_alarms){
-			card->wandev.te_report_alarms(card, alarms);
+			if (card->wandev.te_report_alarms){
+				card->wandev.te_report_alarms(card, alarms);
+			}
 		}
 	}else{
 		fe->te_param.status_cnt = 0;	

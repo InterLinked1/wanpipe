@@ -170,9 +170,7 @@ extern int exec_read_cmd(void*,unsigned int, unsigned int, unsigned int*);
 extern int exec_write_cmd(void*,unsigned int, unsigned int, unsigned int);
 
 
-static int set_board_reset(wan_aft_cpld_t *cpld);
 int board_reset(wan_aft_cpld_t *cpld, int clear);
-int clear_board_reset(wan_aft_cpld_t *cpld);
 int update_flash(wan_aft_cpld_t *cpld, int stype, int mtype, char* filename);
 
 /*
@@ -533,8 +531,6 @@ int update_flash(wan_aft_cpld_t *cpld, int stype, int mtype, char* filename)
 	return err;
 }
 
-#if 1
-
 int board_reset(wan_aft_cpld_t *cpld, int clear)
 {
 	unsigned int	data;
@@ -595,6 +591,7 @@ int board_reset(wan_aft_cpld_t *cpld, int clear)
 		}
 		break;
 	case A200_REMORA_SHARK_SUBSYS_VENDOR:
+	case A400_REMORA_SHARK_SUBSYS_VENDOR:
        		if (clear) data &= ~0x06;
        	       	else data |= 0x06;
        		break;
@@ -609,80 +606,3 @@ int board_reset(wan_aft_cpld_t *cpld, int clear)
 	return 0;
 }
 
-#else
-int set_board_reset(wan_aft_cpld_t *cpld)
-{
-	unsigned int	data;
-
-	/* Release board internal reset (AFT-T1/E1/T3/E3 */
-	if (exec_read_cmd(cpld->private, 0x40, 4, &data)){
-		printf("Failed access (read) to the board!\n");
-		return -EINVAL;
-	}
-
-	switch(cpld->adptr_type){
-	case A104_ADPTR_4TE1:
-	case A108_ADPTR_8TE1:
-		data |= 0x06;
-		break;
-	case A101_ADPTR_1TE1:
-	case A101_ADPTR_2TE1:
-		data |= 0x20;
-		break;
-	case A300_ADPTR_U_1TE3:
-		data |= 0x20;
-		break;
-	case A200_ADPTR_ANALOG:
-		data |= 0x06;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (exec_write_cmd(cpld->private, 0x40,4,data)){
-		printf("Failed access (write) to the board!\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
-int clear_board_reset(wan_aft_cpld_t *cpld)
-{
-	unsigned int	data;
-
-	if (set_board_reset(cpld)){
-		return -EINVAL;
-	}
-
-	/* Release board internal reset (AFT-T1/E1/T3/E3 */
-	if (exec_read_cmd(cpld->private, 0x40, 4, &data)){
-		printf("Failed access (read) to the board!\n");
-		return -EINVAL;
-	}
-
-	switch(cpld->adptr_type){
-	case A104_ADPTR_4TE1:
-	case A108_ADPTR_8TE1:
-		data &= ~(0x06);
-		break;
-	case A101_ADPTR_1TE1:
-	case A101_ADPTR_2TE1:
-		data &= ~(0x20);
-		break;
-	case A300_ADPTR_U_1TE3:
-		data &= ~(0x20);
-		break;
-	case A200_ADPTR_ANALOG:
-		data &= ~(0x06);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (exec_write_cmd(cpld->private, 0x40,4,data)){
-		printf("Failed access (write) to the board!\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-#endif

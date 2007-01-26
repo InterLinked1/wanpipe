@@ -24,6 +24,7 @@ install:
 	make -C wanpipemon_legacy install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wancfg install WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C bwm install SYSINC=$(SYSINC) PROTOCOL_DEFS=$(PROTOCOL_DEFS)
+	make -C wancfg_zaptel install WAN_VIRTUAL=$(WAN_VIRTUAL)
 
 uninstall:
 	make -C ft1 uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
@@ -37,6 +38,7 @@ uninstall:
 	make -C wanpipemon_legacy uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C wancfg uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)
 	make -C bwm uninstall SYSINC=$(SYSINC) PROTOCOL_DEFS=$(PROTOCOL_DEFS)
+	make -C wancfg_zaptel uninstall WAN_VIRTUAL=$(WAN_VIRTUAL)  
 
 clean:
 	make -C ft1 clean WAN_VIRTUAL=$(WAN_VIRTUAL)

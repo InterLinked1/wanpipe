@@ -2,7 +2,7 @@
 #
 # Setup		WANPIPE WAN Router Installation/Removal Script.
 #
-# Copyright	(c) 1996-2006, Sangoma Technologies Inc.
+# Copyright	(c) 1996-2007, Sangoma Technologies Inc.
 #
 #		This program is free software; you can redistribute it and/or
 #		modify it under the terms of the GNU General Public License
@@ -262,7 +262,7 @@ banner()
 	clearscr
 	echo -e "\t----------------------------------------------------------"
 	echo -e "\t          WAN Router v$PROD_VER Installation Script"
-	echo -e "\t    Copyright (c) 1995-2006, Sangoma Technologies Inc."
+	echo -e "\t    Copyright (c) 1995-2007, Sangoma Technologies Inc."
 	echo -e "\t----------------------------------------------------------"
 	echo ""
 	return 0
@@ -323,11 +323,11 @@ Please read WanpipeInstallation.(pdf/txt) manual for further instructions.
 
 IMPORTANT:
 ---------
-HOTPLUG Conflicts with WANPIPE
-  The HOTPLUG Service should be disabled because it 
-  conflicts with Wanpipe interface startup.
-  The HOTPLUG can conflict with startup of TDMV drivers.
-  Please read the README.faq on how to prevent this.
+HOTPLUG may conflict with WANPIPE
+  Wanpipe interfaces names should be added to the
+  HOTPLUG igore list, located in /etc/hotplug/net.agent
+  or in /etc/hotplug.d/net.agent file. 
+  Please read the ./docs/README.faq for more info.
 
 IMPORTANT: 
 ---------
@@ -1853,6 +1853,8 @@ WANPIPE UTILITIES SETUP
 WANPIPE utilities are used to:
 	1) create WANPIPE configuration files.
 		(/usr/sbin/wancfg)
+	2) create configuration files for Zaptel and Asterisk
+		(/usr/sbin/wanconfig-zaptel)
 	2) start,stop,restart individual/all devices and interfaces.
 		(/usr/sbin/wanrouter)
 	3) debug line, protocol and driver problems.
@@ -2018,9 +2020,32 @@ WARNING: The Linux source in $SOURCEDIR has not been configured.
 		echo
 	fi             
 
-
+    #    echo
+    #    echo -n "Installing wanconfig-zaptel Utility..."
+    #    eval "cp -rf $PROD_HOME/util/wanconfig-zaptel /usr/local/sbin/ -r >/dev/null 2>/dev/null"
+    #    if [ ! $? -eq 0 ]; then
+    #           	echo -e "Failed!\n"
+    #           	echo -e "\tERROR: Failed to install wanconfig-zaptel Utility !!!"
+    #           	echo -e "\t\nPlease contact Sangoma Technologies"
+    #           	pause
+    #    fi
+    #    eval "cp -f $PROD_HOME/util/wanconfig-zaptel/wanconfig-zaptel /usr/sbin/ -r > /dev/null 2>/dev/null"
+    #    if [ ! $? -eq 0 ]; then
+    #            echo -e "Failed!\n"
+    #           	echo -e "\tERROR: Failed to copy wanconfig-zaptel Utility !!!"
+    #           	echo -e "\t\nPlease contact Sangoma Technologies"
+    #           	pause
+    #    fi
+    #    eval "cp -f $PROD_HOME/util/wanconfig-zaptel/setup-sangoma /usr/local/sbin/ -r"
+    #    if [ $? -eq 0 ]; then
+    #   		echo -e "Done.\n"
+    #    else
+    #           	echo -e "Failed!\n"
+    #           	echo -e "\tERROR: Failed to copy setup-sangoma Utility !!!"
+    #           	echo -e "\t\nPlease contact Sangoma Technologies"
+    #           	pause
+    #   fi
 	echo -e "\tWANPIPE Environment Setup Complete !!!\n"
-
 	pause
 	return 0
 }
@@ -4742,8 +4767,11 @@ function tdmv_get_zaptel_path ()
         if [ $ZAPTEL_PATH_OP != "YES" ]; then
                 echo
                 echo -e "\nPlease specify absolute path to Zaptel source directory"
-                echo -e "\n\t(Press Enter for Default: $ZAPTEL_INSTALL_DIR)\n"
-
+		echo -e "\n[default:$ZAPTEL_INSTALL_DIR]\n"
+	       	echo -n "<specify path:> "
+                if [ ! -d $ZAPTEL_INSTALL_DIR ]; then
+                 	echo -e "Warning: $ZAPTEL_INSTALL_DIR does not exist\n"
+		fi
                 if test -z $NONINTERACTIVE; then
                         read response
 
@@ -5137,7 +5165,10 @@ function tdmv_compile_zaptel()
         cd $ZAPTEL_INSTALL_DIR
 	echo
         echo -n "   Removing current Zaptel compilation(make clean)..."
-        eval "make clean > /dev/null 2> $PROD_HOME/zaptel_compilation_log"
+	if [ -f configure ]; then
+          	eval "./configure >> $PROD_HOME/zaptel_compilation_log 2>> $PROD_HOME/zaptel_compilation_log"
+	fi
+        eval "make clean >> $PROD_HOME/zaptel_compilation_log 2>> $PROD_HOME/zaptel_compilation_log"   
         if [ ! $? -eq 0 ]; then
                 cat $PROD_HOME/zaptel_compilation_log
                 echo
@@ -5154,11 +5185,13 @@ function tdmv_compile_zaptel()
         fi
 
         echo -n "   Recompiling/reinstalling Zaptel(make install)..."
-        eval "make install > /dev/null 2> $PROD_HOME/zaptel_compilation_log"
+        eval "make >> $PROD_HOME/zaptel_compilation_log 2>> $PROD_HOME/zaptel_compilation_log"
         if [ ! $? -eq 0 ]; then
 		echo
 		echo 
+		echo "-------------------------------------------"
                 cat $PROD_HOME/zaptel_compilation_log
+		echo "-------------------------------------------"
                 echo
                 echo "Error: Zaptel recompilation/reinstallation failed"
                 echo "       See $PROD_HOME/zaptel_compilation_log for details"
@@ -5169,6 +5202,7 @@ function tdmv_compile_zaptel()
                         exit 1
                 fi
         else
+		eval "make install >> $PROD_HOME/zaptel_compilation_log 2>> $PROD_HOME/zaptel_compilation_log"    
                 echo "OK"
 		echo 
         fi
@@ -5594,6 +5628,7 @@ ENDOFTEXT
 			echo "Enabling the TDM Voice Asterisk Support"
 			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_TDM_VOICE "		
 			ASTERISK_IFLAGS="-I$ZAPTEL_INSTALL_DIR"
+			WANCFG_ZAPTEL_CFG=YES
 			
 			fi
 
@@ -5685,8 +5720,9 @@ ENDOFTEXT
 			fi
 
 				TDM_PROT=YES
+				zaptel_modified=1;
 				if [ $zaptel_modified ] && [ $zaptel_modified -eq 1 ]; then
-					getyn "Your Zaptel source was modified, recompile/reinstall zaptel ?"
+					getyn "Recompile/reinstall zaptel (recommended) ?"
 					if [ $? -eq 0 ]; then
 						tdmv_compile_zaptel
 					else 
@@ -6019,7 +6055,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-4
+PROD_VER=2.3.4-5
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6055,6 +6091,8 @@ CMP_CLEAN=clean.sh
 DEVEL_DEBUG=NO
 SSMG_DIR=ssmg
 WANPIPE_INCLUDE_DIR=/usr/include/wanpipe
+WANCFG_ZAPTEL_CFG=NO
+WANCFG_ZAPTEL=/usr/sbin/wancfg_zaptel
 
 echo > $CMP_LOG
 echo "WANPIPE DRIVER COMPILE LOG" >> $CMP_LOG
@@ -6329,7 +6367,7 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 		--zaptel-path*)
 			ZAPTEL_INSTALL_DIR=`echo $arg | cut -d'=' -f2`;
 			if [ "$ZAPTEL_INSTALL_DIR" = "" ]; then
-				echo "Error invalied --zaptel-path option";
+				echo "Error invalid --zaptel-path option";
 				exit 1;
 			fi
 			if [ ! -d "$ZAPTEL_INSTALL_DIR" ]; then
@@ -6344,6 +6382,24 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 			echo "Zaptel path defined as: $ZAPTEL_INSTALL_DIR"
 			;;
 
+		--with-zaptel*)
+			ZAPTEL_INSTALL_DIR=`echo $arg | cut -d'=' -f2`;
+			if [ "$ZAPTEL_INSTALL_DIR" = "" ]; then
+				echo "Error invalid --with-zaptel option";
+				exit 1;
+			fi
+			if [ ! -d "$ZAPTEL_INSTALL_DIR" ]; then
+				echo "Error: Zaptel source directory not found: $ZAPTEL_INSTALL_DIR";
+				exit 1;
+			fi
+			if [ ! -f "$ZAPTEL_INSTALL_DIR/Makefile" ]; then
+				echo "Error: Invalid zaptel source found in $ZAPTEL_INSTALL_DIR";
+				exit 1;
+			fi
+			ZAPTEL_PATH_OP="YES";
+			echo "Zaptel path defined as: $ZAPTEL_INSTALL_DIR"
+			;;
+		
 		--builddir*)
 			ROOT=`echo $arg | cut -d'=' -f2`;
 			if [ "$ROOT" = "" ]; then
@@ -6736,7 +6792,6 @@ if [ "$setup_cmd" != "install" ] && [ "$setup_cmd" != "upgrade" ]; then
 	exit 1
 fi	
 
-
 welcome || exit 0
 prepare	|| exit 1
 apply_patches || exit 1
@@ -6747,6 +6802,26 @@ compile_src || exit 1
 install_all 
 install_ssmg
 clean_up 
-
 goodbye
+
+
+if [ -z $NONINTERACTIVE ] && [ "$WANCFG_ZAPTEL_CFG" = "YES" ] && [ -e $WANCFG_ZAPTEL ]; then
+	echo 
+	echo "Wanpipe / Zaptel Configuration"
+	echo "=============================="
+	echo
+	echo "wancfg_zaptel configurator can create all wanpipe devices"
+        echo "for ZAPTEL as well as /etc/zaptel.conf file."
+	echo "Optionally: wancfg_zaptel can also create Asterisk zapata.conf"
+	echo "-----------------------------------------------------"
+       	getyn "Would you like to configure wanpipe devices for ZAPTEL?"
+       	if [ $? -eq 0 ]; then
+        	eval "$WANCFG_ZAPTEL"
+	else
+		echo "Wanpipe Installation Complete"
+		echo "-----------------------------" 
+		eval "Please proceed to configure wanpipe user /usr/sbin/wancfg"
+		echo
+	fi
+fi
 

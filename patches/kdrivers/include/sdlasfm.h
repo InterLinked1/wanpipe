@@ -149,6 +149,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define A200_ADPTR_ANALOG_MASK		0x0400	/* AFT-REMORA analog board mask */
 #define A200_ADPTR_ANALOG		0x0401	/* AFT-REMORA analog board */
 
+#define A400_ADPTR_ANALOG_MASK		0x0800	/* AFT-REMORA A400 Analog board mask */
+#define A400_ADPTR_ANALOG		0x0801	/* AFT-REMORA A400 Analog board */
+
 #define A104_ADPTR_X_TE1_MASK		0x0800	/* Quad T1/E1 type mask  */
 #define A104_ADPTR_X_4TE1		0x0801	/* Quad line T1/E1 */
 
@@ -257,7 +260,7 @@ typedef struct sfm			/* SDLA firmware file structire */
 		(adapter_type == A108_ADPTR_8TE1)	   ? "AFT-A108" : \
 		(adapter_type == A300_ADPTR_U_1TE3) 	   ? "AFT-A301" : \
 		(adapter_type == A200_ADPTR_ANALOG) 	   ? "AFT-A200" : \
-		(adapter_type == A104_ADPTR_X_4TE1)	   ? "AFT-X   " : \
+		(adapter_type == A400_ADPTR_ANALOG) 	   ? "AFT-A400" : \
 							     "UNKNOWN"
 
 #if 0

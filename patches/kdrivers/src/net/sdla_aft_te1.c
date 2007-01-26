@@ -495,6 +495,8 @@ static int wan_aft_init (sdla_t *card, wandev_conf_t* conf);
 static unsigned char aft_write_ec (void*, unsigned short, unsigned char);
 static unsigned char aft_read_ec (void*, unsigned short);
 
+static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *conf);
+
 	
 /**SECTION*********************************************************
  *
@@ -1165,21 +1167,25 @@ aft_tdm_api_init(sdla_t *card, private_area_t *chan, wanif_conf_t *conf)
 		return err;
 	}
 
+#if 0
+	/* This is now done for all Voice interfaces with
+	   HWEC capability */
 	if (conf->u.aft.tdmv_hwec && card->wandev.ec_enable){
 		int channel=chan->wp_tdm_api_dev.tdm_chan-1;
 		DEBUG_EVENT("%s: HW echo canceller Enabled on channel %d\n",
 				chan->if_name,
-				channel+1);
+				channel);
 		err = card->wandev.ec_enable(card, 1, channel);
 		if (err) {
                  	DEBUG_EVENT("%s: Failed to enable HWEC on channel %d\n",
-					chan->if_name,channel+1);
+					chan->if_name,channel);
 					
 		}
 
 		/* Ignore this error */
 		err=0;
 	}             
+#endif
 	
 	wan_set_bit(0,&chan->wp_tdm_api_dev.init);
 	return err;
@@ -1825,6 +1831,11 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 	if (err){
 		goto new_if_error;
 	}	   
+
+	err=aft_hwec_config(card,chan,conf);
+	if (err){
+		goto new_if_error;
+	}  
 
        	if (chan->channelized_cfg && !chan->hdlc_eng) {
        	 	chan->dma_mru = 896;
@@ -8845,6 +8856,15 @@ void __aft_fe_intr_ctrl(sdla_t *card, int status)
 {
 	u32 reg;
 
+	if (wan_test_bit(CARD_DOWN,&card->wandev.critical) && status){
+		/* Do not enable front end if card is down */
+	       	if (WAN_NET_RATELIMIT()){
+		DEBUG_EVENT("%s: Sanity: disabling fe interrupt card down!\n",
+				card->devname);
+		}
+		status=0;
+	}        
+
 	card->hw_iface.bus_read_4(card->hw,AFT_CHIP_CFG_REG,&reg);
 	if (status){
 	        wan_set_bit(AFT_CHIPCFG_FE_INTR_CFG_BIT,&reg);
@@ -10395,5 +10415,43 @@ static void aft_critical_shutdown (sdla_t *card)
 
 	aft_hwdev[card->wandev.card_type].aft_led_ctrl(card, WAN_AFT_RED, 0,WAN_AFT_ON);
 	aft_hwdev[card->wandev.card_type].aft_led_ctrl(card, WAN_AFT_GREEN, 0, WAN_AFT_OFF);
+}
+
+
+
+static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *conf)
+{
+	int err = 0;
+	unsigned int channel=0;
+
+	if (chan->common.usedby == TDM_VOICE_API ||
+	    chan->common.usedby == TDM_VOICE){
+
+		if (IS_TE1_CARD(card)) {
+			if (IS_T1_CARD(card)){
+				channel = chan->first_time_slot;
+			}else{
+				channel = chan->first_time_slot;
+			}
+		} else {
+		       	channel = chan->first_time_slot; 
+		}              
+		
+#if defined(CONFIG_WANPIPE_HWEC)  
+		if (conf->u.aft.tdmv_hwec && card->wandev.ec_enable){
+			DEBUG_HWEC("%s: HW echo canceller Enabled on channel %d\n",
+					chan->if_name,
+					channel);
+			err = card->wandev.ec_enable(card, 1, channel);
+			if (err) {
+				DEBUG_EVENT("%s: Failed to enable HWEC on channel %d\n",
+						chan->if_name,channel);
+			 	return err;       		
+			}
+		}          
+#endif	
+	}
+
+	return err;
 }
 /****** End ****************************************************************/

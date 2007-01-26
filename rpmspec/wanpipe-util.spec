@@ -1,7 +1,7 @@
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           4
+%define release           5
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define PROD_HOME  	  /etc/wanpipe
@@ -217,7 +217,6 @@ EOM
 install_init;
 #create wanrouter.rc in /etc/wanpipe
 #create_metaconf;
-\cp -f %{PROD_HOME}/samples/trixbox/setup-sangoma /usr/local/sbin/setup-sangoma
 
 
 
@@ -228,6 +227,62 @@ install_init;
 
 
 %changelog
+* Mon Jan 22 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-5
+====================================================================
+
+- Updated support for A400 Analog card
+  This release will recognize the new A400 
+  pci card info.
+
+- Updated A200/A400 firwmare updater
+  Takes into account the new A200 and A400 cards.
+
+- AFT A301 T3/E3 Driver Update
+  Fixed a possible race condition
+  during startup/shutdown
+
+- AFT A101/2 T1/E1 Driever Update
+  Fixed a possible race condition
+  during startup/shutdown
+
+- AFT Hardware Echo Cancellation Persist Mode
+  The new default Echo Cancellation mode for all AFT cards.
+  If HWEC is enabled in wanpipe1.conf the Sangoma HWEC will
+  remain enabled all the time, even if the calls are not up.
+  Previously Asterisk enabled and disabled echo based on
+  zapata.conf and call state.  This delay however caused minute
+  echo on call startup.  In Persist mode, Sangoma HWEC will
+  always be enabled, thus users will get perfect quality 100%
+  of the time.
+
+  In order to configure WANPIPE card in NON-PERSIST mode one 
+  has to enable TDMV_HWEC_PERSIST_DISABLE=YES option in [wanpipeX]
+  section of wanpipeX.conf.
+  In this mode Asterisk will be responsible for enabling/disabling
+  hardware echo canceler.
+
+- LIP Layer Bug Fix.
+  This bug fix affects all WAN protocols for all AFT cards.
+  The bug was a race condition in startup code.
+  On a slow enough machine it was possible for an interface
+  to get stuck in disconnected mode during startup.
+
+- Wanpipe Zaptel Configuration Utility
+  The new wancfg_zaptel utility is now a default way to 
+  configure Sangoma cards for Zaptel.  The wancfg_zaptel utility
+  will auto detect all Sangoma cards in your machine and create
+  wanpipe configuration files along with /etc/zaptel.conf.  This way
+  the customer can concentrate on /etc/asterisk/zapata.conf only.
+
+  Run: /usr/sbin/wancfg_zaptel <enter>
+       Wizard like questions will lead you through whole
+       configuration process.
+
+  After wancfg_zaptel following files will be created:
+	/etc/wanpipe/wanpipe*.conf # All wanpipe config files
+	/etc/zaptel.con	           # Fully configured zaptel      
+
+
 * Tue Jan 9 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-4
 ====================================================================
 

@@ -779,11 +779,15 @@ static void wp_tdmv_report_alarms(void* pcard, unsigned long te_alarm)
 	if (wp->ise1) {
 		if (te_alarm & WAN_TE_BIT_RED_ALARM) 
 			alarms |= ZT_ALARM_RED;
+		if (te_alarm & (WAN_TE_BIT_OOF_ALARM|WAN_TE_BIT_LOS_ALARM)) 
+			alarms |= ZT_ALARM_RED;
 		if (te_alarm & WAN_TE_BIT_AIS_ALARM)
 			alarms |= ZT_ALARM_BLUE;
 	} else {
 		/* Check actual alarm status */
 		if (te_alarm & WAN_TE_BIT_RED_ALARM) 
+			alarms |= ZT_ALARM_RED;
+		if (te_alarm & (WAN_TE_BIT_OOF_ALARM|WAN_TE_BIT_LOS_ALARM)) 
 			alarms |= ZT_ALARM_RED;
 		if (te_alarm & WAN_TE_BIT_AIS_ALARM)
 			alarms |= ZT_ALARM_BLUE;
@@ -1847,8 +1851,17 @@ static int wp_tdmv_hwec(struct zt_chan *chan, int enable)
 		if (!wp->ise1){
 			channel--;
 		}
-		err = card->wandev.ec_enable(card, enable, channel);
-		/*card->hwec_enable(card, enable, channel);*/
+	
+		/* The ec persist flag enables and disables
+	         * persistent echo control.  In persist mode
+                 * echo cancellation is enabled regardless of
+                 * asterisk.  In persist mode off asterisk 
+                 * controls hardware echo cancellation */		 
+		if (card->u.aft.cfg.ec_persist_disable) {
+                	err = card->wandev.ec_enable(card, enable, channel);
+		} else {
+			err = 0;			
+		}
 	}
 
 	return err;

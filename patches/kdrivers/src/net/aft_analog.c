@@ -1187,6 +1187,8 @@ static int aft_analog_hwec_enable(void *pcard, int enable, int channel)
 
 	WAN_ASSERT(card == NULL);
 	if(!wan_test_bit(channel, &card->wandev.ec_enable_map)){
+		DEBUG_EVENT("%s: Error: Channel %i not in analog hwec map!\n",
+				card->devname,channel);
 		return -EINVAL;
 	}
 

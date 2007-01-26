@@ -208,6 +208,7 @@ typedef struct private_area
 	unsigned char		tdm_api;
 	unsigned int 		tdmv_zaptel_cfg;
 	unsigned int		tdmapi_timeslots;
+	unsigned int		max_tx_bufs;
 
 	struct private_area	*next;
 }private_area_t;
@@ -1212,7 +1213,10 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 #endif		
 	}else if (strcmp(conf->usedby, "STACK") == 0) {
 		chan->common.usedby = STACK;
-		
+		if (chan->hdlc_eng){
+			chan->mtu+=32;
+			chan->mru+=32;
+		}  
 	}else{
 		DEBUG_EVENT( "%s:%s: Error: Invalid operation mode [%s]\n",
 				card->devname,chan->if_name, conf->usedby);
@@ -1407,6 +1411,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 	 * FIXME: This option is not clearly defined
 	 */
 	chan->mc = conf->mc;
+	chan->max_tx_bufs = MAX_TX_BUF;
 
 
 	/* The network interface "dev" has been passed as
@@ -1509,8 +1514,8 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 		wan_clear_bit(0,&conf->active_ch);
 	}
 
-#if defined(CONFIG_PRODUCT_WANPIPE_TDM_VOICE)
 	if (strcmp(conf->usedby, "TDM_VOICE") == 0 ) {
+#if defined(CONFIG_PRODUCT_WANPIPE_TDM_VOICE)
 		if (card->u.aft.cfg.tdmv_span_no){
 			/* Initialize TDMV interface function */
 			err = wp_tdmv_te1_init(&card->tdmv_iface);
@@ -1527,8 +1532,15 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 				return err;
 			}
 		}
-	}
+#else
+		DEBUG_EVENT("\n");
+		DEBUG_EVENT("%s: Error: TDM VOICE prot not compiled\n",
+					card->devname);
+		DEBUG_EVENT("%s:        during installation process!\n",
+					card->devname);
+		return -EINVAL;  
 #endif         
+	}
 
 	if (strcmp(conf->usedby, "TDM_VOICE") == 0 ||
 	    strcmp(conf->usedby, "TDM_VOICE_API") == 0){
@@ -1976,17 +1988,24 @@ static int wanpipe_xilinx_open (netdevice_t* dev)
 		disable_data_error_intr(card,LINK_DOWN);
 		enable_data_error_intr(card);
 	}
+
+	if (card->wandev.state == WAN_CONNECTED){
+                /* If Front End is connected already set interface
+                 * state to Connected too */
+                set_chan_state(card, dev, WAN_CONNECTED);
+		WAN_NETIF_WAKE_QUEUE(dev);
+		WAN_NETIF_CARRIER_ON(dev);
+		if (chan->common.usedby == API){
+			wan_wakeup_api(chan);
+		}else if (chan->common.usedby == STACK){
+			wanpipe_lip_kick(chan,0);
+		}        
+        }   
 	
 	wan_spin_unlock_irq(&card->wandev.lock,&flags);
 
 	/* Increment the module usage count */
 	wanpipe_open(card);
-
-        if (card->wandev.state == WAN_CONNECTED){
-                /* If Front End is connected already set interface
-                 * state to Connected too */
-                set_chan_state(card, dev, WAN_CONNECTED);
-        }
 
 	protocol_start(card,dev);
 
@@ -2241,6 +2260,13 @@ static int wanpipe_xilinx_send (netskb_t* skb, netdevice_t* dev)
 		wan_netif_set_ticks(dev, SYSTEM_TICKS);
 		return 1;
 
+	} else if (!WAN_NETIF_UP(dev)) {
+		++chan->if_stats.tx_carrier_errors;
+              	WAN_NETIF_START_QUEUE(dev); 
+		wan_skb_free(skb);
+		wan_netif_set_ticks(dev, SYSTEM_TICKS);
+		return 0;  
+
 	}else {
 
 		if (chan->common.usedby == TDM_VOICE ||
@@ -2276,11 +2302,23 @@ static int wanpipe_xilinx_send (netskb_t* skb, netdevice_t* dev)
 
 		}
 
-		if (wan_skb_queue_len(&chan->wp_tx_pending_list) > MAX_TX_BUF){
+		 if (chan->max_tx_bufs == 1) {
+		        wan_smp_flag_t smp_flags;
+			wan_spin_lock_irq(&card->wandev.lock, &smp_flags);
+		    	if (wan_test_bit(TX_BUSY,&chan->dma_status)){
+				WAN_NETIF_STOP_QUEUE(dev);
+				wan_spin_unlock_irq(&card->wandev.lock, &smp_flags);
+				return 1;
+			} 
+		        wan_spin_unlock_irq(&card->wandev.lock, &smp_flags);
+			goto xilinx_tx_dma;     
+
+		} else if (wan_skb_queue_len(&chan->wp_tx_pending_list) > chan->max_tx_bufs){
                 	WAN_NETIF_STOP_QUEUE(dev);	/*stop_net_queue(dev);*/
 			xilinx_dma_tx(card,chan);
 			return 1;
 		}else{
+xilinx_tx_dma:
 			wan_skb_unlink(skb);
 
 #if defined (__LINUX__)
@@ -2310,6 +2348,22 @@ static int wanpipe_xilinx_send (netskb_t* skb, netdevice_t* dev)
 			wan_netif_set_ticks(dev, SYSTEM_TICKS);
 		}
 	}
+
+#ifdef __LINUX__
+ 	if (dev->tx_queue_len < chan->max_tx_bufs && 
+	    dev->tx_queue_len > 0) {
+        	DEBUG_EVENT("%s: Resizing Tx Queue Len to %li\n",
+				chan->if_name,dev->tx_queue_len);
+		chan->max_tx_bufs = dev->tx_queue_len;      	  
+	}
+
+	if (dev->tx_queue_len > chan->max_tx_bufs &&
+	    chan->max_tx_bufs != MAX_TX_BUF) {
+         	 DEBUG_EVENT("%s: Resizing Tx Queue Len to %i\n",
+				chan->if_name,MAX_TX_BUF);
+		chan->max_tx_bufs = MAX_TX_BUF;
+	}      
+#endif      
 
 if_send_exit_crit:
 
@@ -5450,8 +5504,8 @@ static void handle_front_end_state(void *card_id)
 		if (wan_test_bit(0,&card->u.aft.comm_enabled) ||
                     card->wandev.state != WAN_DISCONNECTED){
 
-			disable_data_error_intr(card,LINK_DOWN);
 			port_set_state(card,WAN_DISCONNECTED);
+			disable_data_error_intr(card,LINK_DOWN);
 #if defined(CONFIG_PRODUCT_WANPIPE_TDM_VOICE)
 			if (card->wan_tdmv.sc){
 				int	err;
@@ -6142,11 +6196,13 @@ static int xilinx_write_ctrl_hdlc(sdla_t *card, u32 timeslot, u8 reg_off, u32 da
 		if ((SYSTEM_TICKS-timeout) > 10){
 			DEBUG_EVENT("%s: Error: Access to timeslot %d timed out!\n",
 				card->devname,ts_orig);
-			return -EIO;
+			break;
 		}
 	}
+			
+	card->hw_iface.bus_write_4(card->hw,reg_off,data);			
 
-	return -EIO;
+	return 0;
 }
 
 static int set_chan_state(sdla_t* card, netdevice_t* dev, int state)
@@ -6900,6 +6956,15 @@ static int aft_realign_skb_pkt(private_area_t *chan, netskb_t *skb)
 static void __aft_fe_intr_ctrl(sdla_t *card, int status)
 {
 	u32 reg;
+
+        if (wan_test_bit(CARD_DOWN,&card->wandev.critical) && status){
+		/* Do not enable front end if card is down */
+	       	if (WAN_NET_RATELIMIT()){
+		DEBUG_EVENT("%s: Sanity: disabling fe interrupt card down!\n",
+				card->devname);
+		}
+		status=0;
+	}      
 
 	card->hw_iface.bus_read_4(card->hw,XILINX_CHIP_CFG_REG,&reg);
 	if (status){

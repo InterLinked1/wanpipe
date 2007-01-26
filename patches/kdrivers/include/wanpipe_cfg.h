@@ -552,7 +552,7 @@ typedef struct wan_xilinx_conf
 	unsigned int   tdmv_dchan;	/* hwHDLC: PRI SIG */
 	unsigned int   rx_crc_bytes;
 	unsigned int   ec_clk_src;	/* Octasic Clock Source Port */
-/*	unsigned char  tdmv_hwec;*/	/* Congiure HW EC */
+	unsigned int   ec_persist_disable;	/* HW EC Persist */
 }wan_xilinx_conf_t;
 
 
@@ -572,7 +572,6 @@ typedef struct wan_xilinx_conf_if
 	unsigned char   tdmv_hwec;	/* Enable/Disable HW EC */
 	unsigned char   rbs_cas_idle;	/* Initial RBS/CAS value */
 	unsigned char   dtmf_hw;	/* Enable/Disable HW DTMF */
-/*	unsigned char   tdmv_hwec_map[50];*/	/* Enable/Disable HW EC */
 }wan_xilinx_conf_if_t;
 
 

@@ -190,19 +190,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # wanrouter	WANPIPE WAN Router Initialization Script.
 #
 # copyright	(c) 1999-2002, Sangoma Technologies Inc.
@@ -530,6 +517,13 @@ load_module()
 
 	if [ $OSYSTEM = "Linux" ]; then
 		if [ -e "/proc/net/wanrouter" ]; then
+			
+			#Make sure to load optionl modules
+			wansock_config LOAD
+			annexg_config LOAD
+			lip_config LOAD
+			wanec_config LOAD       
+			
 			#RuggedCom LedTask
 			touch $WANPIPE_IS_RUNNING
 			return 0
@@ -547,8 +541,8 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 	for i in $MODULES
 	do
 
-	module_name=$i".*"
-		[ -f $module_name ] || {
+		module_name=$i${MODULE_EXT}
+		if [ ! -f $module_name ]; then
 			if [ $OSYSTEM = "Linux" ]; then
 				eval "echo $OPT_MODULES | grep $i > /dev/null 2> /dev/null"
 				if [ $? -ne 0 ]; then
@@ -559,7 +553,7 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 				mod_error $i
 				return 1
 			fi
-		}
+		fi
 	done
 
 	[ "$ROUTER_BOOT" = "NO" -o -z "$WAN_DRIVERS" ] && { 
@@ -805,6 +799,14 @@ interf_config()
 				continue
 			fi
 
+			if [ $API = "TRUNK" ];then
+
+				# Bring up Trunk interface
+				echo -n "$int_file "
+				ifconfig $int_file up
+				continue
+			fi
+
 			if [ $API = "SWITCH" ];then
 
 				# Bring up SWITCH interface
@@ -959,6 +961,8 @@ echo "Error: Your securelevel does not allow to load kernel modules!"
 			unload_driver $i
 		done
 	fi
+	
+	wan_force_unload_modules
 }
 
 
@@ -1941,6 +1945,39 @@ function generate_adsl_list()
 	done
 }
 
+function wan_force_unload_modules()
+{
+	if [ -e "$ROUTER_PROC/status" ]; then
+		wp_list=`cat $ROUTER_PROC/status | cut -d' ' -f1 | grep wanpipe | sort -r` 
+		if [ -z $list ]; then
+			mod_list=`cat /proc/modules | grep wan | cut -d ' ' -f1 | xargs`
+			for tmp_mod in $mod_list
+			do
+				eval "rmmod $tmp_mod >> /dev/null 2>> /dev/null"
+			done
+		fi
+	fi
+}
+
+function stop_running_wanpipes ()
+{
+
+	if [ -e "$ROUTER_PROC/status" ]; then
+		wp_list=`cat $ROUTER_PROC/status | cut -d' ' -f1 | grep wanpipe | sort -r`
+		
+		for list in $wp_list
+		do
+			list=${list// /};
+			if [ ! -z $list ]; then
+				eval "rm -f $WAN_PROG_LOCK 2> /dev/null > /dev/null"
+				wanrouter stop $list 
+			fi
+		done
+
+		wan_force_unload_modules
+	fi
+}        
+
 function config_wanrouter_rc ()
 {
 	local sequence
@@ -2037,12 +2074,13 @@ WANPIPE_IS_RUNNING=/var/run/wanpipe_is_running
 RUGGEDCOM=No
 
 if [ $OSYSTEM = "Linux" ]; then
-	ROUTER_VERSION=2.3.4-4
+	ROUTER_VERSION=2.3.4-5
 	IFCONFIG_LIST=ifconfig
 	MODULE_STAT=lsmod
 	WAN_DRIVERS="wanpipe"
 	MODULE_LOAD=modprobe
 	MODULE_UNLOAD="modprobe -r"
+	MODULE_EXT=".*"
 	DEPMOD=YES
 
 	check_command_exist modprobe
@@ -2130,15 +2168,16 @@ elif [ $OSYSTEM = "FreeBSD" ]; then
 	MODULE_STAT=kldstat
 	MODULE_LOAD=kldload
 	MODULE_UNLOAD=kldunload
+	MODULE_EXT=".*"
 
 	if [ "$major_ver" = "5" -o "$major_ver" = "6" ]; then
 		MODULE_DIR=/boot/modules
 	else
 		MODULE_DIR=/modules
 	fi
-	MOD9="$MODULE_DIR/wanpipe_lip.ko"
-	MOD10="$MODULE_DIR/wanec.ko"
-	MODULES="$MODULE_DIR/wanrouter.ko $MODULE_DIR/sdladrv.ko $MODULE_DIR/wanpipe.ko"
+	MOD9="$MODULE_DIR/wanpipe_lip"
+	MOD10="$MODULE_DIR/wanec"
+	MODULES="$MODULE_DIR/wanrouter $MODULE_DIR/sdladrv $MODULE_DIR/wanpipe"
 	WAN_DRIVERS="wanpipe"
 	
 elif [ $OSYSTEM = "OpenBSD" ]; then
@@ -2157,7 +2196,8 @@ elif [ $OSYSTEM = "OpenBSD" ]; then
 	MODULE_LOAD=modload
 	MODULE_UNLOAD=modunload
 	MODULE_DIR=/usr/lkm
-	MODULES="$MODULE_DIR/wanpipe.o"
+	MODULE_EXT=".o"
+	MODULES="$MODULE_DIR/wanpipe"
 	WAN_DRIVERS="wanpipe"
 elif [ $OSYSTEM = "NetBSD" ]; then
 
@@ -2175,7 +2215,8 @@ elif [ $OSYSTEM = "NetBSD" ]; then
 	MODULE_LOAD=modload
 	MODULE_UNLOAD=modunload
 	MODULE_DIR=/usr/lkm
-	MODULES="$MODULE_DIR/wanpipe.o"
+	MODULE_EXT=".o"
+	MODULES="$MODULE_DIR/wanpipe"
 	WAN_DRIVERS="wanpipe"
 fi
 
@@ -2291,7 +2332,7 @@ check_module
 case "$1" in
 	start)	
 
-		# ROUTER START
+		# WANROUTER START
 		if [ -z $2 ]; then	
 
 			check_config || cleanup 1
@@ -2571,6 +2612,11 @@ case "$1" in
 		#WANROUTER STOP WANPIPE
 
 			dev=$2
+
+			if [ "$dev" = "all" ]; then
+                                stop_running_wanpipes
+				cleanup 0
+			fi
 
 			check_config_opt $dev 1
 			ft1_or_wanpipe=$?

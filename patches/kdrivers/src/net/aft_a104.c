@@ -825,6 +825,10 @@ int a104_chip_config(sdla_t *card)
 			card->wandev.hwec_enable = aft_hwec_enable;
 			card->wandev.ec_dev = wanpipe_ec_register(card, max_ec_chans);
 			if (!card->wandev.ec_dev) {
+				DEBUG_EVENT(
+				"%s: ERROR: Echo Canceller registration failed: not initialized!\n",
+						card->devname);
+
                          	return -EINVAL;
 			}
 #else
@@ -1499,8 +1503,8 @@ static int aft_hwec_enable(void *pcard, int enable, int channel)
 	WAN_ASSERT(card == NULL);
 	if(!wan_test_bit(channel, &card->wandev.ec_enable_map)){
 		return -EINVAL;
-	}
-	DEBUG_TEST("[HWEC]: %s: %s bypass mode for channel %d!\n",
+	}         
+	DEBUG_HWEC("[HWEC]: %s: %s bypass mode for channel %d!\n",
 			card->devname,
 			(enable) ? "Enable" : "Disable",
 			channel);

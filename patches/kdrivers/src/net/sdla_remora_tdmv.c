@@ -457,11 +457,20 @@ static int wp_remora_zap_hwec(struct zt_chan *chan, int enable)
 	card = wr->card;
 
 	if (card->wandev.ec_enable){
+		/* The ec persist flag enables and disables
+	         * persistent echo control.  In persist mode
+                 * echo cancellation is enabled regardless of
+                 * asterisk.  In persist mode off asterisk 
+                 * controls hardware echo cancellation */		 
+		if (card->u.aft.cfg.ec_persist_disable) {
+			err = card->wandev.ec_enable(card, enable, channel-1);
+		} else {
+			err = 0;			
+		}           
 		DEBUG_TDMV("[TDMV_RM]: %s: %s HW echo canceller on channel %d\n",
 				wr->devname,
 				(enable) ? "Enable" : "Disable",
 				channel);
-		err = card->wandev.ec_enable(card, enable, channel-1);
 	}
 	return err;
 }

@@ -717,7 +717,7 @@ int wplip_init_prot(void)
 	/* FR initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_FR
 	offset+=sprintf(&tmp[offset],"%s ","FR");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -744,7 +744,7 @@ int wplip_init_prot(void)
 
 #if defined(CONFIG_PRODUCT_WANPIPE_CHDLC) || defined(CONFIG_PRODUCT_WANPIPE_PPP)
 	offset+=sprintf(&tmp[offset],"%s ","PPP");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -771,7 +771,7 @@ int wplip_init_prot(void)
 	/* CHDLC initialization */
 
 	offset+=sprintf(&tmp[offset],"%s ","CHDLC");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -797,7 +797,7 @@ int wplip_init_prot(void)
 	/* XDLC initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_XDLC
 	offset+=sprintf(&tmp[offset],"%s ","XDLC");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -824,7 +824,7 @@ int wplip_init_prot(void)
 	/* LAPB initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_LAPB
 	offset+=sprintf(&tmp[offset],"%s ","LAPB");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -850,7 +850,7 @@ int wplip_init_prot(void)
 	/* XMTP2 initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_XMTP2
 	offset+=sprintf(&tmp[offset],"%s ","XMTP2");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -876,7 +876,7 @@ int wplip_init_prot(void)
 	/* XMTP2 initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_LAPD
 	offset+=sprintf(&tmp[offset],"%s ","LAPD");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -902,7 +902,7 @@ int wplip_init_prot(void)
 	/* X25 initialization */
 #ifdef CONFIG_PRODUCT_WANPIPE_LIP_X25
 	offset+=sprintf(&tmp[offset],"%s ","X25");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}
@@ -928,7 +928,7 @@ int wplip_init_prot(void)
 	/* LIP ATM initialization */
 #ifdef 	CONFIG_PRODUCT_WANPIPE_LIP_ATM
 	offset+=sprintf(&tmp[offset],"%s ","LIP_ATM");
-	prot_iface=wan_malloc(sizeof(wplip_prot_iface_t));
+	prot_iface=wan_kmalloc(sizeof(wplip_prot_iface_t));
 	if (!prot_iface){
 		return -ENOMEM;
 	}

@@ -670,12 +670,12 @@ key_word_t xilinx_conftab[] =	/* Xilinx specific configuration */
 {
   { "MRU",     	     offsetof(wan_xilinx_conf_t, mru),          DTYPE_USHORT },
   { "DMA_PER_CH",    offsetof(wan_xilinx_conf_t, dma_per_ch),   DTYPE_USHORT },
-  { "RBS",    	     offsetof(wan_xilinx_conf_t, rbs),          DTYPE_UCHAR },
+  { "RBS",    	     offsetof(wan_xilinx_conf_t, rbs),          DTYPE_UINT },
   { "DATA_MUX_MAP",  offsetof(wan_xilinx_conf_t, data_mux_map), DTYPE_UINT },
   { "TDMV_SPAN",     offsetof(wan_xilinx_conf_t, tdmv_span_no), DTYPE_UINT},
   { "TDMV_DCHAN",    offsetof(wan_xilinx_conf_t, tdmv_dchan),   DTYPE_UINT},
   { "HWEC_CLKSRC",   offsetof(wan_xilinx_conf_t, ec_clk_src),   DTYPE_UINT},
-//  { "TDMV_HWEC",     offsetof(wan_xilinx_conf_t, tdmv_hwec),    DTYPE_UCHAR},
+  { "TDMV_HWEC_PERSIST_DISABLE", offsetof(wan_xilinx_conf_t, ec_persist_disable),    DTYPE_UINT},
   { "RX_CRC_BYTES",  offsetof(wan_xilinx_conf_t, rx_crc_bytes), DTYPE_UINT},
   { NULL, 0, 0 }
 };
@@ -827,7 +827,6 @@ key_word_t xilinx_if_conftab[] =
   { "SS7_ENABLE",  offsetof(wan_xilinx_conf_if_t, ss7_enable),  DTYPE_UCHAR},
   { "SS7_MODE",  offsetof(wan_xilinx_conf_if_t, ss7_mode),  DTYPE_UCHAR},
   { "SS7_LSSU_SZ",  offsetof(wan_xilinx_conf_if_t, ss7_lssu_size),  DTYPE_UCHAR},
-//  { "TDMV_HWEC_MAP", offsetof(wan_xilinx_conf_if_t, tdmv_hwec_map),    DTYPE_STR},
   { "TDMV_HWEC",     offsetof(wan_xilinx_conf_if_t, tdmv_hwec),    DTYPE_UCHAR},
   { "DTMF_HW",     offsetof(wan_xilinx_conf_if_t, dtmf_hw),    DTYPE_UCHAR},
   { "RBS_CAS_IDLE",  offsetof(wan_xilinx_conf_if_t, rbs_cas_idle), DTYPE_UCHAR },
