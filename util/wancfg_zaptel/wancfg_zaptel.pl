@@ -98,7 +98,12 @@ config_digital();
 config_analog();
 
 if($devnum==1){
-	print("\n\nWarning: No Sangoma voice compatible cards found\n"); 
+	system('clear');
+	print "\n###################################################################";
+	print "\n#                             SUMMARY                             #";
+	print "\n###################################################################\n\n";
+                                                  
+	print("\n\nNo Sangoma voice compatible cards found/configured\n\n"); 
 	exit 0;
 }else{
 	write_zaptel_conf();
@@ -426,7 +431,9 @@ sub save_debug_info{
 sub config_analog{
 	my $a20x;
 	system('clear');
+	print "------------------------------------\n";
 	print "Configuring analog cards [A200/A400]\n";
+	print "------------------------------------\n";
 #	prompt_user("Press any key to continue");
 	my $skip_card=$FALSE;
 	$zaptel_conf.="\n";
@@ -452,7 +459,9 @@ sub config_analog{
        			if ($card->card_model eq '200' | $card->card_model eq '400'){
 				$num_analog_devices_total++;
 				system('clear');
+				print "\n-----------------------------------------------------------\n";
 				print "A$1 detected on slot:$3 bus:$4\n";
+				print "-----------------------------------------------------------\n";
 				if($is_trixbox==$FALSE){
 					print "\nWould you like to configure A$1 on slot:$3 bus:$4\n";
 					if (&prompt_user_list(("YES","NO","")) eq 'NO'){
@@ -495,25 +504,7 @@ sub config_analog{
 	}
 
 	
-	if($num_analog_devices_total==0){
-		print("No Sangoma analog cards detected.\n"); 
-	}else{
-#		if($is_trixbox==$FALSE){
-#			print "\nFor FXO ports:";
-#	       		print "\n  Use \"[from-zaptel]\" context in your /etc/asterisk/extensions.conf";
-#			print "\n  to configure your dialplan for incoming calls.\n";
-#			
-#			print "\n  Use \"exten=>s,1,Dial(Zap/g0/\${EXTEN})\" in your";
-#			print "\n  /etc/asterisk/extensions.conf to dial out.\n";
-#	       		
-#			
-#			print "\nFor FXS ports:";
-#			print "\n  Use \"[from-pstn]\" context in your /etc/asterisk/extensions.conf";
-#			print "\n  to configure your dialplan for incoming calls.\n";
-#
-#			print "\n  Use \"exten=>s,1,Dial(Zap/g1/\${EXTEN})\" in your";
-#			print "\n  /etc/asterisk/extensions.conf to dial out.\n";
-#		}
+	if($num_analog_devices_total!=0){
 		print("\nAnalog card configuration complete\n\n");
 		prompt_user("Press any key to continue");
 	}
@@ -521,7 +512,9 @@ sub config_analog{
 
 sub config_digital{
 	system('clear');
-	print "\nConfiguring T1/E1 cards [A101/A102/A104/A108]\n";
+	print "---------------------------------------------\n";
+	print "Configuring T1/E1 cards [A101/A102/A104/A108]\n";
+	print "---------------------------------------------\n";
 #	prompt_user("Press any key to continue");
 	
 	foreach my $dev (@hwprobe) {
@@ -578,7 +571,9 @@ sub config_digital{
 				}
 				system('clear');
 				my $msg ="Configuring port ".$port." on A".$card->card_model." slot:".$card->pci_slot." bus:".$card->pci_bus.".\n";
+				print "\n-----------------------------------------------------------\n";
 				print "$msg";
+				print "-----------------------------------------------------------\n";
 		#		prompt_user("Press any key to continue");
 					
 				printf ("\nSelect media type for A%s on port %s [slot:%s bus:%s span:$devnum]\n", $card->card_model, $port, $card->pci_slot, $card->pci_bus);
@@ -750,12 +745,10 @@ sub config_digital{
 			}
 		}
 	}
-	if($num_digital_devices_total==0){
-		print("No Sangoma T1/E1 cards detected.\n"); 
+	if($num_digital_devices_total!=0){
+		print("\nT1/E1 card configuration complete.\n");
 		prompt_user("Press any key to continue");
 	}
-	print("\nT1/E1 card configuration complete.\n");
-	prompt_user("Press any key to continue");
 	close SCR;
 }
 

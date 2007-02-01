@@ -1,7 +1,7 @@
 %define WANPIPE_VER	  wanpipe-modules
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           5
+%define release           6
 %define	serial	 	  1
 %define MODULES_DIR	  /lib/modules
 
@@ -48,6 +48,29 @@ echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"
 
 
 %changelog
+* Mon Jan 31 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-6
+====================================================================
+
+- Bugfix for AFT Hardware Echo Voice cards
+  Bug introduced in 2.3.4-5 release.
+ 
+  The new feature "persistent hwec" released in 2.3.4-5 had a bug
+  that was apprent on wanpipe restarts.  
+  Anyone running 2.3.4-5 release should upgrade.
+
+  If you are running 2.3.4-5 in production to fix this problem enable
+  the following option in [wanpipe] section of wanpipeX.conf.
+    	TDMV_HWEC_PERSIST_DISABLE=YES
+  And restart all wanpipe cards using: wanrouter restart command.
+  
+  Note this bug affects all AFT cards with hardware echo cancellation
+  and release 2.3.4-5.
+
+  For more info please contact Sangoma Support.
+
+- Minor cosmetic update to wancfg_zaptel wanpipe/zaptel configurator.
+ 
+
 * Mon Jan 22 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-5
 ====================================================================
 
@@ -55,14 +78,14 @@ echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"
   This release will recognize the new A400 
   pci card info.
 
-- Updated A200/A400 firwmare updater
+- Updated A200/A400 firmware updater
   Takes into account the new A200 and A400 cards.
 
 - AFT A301 T3/E3 Driver Update
   Fixed a possible race condition
   during startup/shutdown
 
-- AFT A101/2 T1/E1 Driever Update
+- AFT A101/2 T1/E1 Driver Update
   Fixed a possible race condition
   during startup/shutdown
 
@@ -116,7 +139,7 @@ echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"
 
 - Critical Bug fix for A108D and A102D cards.
   It was possible for the front end interrupt handler to
-  miss-handle a pending interrup, which would caused system 
+  miss-handle a pending interrupt, which would caused system 
   instability.
 
 - TDM API Update
@@ -134,12 +157,12 @@ echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"
 
 - Bug Fix in A101/2 Drivers
   Mishandling of skb buffers on rx stream could cause
-  unpredicable behaviour on some systems. 
+  unpredictable behavior on some systems. 
   This has now been fixed.
 
 - Updated A101/2/4/8 A301 Drivers
   Changed the memory allocation scheme in non interrupt context to
-  use KERNEL instead of ATOMIC. The symptopns were on low 
+  use KERNEL instead of ATOMIC. The symptoms were on low 
   memory system wanrouter start could fail due to memory 
   allocation error when starting up large number of devices.
 

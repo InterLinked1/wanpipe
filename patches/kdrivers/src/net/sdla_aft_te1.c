@@ -495,7 +495,7 @@ static int wan_aft_init (sdla_t *card, wandev_conf_t* conf);
 static unsigned char aft_write_ec (void*, unsigned short, unsigned char);
 static unsigned char aft_read_ec (void*, unsigned short);
 
-static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *conf);
+static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *conf, int ctrl);
 
 	
 /**SECTION*********************************************************
@@ -1832,7 +1832,7 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 		goto new_if_error;
 	}	   
 
-	err=aft_hwec_config(card,chan,conf);
+	err=aft_hwec_config(card,chan,conf,1);
 	if (err){
 		goto new_if_error;
 	}  
@@ -2155,6 +2155,8 @@ static int del_if_private (wan_device_t* wandev, netdevice_t* dev)
 			  wan_netif_name(dev));
 		return 0;
 	}
+	
+	aft_hwec_config(card,chan,NULL,0);
 
         wan_spin_lock_irq(&card->wandev.lock,&flags);
 	aft_dev_unconfigure(card,chan);
@@ -8856,15 +8858,6 @@ void __aft_fe_intr_ctrl(sdla_t *card, int status)
 {
 	u32 reg;
 
-	if (wan_test_bit(CARD_DOWN,&card->wandev.critical) && status){
-		/* Do not enable front end if card is down */
-	       	if (WAN_NET_RATELIMIT()){
-		DEBUG_EVENT("%s: Sanity: disabling fe interrupt card down!\n",
-				card->devname);
-		}
-		status=0;
-	}        
-
 	card->hw_iface.bus_read_4(card->hw,AFT_CHIP_CFG_REG,&reg);
 	if (status){
 	        wan_set_bit(AFT_CHIPCFG_FE_INTR_CFG_BIT,&reg);
@@ -10419,10 +10412,15 @@ static void aft_critical_shutdown (sdla_t *card)
 
 
 
-static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *conf)
+static int aft_hwec_config (sdla_t *card, private_area_t *chan, wanif_conf_t *conf, int ctrl)
 {
 	int err = 0;
 	unsigned int channel=0;
+	unsigned int tdmv_hwec_option=0;
+	
+	if (conf) {
+        	tdmv_hwec_option=conf->u.aft.tdmv_hwec;
+	}
 
 	if (chan->common.usedby == TDM_VOICE_API ||
 	    chan->common.usedby == TDM_VOICE){
@@ -10438,7 +10436,10 @@ static int aft_hwec_config(sdla_t *card, private_area_t *chan, wanif_conf_t *con
 		}              
 		
 #if defined(CONFIG_WANPIPE_HWEC)  
-		if (conf->u.aft.tdmv_hwec && card->wandev.ec_enable){
+		if (ctrl == 0 && card->wandev.ec_enable){ 
+                	card->wandev.ec_enable(card, 0, channel);
+			
+		} else if (tdmv_hwec_option && card->wandev.ec_enable){
 			DEBUG_HWEC("%s: HW echo canceller Enabled on channel %d\n",
 					chan->if_name,
 					channel);

@@ -1854,7 +1854,7 @@ WANPIPE utilities are used to:
 	1) create WANPIPE configuration files.
 		(/usr/sbin/wancfg)
 	2) create configuration files for Zaptel and Asterisk
-		(/usr/sbin/wanconfig-zaptel)
+		(/usr/sbin/wancfg-zaptel)
 	2) start,stop,restart individual/all devices and interfaces.
 		(/usr/sbin/wanrouter)
 	3) debug line, protocol and driver problems.
@@ -2019,32 +2019,6 @@ WARNING: The Linux source in $SOURCEDIR has not been configured.
                 echo -n "WANPIPE HWEC Utilities not installed"
 		echo
 	fi             
-
-    #    echo
-    #    echo -n "Installing wanconfig-zaptel Utility..."
-    #    eval "cp -rf $PROD_HOME/util/wanconfig-zaptel /usr/local/sbin/ -r >/dev/null 2>/dev/null"
-    #    if [ ! $? -eq 0 ]; then
-    #           	echo -e "Failed!\n"
-    #           	echo -e "\tERROR: Failed to install wanconfig-zaptel Utility !!!"
-    #           	echo -e "\t\nPlease contact Sangoma Technologies"
-    #           	pause
-    #    fi
-    #    eval "cp -f $PROD_HOME/util/wanconfig-zaptel/wanconfig-zaptel /usr/sbin/ -r > /dev/null 2>/dev/null"
-    #    if [ ! $? -eq 0 ]; then
-    #            echo -e "Failed!\n"
-    #           	echo -e "\tERROR: Failed to copy wanconfig-zaptel Utility !!!"
-    #           	echo -e "\t\nPlease contact Sangoma Technologies"
-    #           	pause
-    #    fi
-    #    eval "cp -f $PROD_HOME/util/wanconfig-zaptel/setup-sangoma /usr/local/sbin/ -r"
-    #    if [ $? -eq 0 ]; then
-    #   		echo -e "Done.\n"
-    #    else
-    #           	echo -e "Failed!\n"
-    #           	echo -e "\tERROR: Failed to copy setup-sangoma Utility !!!"
-    #           	echo -e "\t\nPlease contact Sangoma Technologies"
-    #           	pause
-    #   fi
 	echo -e "\tWANPIPE Environment Setup Complete !!!\n"
 	pause
 	return 0
@@ -3281,10 +3255,10 @@ CFLAGS="$CC -Wp,-MD,.wanpipe.o.d -nostdinc -iwithprefix include -D__LINUX__ -Dli
 				 ;;
 
 			*)
-				if [ $KLVL -lt 32 ]; then  
+				if [ ! $KLVL -lt 32 ]; then  
 			       		CFLAGS="$CC -D__LINUX__ -Dlinux -D__KERNEL__ -I$SOURCEDIR/include -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -fno-strict-aliasing -pipe -march=$ARCH -DMODULE -DEXPORT_SYMTAB"
                                 else
-                                	CFLAGS="$CC -D__LINUX__ -Dlinux -D__KERNEL__ -I$SOURCEDIR/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fn        o-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=$ARCH -fno-unit-at-a-time -DMODULE  -nostdinc -iwithp        refix include -DMODULE -DEXPORT_SYMTAB"
+                                	CFLAGS="$CC -D__LINUX__ -Dlinux -D__KERNEL__ -I$SOURCEDIR/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=$ARCH -fno-unit-at-a-time -DMODULE  -nostdinc -iwithprefix include -DMODULE -DEXPORT_SYMTAB"
 				fi
 				
 				#Old gcc do not have this option, thus we must check for it.
@@ -6055,7 +6029,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-5
+PROD_VER=2.3.4-6
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6820,7 +6794,7 @@ if [ -z $NONINTERACTIVE ] && [ "$WANCFG_ZAPTEL_CFG" = "YES" ] && [ -e $WANCFG_ZA
 	else
 		echo "Wanpipe Installation Complete"
 		echo "-----------------------------" 
-		eval "Please proceed to configure wanpipe user /usr/sbin/wancfg"
+		echo "Please proceed to configure wanpipe user /usr/sbin/wancfg"
 		echo
 	fi
 fi

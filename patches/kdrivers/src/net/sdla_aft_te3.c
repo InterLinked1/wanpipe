@@ -5700,15 +5700,6 @@ static void __aft_fe_intr_ctrl(sdla_t *card, int status)
 {
 	u32 reg;
 
-	if (wan_test_bit(CARD_DOWN,&card->wandev.critical) && status){
-		/* Do not enable front end if card is down */
-	       	if (WAN_NET_RATELIMIT()){
-		DEBUG_EVENT("%s: Sanity: disabling fe interrupt card down!\n",
-				card->devname);
-		}
-		status=0;
-	}
-
 	card->hw_iface.bus_read_4(card->hw,XILINX_CHIP_CFG_REG,&reg);
 	if (status){
 		wan_set_bit(FRONT_END_INTR_ENABLE_BIT,&reg);
