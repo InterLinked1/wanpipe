@@ -1,7 +1,7 @@
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           6
+%define release           7
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define PROD_HOME  	  /etc/wanpipe
@@ -227,7 +227,17 @@ install_init;
 
 
 %changelog
-* Mon Jan 31 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-6
+* Wed Jan 31 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-7
+====================================================================  
+
+- Removed a sanity check from AFT drivers
+  This check was added in 2.3.4-5 release.
+
+  Due to some imporant fixes in 2.3.4-5 this release was
+  rushed, and things like this happen.  Sorry :)
+
+
+* Wed Jan 31 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-6
 ====================================================================
 
 - Bugfix for AFT Hardware Echo Voice cards

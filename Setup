@@ -3255,7 +3255,7 @@ CFLAGS="$CC -Wp,-MD,.wanpipe.o.d -nostdinc -iwithprefix include -D__LINUX__ -Dli
 				 ;;
 
 			*)
-				if [ ! $KLVL -lt 32 ]; then  
+				if [ $KLVL -lt 32 ]; then  
 			       		CFLAGS="$CC -D__LINUX__ -Dlinux -D__KERNEL__ -I$SOURCEDIR/include -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -fno-strict-aliasing -pipe -march=$ARCH -DMODULE -DEXPORT_SYMTAB"
                                 else
                                 	CFLAGS="$CC -D__LINUX__ -Dlinux -D__KERNEL__ -I$SOURCEDIR/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=$ARCH -fno-unit-at-a-time -DMODULE  -nostdinc -iwithprefix include -DMODULE -DEXPORT_SYMTAB"
@@ -4767,6 +4767,12 @@ function tdmv_get_zaptel_path ()
                         tdmv_get_zaptel_path
                 fi
         fi
+
+
+	#zaptel.c renamed to zaptel-base.c in zaptel v1.2.13 and later
+	if [ -e $ZAPTEL_INSTALL_DIR/zaptel-base.c ]; then
+		ZAPTEL_C_FILE="zaptel-base.c";
+	fi
         return 0;
 }
 
@@ -4776,10 +4782,10 @@ function tdmv_apply_zaptel_dchan_patch ()
 
 	cd $ZAPTEL_INSTALL_DIR
 
-	eval "grep \"DCHAN_TX\" zaptel.c > /dev/null 2> /dev/null"
+	eval "grep \"DCHAN_TX\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 	if [ $? -eq 0 ]; then
 
-		eval "grep \"ZT_DCHAN_TX_V2\" zaptel.c > /dev/null 2> /dev/null"
+		eval "grep \"ZT_DCHAN_TX_V2\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 		if [ $? -eq 0 ]; then
 			echo "   Zaptel DCHAN patch V.02 already installed"
 			cd $lhome
@@ -4803,18 +4809,18 @@ function tdmv_apply_zaptel_dchan_patch ()
 		cd $lhome
 		return 2
 	#else
-	#	echo "search_and_replace(zaptel.c) succeeded"
+	#	echo "search_and_replace($ZAPTEL_C_FILE) succeeded"
 	fi
 
-	# patch zaptel.c
-	eval "search_and_replace zaptel.c zaptel.c \"$ZAPTEL_C_SEARCH_STR\" \"$ZAPTEL_C_PATCH\""
+	# patch $ZAPTEL_C_FILE
+	eval "search_and_replace $ZAPTEL_C_FILE $ZAPTEL_C_FILE \"$ZAPTEL_C_SEARCH_STR\" \"$ZAPTEL_C_PATCH\""
 
 	if [ $? -ne 0 ]; then
-		echo "search_and_replace(zaptel.c) failed"
+		echo "search_and_replace($ZAPTEL_C_FILE) failed"
 		cd $lhome
 		return 2
 	else
-		#echo "search_and_replace(zaptel.c) succeeded"
+		#echo "search_and_replace($ZAPTEL_C_FILE) succeeded"
 		cd $lhome
 		zaptel_modified=1
 		return 0
@@ -4849,10 +4855,10 @@ function tdmv_apply_zaptel_dchan_patch_old ()
 	fi
 
 
-	eval "grep \"DCHAN_TX\" zaptel.c > /dev/null 2> /dev/null"
+	eval "grep \"DCHAN_TX\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 	if [ $? -eq 0 ]; then
 
-		eval "grep \"ZT_DCHAN_TX_V2\" zaptel.c > /dev/null 2> /dev/null"
+		eval "grep \"ZT_DCHAN_TX_V2\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 		if [ $? -eq 0 ]; then
 			echo "Zaptel DCHAN patch V.02 already installed"
 			cd $lhome
@@ -4879,7 +4885,7 @@ function tdmv_apply_zaptel_dchan_patch_old ()
 		echo "Zaptel DCHAN Patch Failed"
 		rc=1
 	else
-		eval "grep \"ZT_DCHAN_TX_V2\" zaptel.c > /dev/null 2> /dev/null"
+		eval "grep \"ZT_DCHAN_TX_V2\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 		if [ $? -eq 0 ]; then
 			echo "Zaptel Source Patched with DCHAN V.02 Successfully"
 			rc=0
@@ -4957,9 +4963,9 @@ function tdmv_apply_zaptel_echo_debug_patch ()
 	cd $ZAPTEL_INSTALL_DIR
 
 	#check if some version of the patch is already installed in zaptel.c
-	eval "grep \"GET_ECHO_SPIKE_SAMPLE\" zaptel.c > /dev/null 2> /dev/null"
+	eval "grep \"GET_ECHO_SPIKE_SAMPLE\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 	if [ $? -eq 0 ]; then
-		echo "Echo Debugging patch for Zaptel already installed in zaptel.c."
+		echo "Echo Debugging patch for Zaptel already installed in $ZAPTEL_C_FILE."
 		echo "Consider using fresh (unpatched) Zaptel source."
 		cd $lhome
 		return 0
@@ -4977,7 +4983,7 @@ function tdmv_apply_zaptel_echo_debug_patch ()
 	#######################################################################################
 	cp $PROD_HOME/zaptel/$ZAPTEL_C_ECHO_DEBUG_PATCH .
 
-	eval "patch zaptel.c $ZAPTEL_C_ECHO_DEBUG_PATCH > /dev/null 2> /dev/null"
+	eval "patch $ZAPTEL_C_FILE $ZAPTEL_C_ECHO_DEBUG_PATCH > /dev/null 2> /dev/null"
 	rc=$?
 	if [ $rc -ne 0 ]; then
 		echo "Echo Detection patch for Zaptel Failed (1)"
@@ -5031,7 +5037,7 @@ function tdmv_apply_zaptel_edac_patch ()
 	cd $ZAPTEL_INSTALL_DIR
 
 	#check if some version of the patch is already installed
-	eval "grep \"SANGOMA_GET_ED_STATE\" zaptel.c > /dev/null 2> /dev/null"
+	eval "grep \"SANGOMA_GET_ED_STATE\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 	if [ $? -eq 0 ]; then
 		echo "Echo Detection patch for Zaptel already installed."
 		echo "Consider using fresh (unpatched) Zaptel source."
@@ -5051,7 +5057,7 @@ function tdmv_apply_zaptel_edac_patch ()
 		echo "Echo Detection patch for Zaptel Failed"
 		rc=1
 	else
-		eval "grep \"SANGOMA_GET_ED_STATE\" zaptel.c > /dev/null 2> /dev/null"
+		eval "grep \"SANGOMA_GET_ED_STATE\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 		if [ $? -eq 0 ]; then
 			echo "Zaptel Source patched with Echo Detection V1.00 Successfully"
 			rc=0
@@ -6029,7 +6035,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-6
+PROD_VER=2.3.4-7
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6109,6 +6115,7 @@ SS7_USER_ID="0"
 ANNEXG_LOAD=NO
 
 ZAPTEL_INSTALL_DIR="/usr/src/zaptel"
+ZAPTEL_C_FILE="zaptel.c"
 ASTERISK_IFLAGS=
 EDAC_ZAP_PATCH_FILE=ed_zaptel.patch
 
@@ -6601,7 +6608,6 @@ you know what you are doing :)
 		if [ "$setup_cmd" = "buildrpm" ]; then
                         compile_aft_firmware_util
 			detect_rpm_build_utility
-
  
 			if [ "$SPLIT_RPMS" = "YES" ]; then
 				eval "$RPM -bb --define '_unpackaged_files_terminate_build 0' $RPMOPT $PROD_HOME/rpmbuild $PROD_HOME/rpmspec/wanpipe-util.spec --target=$ARCH"

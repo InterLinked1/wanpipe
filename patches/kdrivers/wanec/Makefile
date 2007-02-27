@@ -34,6 +34,7 @@ all:
 clean:
 	$(shell find  . -name '*.*o'  | xargs rm)
 	$(shell find . -name '.*.o.cmd' | xargs rm)
+	$(shell rm -f build.sh)
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) clean
 
 distclean: clean

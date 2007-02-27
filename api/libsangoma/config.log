@@ -39,10 +39,6 @@ PATH: /usr/X11R6/bin
 PATH: /usr/sbin/scripts
 PATH: /root/bin
 PATH: /usr/sbin/scripts
-PATH: /bin
-PATH: /sbin
-PATH: /usr/bin
-PATH: /usr/sbin
 
 
 ## ----------- ##

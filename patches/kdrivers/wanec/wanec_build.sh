@@ -24,4 +24,4 @@ done
 
 echo "Compiling: $ofiles"
 
-make MODULE_NAME=wanec OBJS="$ofiles" CC=gcc KBUILD_VERBOSE=1 KDIR=/lib/modules/$(uname -r)/build EXTRA_CFLAGS="-D__LINUX__ $EXTRA_FLAGS "
+make MODULE_NAME=wanec OBJS="$ofiles" CC=gcc KBUILD_VERBOSE=0 KDIR=/lib/modules/$(uname -r)/build EXTRA_CFLAGS="-D__LINUX__ $EXTRA_FLAGS "
