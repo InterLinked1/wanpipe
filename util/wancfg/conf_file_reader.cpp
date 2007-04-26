@@ -44,7 +44,7 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
   { "PCISLOT",    offsetof(wandev_conf_t, PCI_slot_no), DTYPE_UINT },
   { "PCIBUS", 	  offsetof(wandev_conf_t, pci_bus_no),	DTYPE_UINT },
   { "AUTO_PCISLOT",offsetof(wandev_conf_t, auto_pci_cfg), DTYPE_UCHAR },
-  { "COMMPORT",   offsetof(wandev_conf_t, comm_port),   DTYPE_UCHAR },
+  { "COMMPORT",   offsetof(wandev_conf_t, comm_port),   DTYPE_UINT },
 
   /* Front-End parameters */
   { "FE_MEDIA",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, media), DTYPE_UCHAR },

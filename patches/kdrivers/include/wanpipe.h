@@ -732,6 +732,7 @@ typedef struct
 	unsigned short	tdm_rx_dma_toggle;
 	unsigned short	tdm_tx_dma_toggle;
 	unsigned int	tdm_logic_ch_map;
+	unsigned long	sec_chk_cnt;
 } sdla_xilinx_t;
 
 typedef struct 

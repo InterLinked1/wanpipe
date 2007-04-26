@@ -918,31 +918,31 @@ void read_te1_56k_stat(void)
 		printf("\n\n***** %s: %s Performance Monitoring Counters *****\n\n",
 				if_name, (adapter_type == WAN_MEDIA_T1) ? "T1" : "E1");
 		if (pmon->mask & WAN_TE_BIT_PMON_LCV){
-			printf("Line Code Violation\t: %ld\n",
+			printf("Line Code Violation\t: %d\n",
 						pmon->lcv_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_BEE){
-			printf("Bit Errors\t: %ld\n",
+			printf("Bit Errors\t: %d\n",
 						pmon->bee_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_OOF){
-			printf("Out of Frame Errors\t: %ld\n",
+			printf("Out of Frame Errors\t: %d\n",
 						pmon->oof_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_FEB){
-			printf("Far End Block Errors\t: %ld\n",
+			printf("Far End Block Errors\t: %d\n",
 						pmon->feb_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_CRC4){
-			printf("CRC4 Errors\t: %ld\n",
+			printf("CRC4 Errors\t: %d\n",
 						pmon->crc4_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_FER){
-			printf("Framing Bit Errors\t: %ld\n",
+			printf("Framing Bit Errors\t: %d\n",
 						pmon->fer_errors);
 		}
 		if (pmon->mask & WAN_TE_BIT_PMON_FAS){
-			printf("FAS Errors\t: %ld\n",
+			printf("FAS Errors\t: %d\n",
 						pmon->fas_errors);
 		}
 	}
@@ -953,18 +953,18 @@ void read_te1_56k_stat(void)
 		printf("\n\n***** %s: %s Performance Monitoring Counters *****\n\n",
 				if_name, (adapter_type == WAN_MEDIA_DS3) ? "DS3" : "E3");
 
-		printf("Framing Bit Error:\t%ld\tLine Code Violation:\t%ld\n", 
+		printf("Framing Bit Error:\t%d\tLine Code Violation:\t%d\n", 
 				pmon->pmon_framing,
 				pmon->pmon_lcv);
 
 		if (adapter_type == WAN_MEDIA_DS3){
-			printf("Parity Error:\t\t%ld\n",
+			printf("Parity Error:\t\t%d\n",
 					pmon->pmon_parity);
-			printf("CP-Bit Error Event:\t%ld\tFEBE Event:\t\t%ld\n", 
+			printf("CP-Bit Error Event:\t%d\tFEBE Event:\t\t%d\n", 
 					pmon->pmon_cpbit,
 					pmon->pmon_febe);
 		}else{
-			printf("Parity Error:\t%ld\tFEBE Event:\t\t%ld\n",
+			printf("Parity Error:\t%d\tFEBE Event:\t\t%d\n",
 					pmon->pmon_parity,
 					pmon->pmon_febe);
 		}

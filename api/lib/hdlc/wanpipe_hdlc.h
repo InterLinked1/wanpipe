@@ -115,6 +115,8 @@ typedef struct wanpipe_hdlc_engine
 	unsigned char	seven_bit_hdlc;
 	unsigned char 	bits_in_byte;
 
+	int (*hdlc_data) (struct wanpipe_hdlc_engine *hdlc_eng, void *data, int len);
+
 }wanpipe_hdlc_engine_t;
 
 typedef struct hdlc_list

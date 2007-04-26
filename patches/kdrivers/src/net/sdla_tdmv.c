@@ -721,7 +721,7 @@ static void wp_tdmv_report_alarms(void* pcard, unsigned long te_alarm)
 		return;
 	}
 
-	/* And consider only carrier alarms */
+	/* Consider only carrier alarms */
 	wp->span.alarms &= (ZT_ALARM_RED | ZT_ALARM_BLUE | ZT_ALARM_NOTOPEN);
 	prev_alarms = wp->span.alarms;
 
@@ -779,18 +779,14 @@ static void wp_tdmv_report_alarms(void* pcard, unsigned long te_alarm)
 	if (wp->ise1) {
 		if (te_alarm & WAN_TE_BIT_RED_ALARM) 
 			alarms |= ZT_ALARM_RED;
-		if (te_alarm & (WAN_TE_BIT_OOF_ALARM|WAN_TE_BIT_LOS_ALARM)) 
+		if (te_alarm & WAN_TE_BIT_OOF_ALARM) 
 			alarms |= ZT_ALARM_RED;
-		if (te_alarm & WAN_TE_BIT_AIS_ALARM)
-			alarms |= ZT_ALARM_BLUE;
 	} else {
 		/* Check actual alarm status */
 		if (te_alarm & WAN_TE_BIT_RED_ALARM) 
 			alarms |= ZT_ALARM_RED;
-		if (te_alarm & (WAN_TE_BIT_OOF_ALARM|WAN_TE_BIT_LOS_ALARM)) 
+		if (te_alarm & WAN_TE_BIT_OOF_ALARM)
 			alarms |= ZT_ALARM_RED;
-		if (te_alarm & WAN_TE_BIT_AIS_ALARM)
-			alarms |= ZT_ALARM_BLUE;
 	}
 	/* Keep track of recovering */
 	if ((!alarms) && wp->span.alarms)
@@ -819,21 +815,8 @@ static void wp_tdmv_report_alarms(void* pcard, unsigned long te_alarm)
 		alarms |= ZT_ALARM_YELLOW;
 
 	wp->span.alarms = alarms;
-	if (wan_test_bit(WP_TDMV_RUNNING, &wp->flags)){
-#if 0
-		/* If receiving alarms, go into Yellow alarm state */
-		if (alarms && (!prev_alarms)) {
-			DEBUG_TDMV("%s: Going into yellow alarm\n",
-					wp->devname);
-			if (card->wandev.fe_iface.set_fe_alarm){
-				card->wandev.fe_iface.set_fe_alarm(
-							&card->fe,
-							WAN_TE_BIT_YEL_ALARM);
-			}
-		}
-#endif
-		zt_alarm_notify(&wp->span);
-	}
+	zt_alarm_notify(&wp->span);
+
 	return;
 }
 

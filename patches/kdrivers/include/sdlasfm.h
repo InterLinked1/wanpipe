@@ -137,6 +137,7 @@ typedef struct sfm			/* SDLA firmware file structire */
 
 #define A104_ADPTR_TE1_MASK		0x0080	/* Quad T1/E1 type mask  */
 #define A104_ADPTR_4TE1			0x0081	/* Quad line T1/E1 */
+#define A104_ADPTR_4TE1_PCIX		0x0082	/* Quad line T1/E1 PCI Express */
 
 #define A108_ADPTR_TE1_MASK		0x0200	/* 8 Channels T1/E1 type mask  */
 #define A108_ADPTR_8TE1			0x0201	/* 8 Channels T1/E1 */
@@ -146,14 +147,18 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define A300_ADPTR_U_1TE3		0x0102	/* 1 Channel T3/E3 (unchannelized) */
 #define A305_ADPTR_C_1TE3		0x0104	/* 1 Channel T3/E3 (channelized) */
 
-#define A200_ADPTR_ANALOG_MASK		0x0400	/* AFT-REMORA analog board mask */
-#define A200_ADPTR_ANALOG		0x0401	/* AFT-REMORA analog board */
+#define A200_ADPTR_ANALOG_MASK		0x0400	/* AFT-200 REMORA analog board mask */
+#define A200_ADPTR_ANALOG		0x0401	/* AFT-200 REMORA analog board */
 
-#define A400_ADPTR_ANALOG_MASK		0x0800	/* AFT-REMORA A400 Analog board mask */
-#define A400_ADPTR_ANALOG		0x0801	/* AFT-REMORA A400 Analog board */
+#define A400_ADPTR_ANALOG_MASK		0x0800	/* AFT-400 REMORA analog board mask */
+#define A400_ADPTR_ANALOG		0x0801	/* AFT-400 REMORA analog board */
 
-#define A104_ADPTR_X_TE1_MASK		0x0800	/* Quad T1/E1 type mask  */
-#define A104_ADPTR_X_4TE1		0x0801	/* Quad line T1/E1 */
+#define AFT_ADPTR_ISDN_MASK		0x1000	/* AFT ISDN BRI board mask */
+#define AFT_ADPTR_ISDN			0x1001	/* AFT ISDN BRI board */
+
+#define AFT_ADPTR_56K_MASK		0x2000	/* AFT 56K board mask */
+#define AFT_ADPTR_56K			0x2001	/* AFT 56K board */
+
 
 #define OPERATE_T1E1_AS_SERIAL		0x8000  /* For bitstreaming only 
 						 * Allow the applicatoin to 
@@ -192,6 +197,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define AFT8_BIT_DEV_ADDR_CLEAR		0x1800 /* QUAD */
 #define AFT8_BIT_DEV_ADDR_CPLD		0x800
 #define AFT8_BIT_DEV_MAXIM_ADDR_CPLD	0x1000
+
+#define AFT3_BIT_DEV_ADDR_EXAR_CLEAR  	0x600
+#define AFT3_BIT_DEV_ADDR_EXAR_CPLD  	0x400
 
 #define AFT_SECURITY_CPLD_REG		0x09
 #define AFT_SECURITY_CPLD_SHIFT		0x02
@@ -237,12 +245,12 @@ typedef struct sfm			/* SDLA firmware file structire */
 	((val) == A108_SECURITY_128_ECCHAN)	? 128 :	\
 	((val) == A108_SECURITY_256_ECCHAN)	? 256 : 0
 
-#define A200_SECURITY_16_ECCHAN	0x00
-#define A200_SECURITY_32_ECCHAN	0x01
-#define A200_SECURITY_0_ECCHAN	0x05
-#define A200_ECCHAN(val)				\
-	((val) == A200_SECURITY_16_ECCHAN) ? 16 :	\
-	((val) == A200_SECURITY_32_ECCHAN) ? 32 : 0
+#define AFT_RM_SECURITY_16_ECCHAN	0x00
+#define AFT_RM_SECURITY_32_ECCHAN	0x01
+#define AFT_RM_SECURITY_0_ECCHAN	0x05
+#define AFT_RM_ECCHAN(val)				\
+	((val) == AFT_RM_SECURITY_16_ECCHAN) ? 16 :	\
+	((val) == AFT_RM_SECURITY_32_ECCHAN) ? 32 : 0
 
 
 
@@ -261,8 +269,10 @@ typedef struct sfm			/* SDLA firmware file structire */
 		(adapter_type == A300_ADPTR_U_1TE3) 	   ? "AFT-A301" : \
 		(adapter_type == A200_ADPTR_ANALOG) 	   ? "AFT-A200" : \
 		(adapter_type == A400_ADPTR_ANALOG) 	   ? "AFT-A400" : \
+		(adapter_type == AFT_ADPTR_ISDN) 	   ? "AFT-A500" : \
+		(adapter_type == AFT_ADPTR_ISDN) 	   ? "AFT-A056" : \
 							     "UNKNOWN"
-
+							     
 #if 0
 #define SDLA_ADPTR_DECODE(adapter_type)			\
 		(adapter_type == S5141_ADPTR_1_CPU_SERIAL) ? "S514-1-PCI" : \

@@ -2,14 +2,14 @@
 <wc-entries
    xmlns="svn:">
 <entry
-   committed-rev="148"
+   committed-rev="186"
    name=""
-   committed-date="2006-11-28T19:26:43.047920Z"
+   committed-date="2007-04-20T01:03:02.148351Z"
    url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk/scripts"
    last-author="ncorbic"
    kind="dir"
    uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
-   revision="162"/>
+   revision="190"/>
 <entry
    committed-rev="79"
    name="astxs"
@@ -22,4 +22,13 @@
 <entry
    name="callgen"
    kind="dir"/>
+<entry
+   committed-rev="186"
+   name="set_debug.sh"
+   text-time="2007-04-20T20:09:27.000000Z"
+   committed-date="2007-04-20T01:03:02.148351Z"
+   checksum="fb580ba2a5e39574a4980ca545e01d27"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2007-04-20T20:09:27.000000Z"/>
 </wc-entries>

@@ -1,0 +1,1 @@
+sed -i $(find -name '*.h' -printf '/include.*%f/{s/[<>]/"/g;s,linux/,,;};') $(find -name '*.h')

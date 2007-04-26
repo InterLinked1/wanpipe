@@ -97,6 +97,8 @@
 
 #define	is_digit(ch) (((ch)>=(unsigned)'0'&&(ch)<=(unsigned)'9')?1:0)
 
+#define smemof(TYPE, MEMBER) offsetof(TYPE,MEMBER),(sizeof(((TYPE *)0)->MEMBER))  					
+
 enum ErrCodes			/* Error codes */
 {
 	ERR_SYSTEM = 1,		/* system error */
@@ -126,6 +128,7 @@ typedef struct key_word		/* Keyword table entry */
 {
 	char*	keyword;	/* -> keyword */
 	uint	offset;		/* offset of the related parameter */
+	int 	size;
 	int	dtype;		/* data type */
 } key_word_t;
 
@@ -489,6 +492,21 @@ union
 wan_conf_t	config;
 #endif
 
+static void SIZEOFASSERT (key_word_t* dtab, int type_size)
+{
+ 	if (dtab->size != type_size) { 
+		printf("\n==========CRITICAL ERROR============\n\n");  
+		printf("Size Mismatch: Type Size %i != %i\n",dtab->size, type_size); 
+		printf("======================================\n\n");  
+		fprintf(stderr,"\n==========CRITICAL ERROR============\n\n"); 
+	        fprintf(stderr,"Size Mismatch: Type Size %i != %i\n",dtab->size, type_size);
+		fprintf(stderr,"======================================\n\n");	
+		fprintf(stderr,"Plese email /var/log/wanrouter file to Sangoma Support\n");	
+		fprintf(stderr,"Email to techdesk@sangoma.com\n");	
+		fprintf(stderr,"======================================\n\n");	
+       	}         
+}
+
 
 /*
  * Configuration structure description tables.
@@ -497,96 +515,97 @@ wan_conf_t	config;
  */
 key_word_t common_conftab[] =	/* Common configuration parameters */
 {
-  { "IOPORT",     offsetof(wandev_conf_t, ioport),     DTYPE_UINT },
-  { "MEMADDR",    offsetof(wandev_conf_t, maddr),       DTYPE_UINT },
-  { "MEMSIZE",    offsetof(wandev_conf_t, msize),       DTYPE_UINT },
-  { "IRQ",        offsetof(wandev_conf_t, irq),         DTYPE_UINT },
-  { "DMA",        offsetof(wandev_conf_t, dma),         DTYPE_UINT },
-  { "CARD_TYPE",  offsetof(wandev_conf_t, card_type),	DTYPE_UCHAR },
-  { "S514CPU",    offsetof(wandev_conf_t, S514_CPU_no), DTYPE_STR },
-  { "PCISLOT",    offsetof(wandev_conf_t, PCI_slot_no), DTYPE_UINT },
-  { "PCIBUS", 	  offsetof(wandev_conf_t, pci_bus_no),	DTYPE_UINT },
-  { "AUTO_PCISLOT",offsetof(wandev_conf_t, auto_pci_cfg), DTYPE_UCHAR },
-  { "COMMPORT",   offsetof(wandev_conf_t, comm_port),   DTYPE_USHORT },
+  { "IOPORT",     smemof(wandev_conf_t, ioport),     DTYPE_UINT },
+  { "MEMADDR",    smemof(wandev_conf_t, maddr),       DTYPE_UINT },
+  { "MEMSIZE",    smemof(wandev_conf_t, msize),       DTYPE_UINT },
+  { "IRQ",        smemof(wandev_conf_t, irq),         DTYPE_UINT },
+  { "DMA",        smemof(wandev_conf_t, dma),         DTYPE_UINT },
+  { "CARD_TYPE",  smemof(wandev_conf_t, card_type),	DTYPE_UCHAR },
+  { "S514CPU",    smemof(wandev_conf_t, S514_CPU_no), DTYPE_STR },
+  { "PCISLOT",    smemof(wandev_conf_t, PCI_slot_no), DTYPE_UINT },
+  { "PCIBUS", 	  smemof(wandev_conf_t, pci_bus_no),	DTYPE_UINT },
+  { "AUTO_PCISLOT",smemof(wandev_conf_t, auto_pci_cfg), DTYPE_UCHAR },
+  { "COMMPORT",   smemof(wandev_conf_t, comm_port),   DTYPE_UINT },
 
   /* TE1 New hardware parameters for T1/E1 board */
-//  { "MEDIA",    offsetof(wandev_conf_t, te_cfg)+offsetof(sdla_te_cfg_t, media), DTYPE_UCHAR },
-//  { "LCODE",    offsetof(wandev_conf_t, te_cfg)+offsetof(sdla_te_cfg_t, lcode), DTYPE_UCHAR },
-//  { "FRAME",    offsetof(wandev_conf_t, te_cfg)+offsetof(sdla_te_cfg_t, frame), DTYPE_UCHAR },
+//  { "MEDIA",    offsetof(wandev_conf_t, te_cfg)+smemof(sdla_te_cfg_t, media), DTYPE_UCHAR },
+//  { "LCODE",    offsetof(wandev_conf_t, te_cfg)+smemof(sdla_te_cfg_t, lcode), DTYPE_UCHAR },
+//  { "FRAME",    offsetof(wandev_conf_t, te_cfg)+smemof(sdla_te_cfg_t, frame), DTYPE_UCHAR },
 
   /* Front-End parameters */
-  { "FE_MEDIA",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, media), DTYPE_UCHAR },
-  { "FE_SUBMEDIA",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, sub_media), DTYPE_UCHAR },
-  { "FE_LCODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, lcode), DTYPE_UCHAR },
-  { "FE_FRAME",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, frame), DTYPE_UCHAR },
-  { "FE_LINE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, line_no),  DTYPE_UINT },
-  { "FE_TXTRISTATE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, tx_tristate_mode),  DTYPE_UCHAR },
+  { "FE_MEDIA",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, media), DTYPE_UCHAR },
+  { "FE_SUBMEDIA",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, sub_media), DTYPE_UCHAR },
+  { "FE_LCODE",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, lcode), DTYPE_UCHAR },
+  { "FE_FRAME",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, frame), DTYPE_UCHAR },
+  { "FE_LINE",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, line_no),  DTYPE_UINT },
+  { "FE_TXTRISTATE",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, tx_tristate_mode),  DTYPE_UCHAR },
   /* Front-End parameters (old style) */
   /* Front-End parameters (old style) */
-  { "MEDIA",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, media), DTYPE_UCHAR },
-  { "LCODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, lcode), DTYPE_UCHAR },
-  { "FRAME",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, frame), DTYPE_UCHAR },
+  { "MEDIA",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, media), DTYPE_UCHAR },
+  { "LCODE",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, lcode), DTYPE_UCHAR },
+  { "FRAME",    offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, frame), DTYPE_UCHAR },
   /* T1/E1 Front-End parameters */
-  { "TE_LBO",           offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, lbo), DTYPE_UCHAR },
-  { "TE_CLOCK",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, te_clock), DTYPE_UCHAR },
-  { "TE_ACTIVE_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, active_ch), DTYPE_ULONG },
-  { "TE_RBS_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, te_rbs_ch), DTYPE_ULONG },
-  { "TE_HIGHIMPEDANCE", offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, high_impedance_mode), DTYPE_UCHAR },
-  { "TE_REF_CLOCK",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, te_ref_clock), DTYPE_UINT },
-  { "TE_SIG_MODE",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, sig_mode), DTYPE_UINT },
+  { "TE_LBO",           offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, lbo), DTYPE_UCHAR },
+  { "TE_CLOCK",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, te_clock), DTYPE_UCHAR },
+  { "TE_ACTIVE_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, active_ch), DTYPE_ULONG },
+  { "TE_RBS_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, te_rbs_ch), DTYPE_ULONG },
+  { "TE_HIGHIMPEDANCE", offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, high_impedance_mode), DTYPE_UCHAR },
+  { "TE_REF_CLOCK",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, te_ref_clock), DTYPE_UCHAR },
+  { "TE_SIG_MODE",     offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, sig_mode), DTYPE_UCHAR },
   /* T1/E1 Front-End parameters (old style) */
-  { "LBO",           offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, lbo), DTYPE_UCHAR },
-  { "ACTIVE_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, active_ch), DTYPE_ULONG },
-  { "HIGHIMPEDANCE", offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te_cfg_t, high_impedance_mode), DTYPE_UCHAR },
+  { "LBO",           offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, lbo), DTYPE_UCHAR },
+  { "ACTIVE_CH",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, active_ch), DTYPE_ULONG },
+  { "HIGHIMPEDANCE", offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te_cfg_t, high_impedance_mode), DTYPE_UCHAR },
   /* T3/E3 Front-End parameters */
-  { "TE3_FRACTIONAL",offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, fractional), DTYPE_UCHAR },
-  { "TE3_RDEVICE",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, rdevice_type), DTYPE_UCHAR },
-  { "TE3_FCS",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, fcs), DTYPE_UINT },
-  { "TE3_RXEQ",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, rx_equal), DTYPE_UCHAR },
-  { "TE3_TAOS",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, taos), DTYPE_UCHAR },
-  { "TE3_LBMODE",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, lb_mode), DTYPE_UCHAR },
-  { "TE3_TXLBO",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + offsetof(sdla_te3_liu_cfg_t, tx_lbo), DTYPE_UCHAR },
-  { "TE3_CLOCK",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, clock), DTYPE_UCHAR },
-  { "TDMV_LAW",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, tdmv_law), DTYPE_UINT },
-  { "TDMV_OPERMODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_remora_cfg_t, opermode_name), DTYPE_STR },
+  { "TE3_FRACTIONAL",offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te3_cfg_t, fractional), DTYPE_INT },
+  { "TE3_RDEVICE",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te3_cfg_t, rdevice_type), DTYPE_UINT },
+  { "TE3_FCS",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te3_cfg_t, fcs), DTYPE_INT },
+  { "TE3_RXEQ",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + smemof(sdla_te3_liu_cfg_t, rx_equal), DTYPE_INT },
+  { "TE3_TAOS",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + smemof(sdla_te3_liu_cfg_t, taos), DTYPE_INT },
+  { "TE3_LBMODE",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + smemof(sdla_te3_liu_cfg_t, lb_mode), DTYPE_INT },
+  { "TE3_TXLBO",	offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_te3_cfg_t, liu_cfg) + smemof(sdla_te3_liu_cfg_t, tx_lbo), DTYPE_INT },
+  { "TE3_CLOCK",         offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_te3_cfg_t, clock), DTYPE_INT },
+  { "TDMV_LAW",         offsetof(wandev_conf_t, fe_cfg)+smemof(sdla_fe_cfg_t, tdmv_law), DTYPE_UINT },
+  { "TDMV_OPERMODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_remora_cfg_t, opermode_name), DTYPE_STR },
+  { "RM_NETWORK_SYNC",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_remora_cfg_t, network_sync), DTYPE_UINT },
 
-  { "BAUDRATE",   offsetof(wandev_conf_t, bps),         DTYPE_UINT },
-  { "MTU",        offsetof(wandev_conf_t, mtu),         DTYPE_UINT },
-  { "UDPPORT",    offsetof(wandev_conf_t, udp_port),    DTYPE_UINT },
-  { "TTL",	  offsetof(wandev_conf_t, ttl),		DTYPE_UCHAR },
-  { "INTERFACE",  offsetof(wandev_conf_t, interface),   DTYPE_UCHAR },
-  { "CLOCKING",   offsetof(wandev_conf_t, clocking),    DTYPE_UCHAR },
-  { "LINECODING", offsetof(wandev_conf_t, line_coding), DTYPE_UCHAR },
-  { "CONNECTION", offsetof(wandev_conf_t, connection),  DTYPE_UCHAR },
-  { "LINEIDLE",   offsetof(wandev_conf_t, line_idle),   DTYPE_UCHAR },
-  { "OPTION1",    offsetof(wandev_conf_t, hw_opt[0]),   DTYPE_UINT },
-  { "OPTION2",    offsetof(wandev_conf_t, hw_opt[1]),   DTYPE_UINT },
-  { "OPTION3",    offsetof(wandev_conf_t, hw_opt[2]),   DTYPE_UINT },
-  { "OPTION4",    offsetof(wandev_conf_t, hw_opt[3]),   DTYPE_UINT },
-  { "FIRMWARE",   offsetof(wandev_conf_t, data_size),   DTYPE_FILENAME },
-  { "RXMODE",     offsetof(wandev_conf_t, read_mode),   DTYPE_CHAR },
-  { "RECEIVE_ONLY", offsetof(wandev_conf_t, receive_only), DTYPE_UCHAR},	  
-  { "BACKUP",     offsetof(wandev_conf_t, backup), DTYPE_UCHAR},
-  { "TTY",        offsetof(wandev_conf_t, tty), DTYPE_UCHAR},
-  { "TTY_MAJOR",  offsetof(wandev_conf_t, tty_major), DTYPE_UINT},
-  { "TTY_MINOR",  offsetof(wandev_conf_t, tty_minor), DTYPE_UINT},
-  { "TTY_MODE",   offsetof(wandev_conf_t, tty_mode), DTYPE_UINT},
-  { "IGNORE_FRONT_END",  offsetof(wandev_conf_t, ignore_front_end_status), DTYPE_UCHAR},
+  { "BAUDRATE",   smemof(wandev_conf_t, bps),         DTYPE_UINT },
+  { "MTU",        smemof(wandev_conf_t, mtu),         DTYPE_UINT },
+  { "UDPPORT",    smemof(wandev_conf_t, udp_port),    DTYPE_UINT },
+  { "TTL",	  smemof(wandev_conf_t, ttl),		DTYPE_UCHAR },
+  { "INTERFACE",  smemof(wandev_conf_t, interface),   DTYPE_UCHAR },
+  { "CLOCKING",   smemof(wandev_conf_t, clocking),    DTYPE_UCHAR },
+  { "LINECODING", smemof(wandev_conf_t, line_coding), DTYPE_UCHAR },
+  { "CONNECTION", smemof(wandev_conf_t, connection),  DTYPE_UCHAR },
+  { "LINEIDLE",   smemof(wandev_conf_t, line_idle),   DTYPE_UCHAR },
+  { "OPTION1",    smemof(wandev_conf_t, hw_opt[0]),   DTYPE_UINT },
+  { "OPTION2",    smemof(wandev_conf_t, hw_opt[1]),   DTYPE_UINT },
+  { "OPTION3",    smemof(wandev_conf_t, hw_opt[2]),   DTYPE_UINT },
+  { "OPTION4",    smemof(wandev_conf_t, hw_opt[3]),   DTYPE_UINT },
+  { "FIRMWARE",   smemof(wandev_conf_t, data_size),   DTYPE_FILENAME },
+  { "RXMODE",     smemof(wandev_conf_t, read_mode),   DTYPE_CHAR },
+  { "RECEIVE_ONLY", smemof(wandev_conf_t, receive_only), DTYPE_UCHAR},	  
+  { "BACKUP",     smemof(wandev_conf_t, backup), DTYPE_UCHAR},
+  { "TTY",        smemof(wandev_conf_t, tty), DTYPE_UCHAR},
+  { "TTY_MAJOR",  smemof(wandev_conf_t, tty_major), DTYPE_UINT},
+  { "TTY_MINOR",  smemof(wandev_conf_t, tty_minor), DTYPE_UINT},
+  { "TTY_MODE",   smemof(wandev_conf_t, tty_mode), DTYPE_UINT},
+  { "IGNORE_FRONT_END",  smemof(wandev_conf_t, ignore_front_end_status), DTYPE_UCHAR},
 
-  { "MAX_RX_QUEUE", offsetof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
-  { "LMI_TRACE_QUEUE", offsetof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
+  { "MAX_RX_QUEUE", smemof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
+  { "LMI_TRACE_QUEUE", smemof(wandev_conf_t, max_rx_queue), DTYPE_UINT},
   
   /* ATM can be in the LIP layer but hardware setting stay in hardware section,
      so this the copy */
 #if 0
-  {"ATM_SYNC_MODE", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
-  {"ATM_SYNC_DATA", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
-  {"ATM_SYNC_OFFSET", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
-  {"ATM_HUNT_TIMER", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
-  {"ATM_CELL_CFG", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
-  {"ATM_CELL_PT", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
-  {"ATM_CELL_CLP", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
-  {"ATM_CELL_PAYLOAD", offsetof(wandev_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
+  {"ATM_SYNC_MODE", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", offsetof(wandev_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
 #endif
 
   { NULL, 0, 0 }
@@ -594,18 +613,18 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
  
 key_word_t ppp_conftab[] =	/* PPP-specific configuration */
  {
-  { "RESTARTTIMER",   offsetof(wan_ppp_conf_t, restart_tmr),   DTYPE_UINT },
-  { "AUTHRESTART",    offsetof(wan_ppp_conf_t, auth_rsrt_tmr), DTYPE_UINT },
-  { "AUTHWAIT",       offsetof(wan_ppp_conf_t, auth_wait_tmr), DTYPE_UINT },
+  { "RESTARTTIMER",   smemof(wan_ppp_conf_t, restart_tmr),   DTYPE_UINT },
+  { "AUTHRESTART",    smemof(wan_ppp_conf_t, auth_rsrt_tmr), DTYPE_UINT },
+  { "AUTHWAIT",       smemof(wan_ppp_conf_t, auth_wait_tmr), DTYPE_UINT },
   
-  { "DTRDROPTIMER",   offsetof(wan_ppp_conf_t, dtr_drop_tmr),  DTYPE_UINT },
-  { "CONNECTTIMEOUT", offsetof(wan_ppp_conf_t, connect_tmout), DTYPE_UINT },
-  { "CONFIGURERETRY", offsetof(wan_ppp_conf_t, conf_retry),    DTYPE_UINT },
-  { "TERMINATERETRY", offsetof(wan_ppp_conf_t, term_retry),    DTYPE_UINT },
-  { "MAXCONFREJECT",  offsetof(wan_ppp_conf_t, fail_retry),    DTYPE_UINT },
-  { "AUTHRETRY",      offsetof(wan_ppp_conf_t, auth_retry),    DTYPE_UINT },
-  { "AUTHENTICATOR",  offsetof(wan_ppp_conf_t, authenticator), DTYPE_UCHAR},
-  { "IP_MODE",        offsetof(wan_ppp_conf_t, ip_mode),       DTYPE_UCHAR},
+  { "DTRDROPTIMER",   smemof(wan_ppp_conf_t, dtr_drop_tmr),  DTYPE_UINT },
+  { "CONNECTTIMEOUT", smemof(wan_ppp_conf_t, connect_tmout), DTYPE_UINT },
+  { "CONFIGURERETRY", smemof(wan_ppp_conf_t, conf_retry),    DTYPE_UINT },
+  { "TERMINATERETRY", smemof(wan_ppp_conf_t, term_retry),    DTYPE_UINT },
+  { "MAXCONFREJECT",  smemof(wan_ppp_conf_t, fail_retry),    DTYPE_UINT },
+  { "AUTHRETRY",      smemof(wan_ppp_conf_t, auth_retry),    DTYPE_UINT },
+  { "AUTHENTICATOR",  smemof(wan_ppp_conf_t, authenticator), DTYPE_UCHAR},
+  { "IP_MODE",        smemof(wan_ppp_conf_t, ip_mode),       DTYPE_UCHAR},
   { NULL, 0, 0 }
 };
 
@@ -614,106 +633,106 @@ key_word_t ppp_conftab[] =	/* PPP-specific configuration */
 
 key_word_t chdlc_conftab[] =	/* Cisco HDLC-specific configuration */
  {
-  { "IGNORE_DCD", offsetof(wan_chdlc_conf_t, ignore_dcd), DTYPE_UCHAR},
-  { "IGNORE_CTS", offsetof(wan_chdlc_conf_t, ignore_cts), DTYPE_UCHAR},
-  { "IGNORE_KEEPALIVE", offsetof(wan_chdlc_conf_t, ignore_keepalive), DTYPE_UCHAR},
-  { "HDLC_STREAMING", offsetof(wan_chdlc_conf_t, hdlc_streaming), DTYPE_UCHAR},
-  { "KEEPALIVE_TX_TIMER", offsetof(wan_chdlc_conf_t, keepalive_tx_tmr), DTYPE_UINT },
-  { "KEEPALIVE_RX_TIMER", offsetof(wan_chdlc_conf_t, keepalive_rx_tmr), DTYPE_UINT },
-  { "KEEPALIVE_ERR_MARGIN", offsetof(wan_chdlc_conf_t, keepalive_err_margin),    DTYPE_UINT },
-  { "SLARP_TIMER", offsetof(wan_chdlc_conf_t, slarp_timer),    DTYPE_UINT },
-  { "FAST_ISR", offsetof(wan_chdlc_conf_t,fast_isr), DTYPE_UCHAR },
-  { "PROTOCOL_OPTIONS",	  offsetof(wan_chdlc_conf_t,protocol_options), DTYPE_UINT },
+  { "IGNORE_DCD", smemof(wan_chdlc_conf_t, ignore_dcd), DTYPE_UCHAR},
+  { "IGNORE_CTS", smemof(wan_chdlc_conf_t, ignore_cts), DTYPE_UCHAR},
+  { "IGNORE_KEEPALIVE", smemof(wan_chdlc_conf_t, ignore_keepalive), DTYPE_UCHAR},
+  { "HDLC_STREAMING", smemof(wan_chdlc_conf_t, hdlc_streaming), DTYPE_UCHAR},
+  { "KEEPALIVE_TX_TIMER", smemof(wan_chdlc_conf_t, keepalive_tx_tmr), DTYPE_UINT },
+  { "KEEPALIVE_RX_TIMER", smemof(wan_chdlc_conf_t, keepalive_rx_tmr), DTYPE_UINT },
+  { "KEEPALIVE_ERR_MARGIN", smemof(wan_chdlc_conf_t, keepalive_err_margin),    DTYPE_UINT },
+  { "SLARP_TIMER", smemof(wan_chdlc_conf_t, slarp_timer),    DTYPE_UINT },
+  { "FAST_ISR", smemof(wan_chdlc_conf_t,fast_isr), DTYPE_UCHAR },
+  { "PROTOCOL_OPTIONS",	  smemof(wan_chdlc_conf_t,protocol_options), DTYPE_UINT },
   { NULL, 0, 0 }
 };
 
 
 key_word_t sppp_conftab[] =	/* PPP-CHDLC specific configuration */
  {
-  { "IP_MODE",        offsetof(wan_sppp_if_conf_t, dynamic_ip),       DTYPE_UCHAR},
+  { "IP_MODE",        smemof(wan_sppp_if_conf_t, dynamic_ip),       DTYPE_UCHAR},
 	
-  { "AUTH_TIMER",     offsetof(wan_sppp_if_conf_t, pp_auth_timer),    DTYPE_UINT},
-  { "KEEPALIVE_TIMER",offsetof(wan_sppp_if_conf_t, sppp_keepalive_timer),    DTYPE_UINT},
-  { "PPP_TIMER",      offsetof(wan_sppp_if_conf_t, pp_timer),    DTYPE_UINT},
+  { "AUTH_TIMER",     smemof(wan_sppp_if_conf_t, pp_auth_timer),    DTYPE_UINT},
+  { "KEEPALIVE_TIMER",smemof(wan_sppp_if_conf_t, sppp_keepalive_timer),    DTYPE_UINT},
+  { "PPP_TIMER",      smemof(wan_sppp_if_conf_t, pp_timer),    DTYPE_UINT},
  
-  { "PAP",	      offsetof(wan_sppp_if_conf_t, pap),    DTYPE_UCHAR},		
-  { "CHAP",	      offsetof(wan_sppp_if_conf_t, chap),    DTYPE_UCHAR},		
-  { "CHAP",	      offsetof(wan_sppp_if_conf_t, chap),    DTYPE_UCHAR},		
+  { "PAP",	      smemof(wan_sppp_if_conf_t, pap),    DTYPE_UCHAR},		
+  { "CHAP",	      smemof(wan_sppp_if_conf_t, chap),    DTYPE_UCHAR},		
+  { "CHAP",	      smemof(wan_sppp_if_conf_t, chap),    DTYPE_UCHAR},		
 
-  { "USERID",         offsetof(wan_sppp_if_conf_t, userid), 	DTYPE_STR},
-  { "PASSWD",         offsetof(wan_sppp_if_conf_t, passwd),	DTYPE_STR},
+  { "USERID",         smemof(wan_sppp_if_conf_t, userid), 	DTYPE_STR},
+  { "PASSWD",         smemof(wan_sppp_if_conf_t, passwd),	DTYPE_STR},
  
   /* note, the name is NOT "KEEPALIVE_ERR_MARGIN" intentionally, couse this name is defined
      inside wanif_conf_t, and data gets to wrong place */
-  { "KEEPALIVE_ERROR_MARGIN", offsetof(wan_sppp_if_conf_t, keepalive_err_margin),    DTYPE_UINT },
+  { "KEEPALIVE_ERROR_MARGIN", smemof(wan_sppp_if_conf_t, keepalive_err_margin),    DTYPE_UINT },
 
   { NULL, 0, 0 }
 };
 
 key_word_t fr_conftab[] =	/* Frame relay-specific configuration */
 {
-  { "SIGNALLING",    offsetof(wan_fr_conf_t, signalling),     DTYPE_UINT },
-  { "T391", 	     offsetof(wan_fr_conf_t, t391),           DTYPE_UINT },
-  { "T392",          offsetof(wan_fr_conf_t, t392),           DTYPE_UINT },
-  { "N391",	     offsetof(wan_fr_conf_t, n391),           DTYPE_UINT },
-  { "N392",          offsetof(wan_fr_conf_t, n392),           DTYPE_UINT },
-  { "N393",          offsetof(wan_fr_conf_t, n393),           DTYPE_UINT },
-  { "FR_ISSUE_FS",   offsetof(wan_fr_conf_t, issue_fs_on_startup),DTYPE_UCHAR },
-  { "NUMBER_OF_DLCI",    offsetof(wan_fr_conf_t, dlci_num),       DTYPE_UINT },
-  { "STATION",       offsetof(wan_fr_conf_t, station),     DTYPE_UCHAR },
-  { "EEK_CFG",       offsetof(wan_fr_conf_t, eek_cfg),     DTYPE_UINT },
-  { "EEK_TIMER",     offsetof(wan_fr_conf_t, eek_timer),     DTYPE_UINT },   
+  { "SIGNALLING",    smemof(wan_fr_conf_t, signalling),     DTYPE_UINT },
+  { "T391", 	     smemof(wan_fr_conf_t, t391),           DTYPE_UINT },
+  { "T392",          smemof(wan_fr_conf_t, t392),           DTYPE_UINT },
+  { "N391",	     smemof(wan_fr_conf_t, n391),           DTYPE_UINT },
+  { "N392",          smemof(wan_fr_conf_t, n392),           DTYPE_UINT },
+  { "N393",          smemof(wan_fr_conf_t, n393),           DTYPE_UINT },
+  { "FR_ISSUE_FS",   smemof(wan_fr_conf_t, issue_fs_on_startup),DTYPE_UCHAR },
+  { "NUMBER_OF_DLCI",    smemof(wan_fr_conf_t, dlci_num),       DTYPE_UINT },
+  { "STATION",       smemof(wan_fr_conf_t, station),     DTYPE_UCHAR },
+  { "EEK_CFG",       smemof(wan_fr_conf_t, eek_cfg),     DTYPE_UINT },
+  { "EEK_TIMER",     smemof(wan_fr_conf_t, eek_timer),     DTYPE_UINT },   
   { NULL, 0, 0 }
 };
 
 key_word_t xilinx_conftab[] =	/* Xilinx specific configuration */
 {
-  { "MRU",     	     offsetof(wan_xilinx_conf_t, mru),          DTYPE_USHORT },
-  { "DMA_PER_CH",    offsetof(wan_xilinx_conf_t, dma_per_ch),   DTYPE_USHORT },
-  { "RBS",    	     offsetof(wan_xilinx_conf_t, rbs),          DTYPE_UINT },
-  { "DATA_MUX_MAP",  offsetof(wan_xilinx_conf_t, data_mux_map), DTYPE_UINT },
-  { "TDMV_SPAN",     offsetof(wan_xilinx_conf_t, tdmv_span_no), DTYPE_UINT},
-  { "TDMV_DCHAN",    offsetof(wan_xilinx_conf_t, tdmv_dchan),   DTYPE_UINT},
-  { "HWEC_CLKSRC",   offsetof(wan_xilinx_conf_t, ec_clk_src),   DTYPE_UINT},
-  { "TDMV_HWEC_PERSIST_DISABLE", offsetof(wan_xilinx_conf_t, ec_persist_disable),    DTYPE_UINT},
-  { "RX_CRC_BYTES",  offsetof(wan_xilinx_conf_t, rx_crc_bytes), DTYPE_UINT},
+  { "MRU",     	     smemof(wan_xilinx_conf_t, mru),          DTYPE_USHORT },
+  { "DMA_PER_CH",    smemof(wan_xilinx_conf_t, dma_per_ch),   DTYPE_USHORT },
+  { "RBS",    	     smemof(wan_xilinx_conf_t, rbs),          DTYPE_UINT },
+  { "DATA_MUX_MAP",  smemof(wan_xilinx_conf_t, data_mux_map), DTYPE_UINT },
+  { "TDMV_SPAN",     smemof(wan_xilinx_conf_t, tdmv_span_no), DTYPE_UINT},
+  { "TDMV_DCHAN",    smemof(wan_xilinx_conf_t, tdmv_dchan),   DTYPE_UINT},
+  { "HWEC_CLKSRC",   smemof(wan_xilinx_conf_t, ec_clk_src),   DTYPE_UINT},
+  { "TDMV_HWEC_PERSIST_DISABLE", smemof(wan_xilinx_conf_t, ec_persist_disable),    DTYPE_UINT},
+  { "RX_CRC_BYTES",  smemof(wan_xilinx_conf_t, rx_crc_bytes), DTYPE_UINT},
   { NULL, 0, 0 }
 };
 
 key_word_t bitstrm_conftab[] =	/* Bitstreaming specific configuration */
 {
  /* Bit strm options */
-  { "SYNC_OPTIONS",	       offsetof(wan_bitstrm_conf_t, sync_options), DTYPE_USHORT },
-  { "RX_SYNC_CHAR",	       offsetof(wan_bitstrm_conf_t, rx_sync_char), DTYPE_USHORT},
-  { "MONOSYNC_TX_TIME_FILL_CHAR", offsetof(wan_bitstrm_conf_t, monosync_tx_time_fill_char), DTYPE_UCHAR},
-  { "MAX_LENGTH_TX_DATA_BLOCK", offsetof(wan_bitstrm_conf_t,max_length_tx_data_block), DTYPE_UINT},
-  { "RX_COMPLETE_LENGTH",       offsetof(wan_bitstrm_conf_t,rx_complete_length), DTYPE_UINT},
-  { "RX_COMPLETE_TIMER",        offsetof(wan_bitstrm_conf_t,rx_complete_timer), DTYPE_UINT},	
-  { "RBS_CH_MAP",		offsetof(wan_bitstrm_conf_t,rbs_map), DTYPE_ULONG},
+  { "SYNC_OPTIONS",	       smemof(wan_bitstrm_conf_t, sync_options), DTYPE_USHORT },
+  { "RX_SYNC_CHAR",	       smemof(wan_bitstrm_conf_t, rx_sync_char), DTYPE_USHORT},
+  { "MONOSYNC_TX_TIME_FILL_CHAR", smemof(wan_bitstrm_conf_t, monosync_tx_time_fill_char), DTYPE_UCHAR},
+  { "MAX_LENGTH_TX_DATA_BLOCK", smemof(wan_bitstrm_conf_t,max_length_tx_data_block), DTYPE_UINT},
+  { "RX_COMPLETE_LENGTH",       smemof(wan_bitstrm_conf_t,rx_complete_length), DTYPE_UINT},
+  { "RX_COMPLETE_TIMER",        smemof(wan_bitstrm_conf_t,rx_complete_timer), DTYPE_UINT},	
+  { "RBS_CH_MAP",		smemof(wan_bitstrm_conf_t,rbs_map), DTYPE_ULONG},
   { NULL, 0, 0 }
 };
 
 key_word_t sdlc_conftab[] =
 {
-  { "STATION_CONFIG",	offsetof(wan_sdlc_conf_t,station_configuration), DTYPE_UCHAR},
-  { "BAUD_RATE",	offsetof(wan_sdlc_conf_t,baud_rate),  DTYPE_ULONG},
-  { "MAX_I_FIELD_LEN",	offsetof(wan_sdlc_conf_t,max_I_field_length),  DTYPE_USHORT},
-  { "GEN_OP_CFG_BITS",	offsetof(wan_sdlc_conf_t,general_operational_config_bits),  DTYPE_USHORT},
+  { "STATION_CONFIG",	smemof(wan_sdlc_conf_t,station_configuration), DTYPE_UCHAR},
+  { "BAUD_RATE",	smemof(wan_sdlc_conf_t,baud_rate),  DTYPE_ULONG},
+  { "MAX_I_FIELD_LEN",	smemof(wan_sdlc_conf_t,max_I_field_length),  DTYPE_USHORT},
+  { "GEN_OP_CFG_BITS",	smemof(wan_sdlc_conf_t,general_operational_config_bits),  DTYPE_USHORT},
 
-  { "PROT_CFG_BITS",	offsetof(wan_sdlc_conf_t,protocol_config_bits),  DTYPE_USHORT},
-  { "EXCEP_REPORTING",	offsetof(wan_sdlc_conf_t,exception_condition_reporting_config),  DTYPE_USHORT},
-  { "MODEM_CFG_BITS",	offsetof(wan_sdlc_conf_t,modem_config_bits),  DTYPE_USHORT},
-  { "STATISTICS_FRMT",	offsetof(wan_sdlc_conf_t,statistics_format),  DTYPE_USHORT},
-  { "PRI_ST_SLOW_POLL",	offsetof(wan_sdlc_conf_t,pri_station_slow_poll_interval),  DTYPE_USHORT},
+  { "PROT_CFG_BITS",	smemof(wan_sdlc_conf_t,protocol_config_bits),  DTYPE_USHORT},
+  { "EXCEP_REPORTING",	smemof(wan_sdlc_conf_t,exception_condition_reporting_config),  DTYPE_USHORT},
+  { "MODEM_CFG_BITS",	smemof(wan_sdlc_conf_t,modem_config_bits),  DTYPE_USHORT},
+  { "STATISTICS_FRMT",	smemof(wan_sdlc_conf_t,statistics_format),  DTYPE_USHORT},
+  { "PRI_ST_SLOW_POLL",	smemof(wan_sdlc_conf_t,pri_station_slow_poll_interval),  DTYPE_USHORT},
 
-  { "SEC_ST_RESP_TO",	offsetof(wan_sdlc_conf_t,permitted_sec_station_response_TO),  DTYPE_USHORT},
-  { "CNSC_NRM_B4_SNRM",	offsetof(wan_sdlc_conf_t,no_consec_sec_TOs_in_NRM_before_SNRM_issued),  DTYPE_USHORT},
-  { "MX_LN_IFLD_P_XID",	offsetof(wan_sdlc_conf_t,max_lgth_I_fld_pri_XID_frame),  DTYPE_USHORT},
-  { "O_FLG_BIT_DELAY",	offsetof(wan_sdlc_conf_t,opening_flag_bit_delay_count),  DTYPE_USHORT},
-  { "RTS_BIT_DELAY",	offsetof(wan_sdlc_conf_t,RTS_bit_delay_count),  DTYPE_USHORT},
-  { "CTS_TIMEOUT",	offsetof(wan_sdlc_conf_t,CTS_timeout_1000ths_sec),  DTYPE_USHORT},
+  { "SEC_ST_RESP_TO",	smemof(wan_sdlc_conf_t,permitted_sec_station_response_TO),  DTYPE_USHORT},
+  { "CNSC_NRM_B4_SNRM",	smemof(wan_sdlc_conf_t,no_consec_sec_TOs_in_NRM_before_SNRM_issued),  DTYPE_USHORT},
+  { "MX_LN_IFLD_P_XID",	smemof(wan_sdlc_conf_t,max_lgth_I_fld_pri_XID_frame),  DTYPE_USHORT},
+  { "O_FLG_BIT_DELAY",	smemof(wan_sdlc_conf_t,opening_flag_bit_delay_count),  DTYPE_USHORT},
+  { "RTS_BIT_DELAY",	smemof(wan_sdlc_conf_t,RTS_bit_delay_count),  DTYPE_USHORT},
+  { "CTS_TIMEOUT",	smemof(wan_sdlc_conf_t,CTS_timeout_1000ths_sec),  DTYPE_USHORT},
   
-  { "SDLC_CONFIG",	offsetof(wan_sdlc_conf_t,SDLA_configuration),  DTYPE_UCHAR},
+  { "SDLC_CONFIG",	smemof(wan_sdlc_conf_t,SDLA_configuration),  DTYPE_UCHAR},
 
   { NULL, 0, 0 }
 };
@@ -721,24 +740,24 @@ key_word_t sdlc_conftab[] =
 key_word_t xdlc_conftab[] =
 {
 
-  { "STATION",		offsetof(wan_xdlc_conf_t,station), DTYPE_UCHAR},
-  { "MAX_I_FIELD_LEN",	offsetof(wan_xdlc_conf_t,max_I_field_length),  DTYPE_UINT},
+  { "STATION",		smemof(wan_xdlc_conf_t,station), DTYPE_UCHAR},
+  { "MAX_I_FIELD_LEN",	smemof(wan_xdlc_conf_t,max_I_field_length),  DTYPE_UINT},
   
-  { "WINDOW",		offsetof(wan_xdlc_conf_t,window), 	 DTYPE_UINT},
-  { "PROT_CONFIG",	offsetof(wan_xdlc_conf_t,protocol_config),  DTYPE_UINT},
-  { "ERROR_RESP_CONFIG", offsetof(wan_xdlc_conf_t,error_response_config),  DTYPE_UINT},
+  { "WINDOW",		smemof(wan_xdlc_conf_t,window), 	 DTYPE_UINT},
+  { "PROT_CONFIG",	smemof(wan_xdlc_conf_t,protocol_config),  DTYPE_UINT},
+  { "ERROR_RESP_CONFIG", smemof(wan_xdlc_conf_t,error_response_config),  DTYPE_UINT},
   
-  { "TWS_MAX_ACK_CNT",	offsetof(wan_xdlc_conf_t,TWS_max_ack_count),  DTYPE_UINT},
+  { "TWS_MAX_ACK_CNT",	smemof(wan_xdlc_conf_t,TWS_max_ack_count),  DTYPE_UINT},
 
-  { "PRI_SLOW_POLL_TIMER",      offsetof(wan_xdlc_conf_t,pri_slow_poll_timer),  DTYPE_UINT},
-  { "PRI_NORMAL_POLL_TIMER",    offsetof(wan_xdlc_conf_t,pri_normal_poll_timer),  DTYPE_UINT},
-  { "PRI_FRAME_RESPONSE_TIMER", offsetof(wan_xdlc_conf_t,pri_frame_response_timer),  DTYPE_UINT},
+  { "PRI_SLOW_POLL_TIMER",      smemof(wan_xdlc_conf_t,pri_slow_poll_timer),  DTYPE_UINT},
+  { "PRI_NORMAL_POLL_TIMER",    smemof(wan_xdlc_conf_t,pri_normal_poll_timer),  DTYPE_UINT},
+  { "PRI_FRAME_RESPONSE_TIMER", smemof(wan_xdlc_conf_t,pri_frame_response_timer),  DTYPE_UINT},
  
-  { "MAX_NO_RESPONSE_CNT",	offsetof(wan_xdlc_conf_t,max_no_response_cnt),  DTYPE_UINT},	
-  { "MAX_FRAME_RETRANSMIT_CNT",	offsetof(wan_xdlc_conf_t,max_frame_retransmit_cnt),  DTYPE_UINT},	
-  { "MAX_RNR_CNT",	offsetof(wan_xdlc_conf_t,max_rnr_cnt),  DTYPE_UINT},	
+  { "MAX_NO_RESPONSE_CNT",	smemof(wan_xdlc_conf_t,max_no_response_cnt),  DTYPE_UINT},	
+  { "MAX_FRAME_RETRANSMIT_CNT",	smemof(wan_xdlc_conf_t,max_frame_retransmit_cnt),  DTYPE_UINT},	
+  { "MAX_RNR_CNT",	smemof(wan_xdlc_conf_t,max_rnr_cnt),  DTYPE_UINT},	
   
-  { "SEC_NRM_TIMER",	offsetof(wan_xdlc_conf_t,sec_nrm_timer),  DTYPE_UINT},
+  { "SEC_NRM_TIMER",	smemof(wan_xdlc_conf_t,sec_nrm_timer),  DTYPE_UINT},
   
   { NULL, 0, 0 }
 };
@@ -760,28 +779,28 @@ key_word_t lapd_conftab[] =
 /*
 key_word_t atm_conftab[] =
 {
-  {"ATM_SYNC_MODE", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
-  {"ATM_SYNC_DATA", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
-  {"ATM_SYNC_OFFSET", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
-  {"ATM_HUNT_TIMER", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
-  {"ATM_CELL_CFG", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
-  {"ATM_CELL_PT", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
-  {"ATM_CELL_CLP", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
-  {"ATM_CELL_PAYLOAD", offsetof(wanif_conf_t, u) + offsetof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
+  {"ATM_SYNC_MODE", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t, atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", offsetof(wanif_conf_t, u) + smemof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 */
 
 key_word_t atm_conftab[] =
 {
-  {"ATM_SYNC_MODE",	       offsetof(wan_atm_conf_t,atm_sync_mode), DTYPE_USHORT },
-  {"ATM_SYNC_DATA",	       offsetof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
-  {"ATM_SYNC_OFFSET", 	       offsetof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
-  {"ATM_HUNT_TIMER", 	       offsetof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
-  {"ATM_CELL_CFG", 	       offsetof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
-  {"ATM_CELL_PT", 	       offsetof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
-  {"ATM_CELL_CLP", 	       offsetof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
-  {"ATM_CELL_PAYLOAD", 	       offsetof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
+  {"ATM_SYNC_MODE",	       smemof(wan_atm_conf_t,atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA",	       smemof(wan_atm_conf_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", 	       smemof(wan_atm_conf_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", 	       smemof(wan_atm_conf_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", 	       smemof(wan_atm_conf_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", 	       smemof(wan_atm_conf_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", 	       smemof(wan_atm_conf_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", 	       smemof(wan_atm_conf_t,atm_cell_payload), DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 
@@ -790,168 +809,168 @@ key_word_t atm_if_conftab[] =
 {
 	
   /* Per Interface Configuration */
-  {"ENCAPMODE",        offsetof(wan_atm_conf_if_t, encap_mode), DTYPE_UCHAR },
-  {"VCI", 	       offsetof(wan_atm_conf_if_t, vci), DTYPE_USHORT },
-  {"VPI", 	       offsetof(wan_atm_conf_if_t, vpi), DTYPE_USHORT },
+  {"ENCAPMODE",        smemof(wan_atm_conf_if_t, encap_mode), DTYPE_UCHAR },
+  {"VCI", 	       smemof(wan_atm_conf_if_t, vci), DTYPE_USHORT },
+  {"VPI", 	       smemof(wan_atm_conf_if_t, vpi), DTYPE_USHORT },
 
-  {"OAM_LOOPBACK",	offsetof(wan_atm_conf_if_t,atm_oam_loopback),  DTYPE_UCHAR },
-  {"OAM_LOOPBACK_INT",  offsetof(wan_atm_conf_if_t,atm_oam_loopback_intr),  DTYPE_UCHAR },
-  {"OAM_CC_CHECK",	offsetof(wan_atm_conf_if_t,atm_oam_continuity),  DTYPE_UCHAR },
-  {"OAM_CC_CHECK_INT",	offsetof(wan_atm_conf_if_t,atm_oam_continuity_intr),  DTYPE_UCHAR },
-  {"ATMARP",		offsetof(wan_atm_conf_if_t,atm_arp),  DTYPE_UCHAR },
-  {"ATMARP_INT",	offsetof(wan_atm_conf_if_t,atm_arp_intr),  DTYPE_UCHAR },
-  {"MTU",		offsetof(wan_atm_conf_if_t,mtu),  DTYPE_USHORT },
+  {"OAM_LOOPBACK",	smemof(wan_atm_conf_if_t,atm_oam_loopback),  DTYPE_UCHAR },
+  {"OAM_LOOPBACK_INT",  smemof(wan_atm_conf_if_t,atm_oam_loopback_intr),  DTYPE_UCHAR },
+  {"OAM_CC_CHECK",	smemof(wan_atm_conf_if_t,atm_oam_continuity),  DTYPE_UCHAR },
+  {"OAM_CC_CHECK_INT",	smemof(wan_atm_conf_if_t,atm_oam_continuity_intr),  DTYPE_UCHAR },
+  {"ATMARP",		smemof(wan_atm_conf_if_t,atm_arp),  DTYPE_UCHAR },
+  {"ATMARP_INT",	smemof(wan_atm_conf_if_t,atm_arp_intr),  DTYPE_UCHAR },
+  {"MTU",		smemof(wan_atm_conf_if_t,mtu),  DTYPE_USHORT },
 
   /* Profile Section */
-  {"ATM_SYNC_MODE",	       offsetof(wan_atm_conf_if_t,atm_sync_mode), DTYPE_USHORT },
-  {"ATM_SYNC_DATA",	       offsetof(wan_atm_conf_if_t,atm_sync_data), DTYPE_USHORT },
-  {"ATM_SYNC_OFFSET", 	       offsetof(wan_atm_conf_if_t,atm_sync_offset), DTYPE_USHORT },
-  {"ATM_HUNT_TIMER", 	       offsetof(wan_atm_conf_if_t,atm_hunt_timer), DTYPE_USHORT },
-  {"ATM_CELL_CFG", 	       offsetof(wan_atm_conf_if_t,atm_cell_cfg), DTYPE_UCHAR },
-  {"ATM_CELL_PT", 	       offsetof(wan_atm_conf_if_t,atm_cell_pt), DTYPE_UCHAR },
-  {"ATM_CELL_CLP", 	       offsetof(wan_atm_conf_if_t,atm_cell_clp), DTYPE_UCHAR },
-  {"ATM_CELL_PAYLOAD", 	       offsetof(wan_atm_conf_if_t,atm_cell_payload), DTYPE_UCHAR },
+  {"ATM_SYNC_MODE",	       smemof(wan_atm_conf_if_t,atm_sync_mode), DTYPE_USHORT },
+  {"ATM_SYNC_DATA",	       smemof(wan_atm_conf_if_t,atm_sync_data), DTYPE_USHORT },
+  {"ATM_SYNC_OFFSET", 	       smemof(wan_atm_conf_if_t,atm_sync_offset), DTYPE_USHORT },
+  {"ATM_HUNT_TIMER", 	       smemof(wan_atm_conf_if_t,atm_hunt_timer), DTYPE_USHORT },
+  {"ATM_CELL_CFG", 	       smemof(wan_atm_conf_if_t,atm_cell_cfg), DTYPE_UCHAR },
+  {"ATM_CELL_PT", 	       smemof(wan_atm_conf_if_t,atm_cell_pt), DTYPE_UCHAR },
+  {"ATM_CELL_CLP", 	       smemof(wan_atm_conf_if_t,atm_cell_clp), DTYPE_UCHAR },
+  {"ATM_CELL_PAYLOAD", 	       smemof(wan_atm_conf_if_t,atm_cell_payload), DTYPE_UCHAR },
 
   { NULL, 0, 0 }
 };
 
 key_word_t xilinx_if_conftab[] =
 {
-  { "SIGNALLING",     offsetof(wan_xilinx_conf_if_t, signalling),  DTYPE_UINT },
-  { "STATION",        offsetof(wan_xilinx_conf_if_t, station),     DTYPE_UCHAR },
-  { "SEVEN_BIT_HDLC", offsetof(wan_xilinx_conf_if_t, seven_bit_hdlc), DTYPE_CHAR },
-  { "MRU",     	offsetof(wan_xilinx_conf_if_t, mru),  DTYPE_UINT },
-  { "MTU",     	offsetof(wan_xilinx_conf_if_t, mtu),  DTYPE_UINT },
-  { "IDLE_FLAG",     offsetof(wan_xilinx_conf_if_t, idle_flag),  DTYPE_UCHAR},
-  { "DATA_MUX",    offsetof(wan_xilinx_conf_if_t, data_mux),  DTYPE_UCHAR}, 
-  { "SS7_ENABLE",  offsetof(wan_xilinx_conf_if_t, ss7_enable),  DTYPE_UCHAR},
-  { "SS7_MODE",  offsetof(wan_xilinx_conf_if_t, ss7_mode),  DTYPE_UCHAR},
-  { "SS7_LSSU_SZ",  offsetof(wan_xilinx_conf_if_t, ss7_lssu_size),  DTYPE_UCHAR},
-  { "TDMV_HWEC",     offsetof(wan_xilinx_conf_if_t, tdmv_hwec),    DTYPE_UCHAR},
-  { "DTMF_HW",     offsetof(wan_xilinx_conf_if_t, dtmf_hw),    DTYPE_UCHAR},
-  { "RBS_CAS_IDLE",  offsetof(wan_xilinx_conf_if_t, rbs_cas_idle), DTYPE_UCHAR },
+  { "SIGNALLING",     smemof(wan_xilinx_conf_if_t, signalling),  DTYPE_UINT },
+  { "STATION",        smemof(wan_xilinx_conf_if_t, station),     DTYPE_UCHAR },
+  { "SEVEN_BIT_HDLC", smemof(wan_xilinx_conf_if_t, seven_bit_hdlc), DTYPE_CHAR },
+  { "MRU",     	smemof(wan_xilinx_conf_if_t, mru),  DTYPE_UINT },
+  { "MTU",     	smemof(wan_xilinx_conf_if_t, mtu),  DTYPE_UINT },
+  { "IDLE_FLAG",     smemof(wan_xilinx_conf_if_t, idle_flag),  DTYPE_UCHAR},
+  { "DATA_MUX",    smemof(wan_xilinx_conf_if_t, data_mux),  DTYPE_UCHAR}, 
+  { "SS7_ENABLE",  smemof(wan_xilinx_conf_if_t, ss7_enable),  DTYPE_UCHAR},
+  { "SS7_MODE",  smemof(wan_xilinx_conf_if_t, ss7_mode),  DTYPE_UCHAR},
+  { "SS7_LSSU_SZ",  smemof(wan_xilinx_conf_if_t, ss7_lssu_size),  DTYPE_UCHAR},
+  { "TDMV_HWEC",     smemof(wan_xilinx_conf_if_t, tdmv_hwec),    DTYPE_UCHAR},
+  { "DTMF_HW",     smemof(wan_xilinx_conf_if_t, dtmf_hw),    DTYPE_UCHAR},
+  { "RBS_CAS_IDLE",  smemof(wan_xilinx_conf_if_t, rbs_cas_idle), DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 
 
 key_word_t bitstrm_if_conftab[] =
 {
-  {"MAX_TX_QUEUE", offsetof(wan_bitstrm_conf_if_t,max_tx_queue_size), DTYPE_UINT },
-  {"MAX_TX_UP_SIZE", offsetof(wan_bitstrm_conf_if_t,max_tx_up_size), DTYPE_UINT },
-  {"SEVEN_BIT_HDLC", offsetof(wan_bitstrm_conf_if_t,seven_bit_hdlc), DTYPE_CHAR },
+  {"MAX_TX_QUEUE", smemof(wan_bitstrm_conf_if_t,max_tx_queue_size), DTYPE_UINT },
+  {"MAX_TX_UP_SIZE", smemof(wan_bitstrm_conf_if_t,max_tx_up_size), DTYPE_UINT },
+  {"SEVEN_BIT_HDLC", smemof(wan_bitstrm_conf_if_t,seven_bit_hdlc), DTYPE_CHAR },
   { NULL, 0, 0 }
 };
 
 
 key_word_t adsl_conftab[] =
 {
-  {"ENCAPMODE", 	offsetof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
+  {"ENCAPMODE", 	smemof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
   /*Backward compatibility*/
-  {"RFC1483MODE", 	offsetof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
-  {"RFC2364MODE", 	offsetof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
+  {"RFC1483MODE", 	smemof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
+  {"RFC2364MODE", 	smemof(wan_adsl_conf_t,EncapMode), DTYPE_UCHAR },
   
-  {"VCI", 		offsetof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
+  {"VCI", 		smemof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
   /*Backward compatibility*/
-  {"RFC1483VCI",	offsetof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
-  {"RFC2364VCI",	offsetof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
+  {"RFC1483VCI",	smemof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
+  {"RFC2364VCI",	smemof(wan_adsl_conf_t,Vci), DTYPE_USHORT },
   
-  {"VPI", 		offsetof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
+  {"VPI", 		smemof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
   /*Backward compatibility*/
-  {"RFC1483VPI", 	offsetof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
-  {"RFC2364VPI", 	offsetof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
+  {"RFC1483VPI", 	smemof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
+  {"RFC2364VPI", 	smemof(wan_adsl_conf_t,Vpi), DTYPE_USHORT },
   
-  {"VERBOSE", 		offsetof(wan_adsl_conf_t,Verbose), DTYPE_UCHAR },
+  {"VERBOSE", 		smemof(wan_adsl_conf_t,Verbose), DTYPE_UCHAR },
   /*Backward compatibility*/
-  {"DSL_INTERFACE", 	offsetof(wan_adsl_conf_t,Verbose), DTYPE_UCHAR },
+  {"DSL_INTERFACE", 	smemof(wan_adsl_conf_t,Verbose), DTYPE_UCHAR },
   
-  {"RXBUFFERCOUNT", 	offsetof(wan_adsl_conf_t,RxBufferCount), DTYPE_USHORT },
-  {"TXBUFFERCOUNT", 	offsetof(wan_adsl_conf_t,TxBufferCount), DTYPE_USHORT },
+  {"RXBUFFERCOUNT", 	smemof(wan_adsl_conf_t,RxBufferCount), DTYPE_USHORT },
+  {"TXBUFFERCOUNT", 	smemof(wan_adsl_conf_t,TxBufferCount), DTYPE_USHORT },
   
-  {"ADSLSTANDARD",      offsetof(wan_adsl_conf_t,Standard), DTYPE_USHORT },
-  {"ADSLTRELLIS",       offsetof(wan_adsl_conf_t,Trellis), DTYPE_USHORT },
-  {"ADSLTXPOWERATTEN",  offsetof(wan_adsl_conf_t,TxPowerAtten), DTYPE_USHORT },
-  {"ADSLCODINGGAIN",    offsetof(wan_adsl_conf_t,CodingGain), DTYPE_USHORT },
-  {"ADSLMAXBITSPERBIN", offsetof(wan_adsl_conf_t,MaxBitsPerBin), DTYPE_USHORT },
-  {"ADSLTXSTARTBIN",    offsetof(wan_adsl_conf_t,TxStartBin), DTYPE_USHORT },
-  {"ADSLTXENDBIN",      offsetof(wan_adsl_conf_t,TxEndBin), DTYPE_USHORT },
-  {"ADSLRXSTARTBIN",    offsetof(wan_adsl_conf_t,RxStartBin), DTYPE_USHORT },
-  {"ADSLRXENDBIN",      offsetof(wan_adsl_conf_t,RxEndBin), DTYPE_USHORT },
-  {"ADSLRXBINADJUST",   offsetof(wan_adsl_conf_t,RxBinAdjust), DTYPE_USHORT },
-  {"ADSLFRAMINGSTRUCT", offsetof(wan_adsl_conf_t,FramingStruct), DTYPE_USHORT },
-  {"ADSLEXPANDEDEXCHANGE",      offsetof(wan_adsl_conf_t,ExpandedExchange), DTYPE_USHORT },
-  {"ADSLCLOCKTYPE",     offsetof(wan_adsl_conf_t,ClockType), DTYPE_USHORT },
-  {"ADSLMAXDOWNRATE",   offsetof(wan_adsl_conf_t,MaxDownRate), DTYPE_USHORT },
+  {"ADSLSTANDARD",      smemof(wan_adsl_conf_t,Standard), DTYPE_USHORT },
+  {"ADSLTRELLIS",       smemof(wan_adsl_conf_t,Trellis), DTYPE_USHORT },
+  {"ADSLTXPOWERATTEN",  smemof(wan_adsl_conf_t,TxPowerAtten), DTYPE_USHORT },
+  {"ADSLCODINGGAIN",    smemof(wan_adsl_conf_t,CodingGain), DTYPE_USHORT },
+  {"ADSLMAXBITSPERBIN", smemof(wan_adsl_conf_t,MaxBitsPerBin), DTYPE_USHORT },
+  {"ADSLTXSTARTBIN",    smemof(wan_adsl_conf_t,TxStartBin), DTYPE_USHORT },
+  {"ADSLTXENDBIN",      smemof(wan_adsl_conf_t,TxEndBin), DTYPE_USHORT },
+  {"ADSLRXSTARTBIN",    smemof(wan_adsl_conf_t,RxStartBin), DTYPE_USHORT },
+  {"ADSLRXENDBIN",      smemof(wan_adsl_conf_t,RxEndBin), DTYPE_USHORT },
+  {"ADSLRXBINADJUST",   smemof(wan_adsl_conf_t,RxBinAdjust), DTYPE_USHORT },
+  {"ADSLFRAMINGSTRUCT", smemof(wan_adsl_conf_t,FramingStruct), DTYPE_USHORT },
+  {"ADSLEXPANDEDEXCHANGE",      smemof(wan_adsl_conf_t,ExpandedExchange), DTYPE_USHORT },
+  {"ADSLCLOCKTYPE",     smemof(wan_adsl_conf_t,ClockType), DTYPE_USHORT },
+  {"ADSLMAXDOWNRATE",   smemof(wan_adsl_conf_t,MaxDownRate), DTYPE_USHORT },
 
   /*Backward compatibility*/
-  {"GTISTANDARD",      offsetof(wan_adsl_conf_t,Standard), DTYPE_USHORT },
-  {"GTITRELLIS",       offsetof(wan_adsl_conf_t,Trellis), DTYPE_USHORT },
-  {"GTITXPOWERATTEN",  offsetof(wan_adsl_conf_t,TxPowerAtten), DTYPE_USHORT },
-  {"GTICODINGGAIN",    offsetof(wan_adsl_conf_t,CodingGain), DTYPE_USHORT },
-  {"GTIMAXBITSPERBIN", offsetof(wan_adsl_conf_t,MaxBitsPerBin), DTYPE_USHORT },
-  {"GTITXSTARTBIN",    offsetof(wan_adsl_conf_t,TxStartBin), DTYPE_USHORT },
-  {"GTITXENDBIN",      offsetof(wan_adsl_conf_t,TxEndBin), DTYPE_USHORT },
-  {"GTIRXSTARTBIN",    offsetof(wan_adsl_conf_t,RxStartBin), DTYPE_USHORT },
-  {"GTIRXENDBIN",      offsetof(wan_adsl_conf_t,RxEndBin), DTYPE_USHORT },
-  {"GTIRXBINADJUST",   offsetof(wan_adsl_conf_t,RxBinAdjust), DTYPE_USHORT },
-  {"GTIFRAMINGSTRUCT", offsetof(wan_adsl_conf_t,FramingStruct), DTYPE_USHORT },
-  {"GTIEXPANDEDEXCHANGE",      offsetof(wan_adsl_conf_t,ExpandedExchange), DTYPE_USHORT },
-  {"GTICLOCKTYPE",     offsetof(wan_adsl_conf_t,ClockType), DTYPE_USHORT },
-  {"GTIMAXDOWNRATE",   offsetof(wan_adsl_conf_t,MaxDownRate), DTYPE_USHORT },
+  {"GTISTANDARD",      smemof(wan_adsl_conf_t,Standard), DTYPE_USHORT },
+  {"GTITRELLIS",       smemof(wan_adsl_conf_t,Trellis), DTYPE_USHORT },
+  {"GTITXPOWERATTEN",  smemof(wan_adsl_conf_t,TxPowerAtten), DTYPE_USHORT },
+  {"GTICODINGGAIN",    smemof(wan_adsl_conf_t,CodingGain), DTYPE_USHORT },
+  {"GTIMAXBITSPERBIN", smemof(wan_adsl_conf_t,MaxBitsPerBin), DTYPE_USHORT },
+  {"GTITXSTARTBIN",    smemof(wan_adsl_conf_t,TxStartBin), DTYPE_USHORT },
+  {"GTITXENDBIN",      smemof(wan_adsl_conf_t,TxEndBin), DTYPE_USHORT },
+  {"GTIRXSTARTBIN",    smemof(wan_adsl_conf_t,RxStartBin), DTYPE_USHORT },
+  {"GTIRXENDBIN",      smemof(wan_adsl_conf_t,RxEndBin), DTYPE_USHORT },
+  {"GTIRXBINADJUST",   smemof(wan_adsl_conf_t,RxBinAdjust), DTYPE_USHORT },
+  {"GTIFRAMINGSTRUCT", smemof(wan_adsl_conf_t,FramingStruct), DTYPE_USHORT },
+  {"GTIEXPANDEDEXCHANGE",      smemof(wan_adsl_conf_t,ExpandedExchange), DTYPE_USHORT },
+  {"GTICLOCKTYPE",     smemof(wan_adsl_conf_t,ClockType), DTYPE_USHORT },
+  {"GTIMAXDOWNRATE",   smemof(wan_adsl_conf_t,MaxDownRate), DTYPE_USHORT },
 
-  {"ATM_AUTOCFG", 	offsetof(wan_adsl_conf_t,atm_autocfg), DTYPE_UCHAR },
-  {"ADSL_WATCHDOG",	offsetof(wan_adsl_conf_t,atm_watchdog), DTYPE_UCHAR },
+  {"ATM_AUTOCFG", 	smemof(wan_adsl_conf_t,atm_autocfg), DTYPE_UCHAR },
+  {"ADSL_WATCHDOG",	smemof(wan_adsl_conf_t,atm_watchdog), DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 
 key_word_t bscstrm_conftab[]=
 {
-  {"BSCSTRM_ADAPTER_FR" , offsetof(wan_bscstrm_conf_t,adapter_frequency),DTYPE_ULONG},
-  {"BSCSTRM_MTU", 	offsetof(wan_bscstrm_conf_t,max_data_length),DTYPE_USHORT},
-  {"BSCSTRM_EBCDIC" ,  offsetof(wan_bscstrm_conf_t,EBCDIC_encoding),DTYPE_USHORT},
-  {"BSCSTRM_RB_BLOCK_TYPE", offsetof(wan_bscstrm_conf_t,Rx_block_type),DTYPE_USHORT},
-  {"BSCSTRM_NO_CONSEC_PAD_EOB", offsetof(wan_bscstrm_conf_t,no_consec_PADs_EOB), DTYPE_USHORT},
-  {"BSCSTRM_NO_ADD_LEAD_TX_SYN_CHARS", offsetof(wan_bscstrm_conf_t,no_add_lead_Tx_SYN_chars),DTYPE_USHORT},
-  {"BSCSTRM_NO_BITS_PER_CHAR", offsetof(wan_bscstrm_conf_t,no_bits_per_char),DTYPE_USHORT},
-  {"BSCSTRM_PARITY", offsetof(wan_bscstrm_conf_t,parity),DTYPE_USHORT},
-  {"BSCSTRM_MISC_CONFIG_OPTIONS",  offsetof(wan_bscstrm_conf_t,misc_config_options),DTYPE_USHORT},
-  {"BSCSTRM_STATISTICS_OPTIONS", offsetof(wan_bscstrm_conf_t,statistics_options),  DTYPE_USHORT},
-  {"BSCSTRM_MODEM_CONFIG_OPTIONS", offsetof(wan_bscstrm_conf_t,modem_config_options), DTYPE_USHORT},
+  {"BSCSTRM_ADAPTER_FR" , smemof(wan_bscstrm_conf_t,adapter_frequency),DTYPE_ULONG},
+  {"BSCSTRM_MTU", 	smemof(wan_bscstrm_conf_t,max_data_length),DTYPE_USHORT},
+  {"BSCSTRM_EBCDIC" ,  smemof(wan_bscstrm_conf_t,EBCDIC_encoding),DTYPE_USHORT},
+  {"BSCSTRM_RB_BLOCK_TYPE", smemof(wan_bscstrm_conf_t,Rx_block_type),DTYPE_USHORT},
+  {"BSCSTRM_NO_CONSEC_PAD_EOB", smemof(wan_bscstrm_conf_t,no_consec_PADs_EOB), DTYPE_USHORT},
+  {"BSCSTRM_NO_ADD_LEAD_TX_SYN_CHARS", smemof(wan_bscstrm_conf_t,no_add_lead_Tx_SYN_chars),DTYPE_USHORT},
+  {"BSCSTRM_NO_BITS_PER_CHAR", smemof(wan_bscstrm_conf_t,no_bits_per_char),DTYPE_USHORT},
+  {"BSCSTRM_PARITY", smemof(wan_bscstrm_conf_t,parity),DTYPE_USHORT},
+  {"BSCSTRM_MISC_CONFIG_OPTIONS",  smemof(wan_bscstrm_conf_t,misc_config_options),DTYPE_USHORT},
+  {"BSCSTRM_STATISTICS_OPTIONS", smemof(wan_bscstrm_conf_t,statistics_options),  DTYPE_USHORT},
+  {"BSCSTRM_MODEM_CONFIG_OPTIONS", smemof(wan_bscstrm_conf_t,modem_config_options), DTYPE_USHORT},
   { NULL, 0, 0 }
 };
 
 
 key_word_t ss7_conftab[] =
 {
-  {"LINE_CONFIG_OPTIONS", offsetof(wan_ss7_conf_t,line_cfg_opt),  DTYPE_UINT },
-  {"MODEM_CONFIG_OPTIONS",offsetof(wan_ss7_conf_t,modem_cfg_opt), DTYPE_UINT },
-  {"MODEM_STATUS_TIMER",  offsetof(wan_ss7_conf_t,modem_status_timer), DTYPE_UINT },
-  {"API_OPTIONS",	  offsetof(wan_ss7_conf_t,api_options),	  DTYPE_UINT },
-  {"PROTOCOL_OPTIONS",	  offsetof(wan_ss7_conf_t,protocol_options), DTYPE_UINT },
-  {"PROTOCOL_SPECIFICATION", offsetof(wan_ss7_conf_t,protocol_specification), DTYPE_UINT },
-  {"STATS_HISTORY_OPTIONS", offsetof(wan_ss7_conf_t,stats_history_options), DTYPE_UINT },
-  {"MAX_LENGTH_MSU_SIF", offsetof(wan_ss7_conf_t,max_length_msu_sif), DTYPE_UINT },
-  {"MAX_UNACKED_TX_MSUS", offsetof(wan_ss7_conf_t,max_unacked_tx_msus), DTYPE_UINT },
-  {"LINK_INACTIVITY_TIMER", offsetof(wan_ss7_conf_t,link_inactivity_timer), DTYPE_UINT }, 
-  {"T1_TIMER",		  offsetof(wan_ss7_conf_t,t1_timer),	  DTYPE_UINT },
-  {"T2_TIMER",		  offsetof(wan_ss7_conf_t,t2_timer),	  DTYPE_UINT },
-  {"T3_TIMER",		  offsetof(wan_ss7_conf_t,t3_timer),	  DTYPE_UINT },
-  {"T4_TIMER_EMERGENCY",  offsetof(wan_ss7_conf_t,t4_timer_emergency), DTYPE_UINT },
-  {"T4_TIMER_NORMAL",  offsetof(wan_ss7_conf_t,t4_timer_normal), DTYPE_UINT },
-  {"T5_TIMER",		  offsetof(wan_ss7_conf_t,t5_timer),	  DTYPE_UINT },
-  {"T6_TIMER",		  offsetof(wan_ss7_conf_t,t6_timer),	  DTYPE_UINT },
-  {"T7_TIMER",		  offsetof(wan_ss7_conf_t,t7_timer),	  DTYPE_UINT },
-  {"T8_TIMER",		  offsetof(wan_ss7_conf_t,t8_timer),	  DTYPE_UINT },
-  {"N1",		  offsetof(wan_ss7_conf_t,n1),	  DTYPE_UINT },
-  {"N2",		  offsetof(wan_ss7_conf_t,n2),	  DTYPE_UINT },
-  {"TIN",		  offsetof(wan_ss7_conf_t,tin),	  DTYPE_UINT },
-  {"TIE",		  offsetof(wan_ss7_conf_t,tie),	  DTYPE_UINT },
-  {"SUERM_ERROR_THRESHOLD", offsetof(wan_ss7_conf_t,suerm_error_threshold), DTYPE_UINT},
-  {"SUERM_NUMBER_OCTETS", offsetof(wan_ss7_conf_t,suerm_number_octets), DTYPE_UINT},
-  {"SUERM_NUMBER_SUS", offsetof(wan_ss7_conf_t,suerm_number_sus), DTYPE_UINT},
-  {"SIE_INTERVAL_TIMER", offsetof(wan_ss7_conf_t,sie_interval_timer), DTYPE_UINT},
-  {"SIO_INTERVAL_TIMER", offsetof(wan_ss7_conf_t,sio_interval_timer), DTYPE_UINT},
-  {"SIOS_INTERVAL_TIMER", offsetof(wan_ss7_conf_t,sios_interval_timer), DTYPE_UINT},
-  {"FISU_INTERVAL_TIMER", offsetof(wan_ss7_conf_t,fisu_interval_timer), DTYPE_UINT},
+  {"LINE_CONFIG_OPTIONS", smemof(wan_ss7_conf_t,line_cfg_opt),  DTYPE_UINT },
+  {"MODEM_CONFIG_OPTIONS",smemof(wan_ss7_conf_t,modem_cfg_opt), DTYPE_UINT },
+  {"MODEM_STATUS_TIMER",  smemof(wan_ss7_conf_t,modem_status_timer), DTYPE_UINT },
+  {"API_OPTIONS",	  smemof(wan_ss7_conf_t,api_options),	  DTYPE_UINT },
+  {"PROTOCOL_OPTIONS",	  smemof(wan_ss7_conf_t,protocol_options), DTYPE_UINT },
+  {"PROTOCOL_SPECIFICATION", smemof(wan_ss7_conf_t,protocol_specification), DTYPE_UINT },
+  {"STATS_HISTORY_OPTIONS", smemof(wan_ss7_conf_t,stats_history_options), DTYPE_UINT },
+  {"MAX_LENGTH_MSU_SIF", smemof(wan_ss7_conf_t,max_length_msu_sif), DTYPE_UINT },
+  {"MAX_UNACKED_TX_MSUS", smemof(wan_ss7_conf_t,max_unacked_tx_msus), DTYPE_UINT },
+  {"LINK_INACTIVITY_TIMER", smemof(wan_ss7_conf_t,link_inactivity_timer), DTYPE_UINT }, 
+  {"T1_TIMER",		  smemof(wan_ss7_conf_t,t1_timer),	  DTYPE_UINT },
+  {"T2_TIMER",		  smemof(wan_ss7_conf_t,t2_timer),	  DTYPE_UINT },
+  {"T3_TIMER",		  smemof(wan_ss7_conf_t,t3_timer),	  DTYPE_UINT },
+  {"T4_TIMER_EMERGENCY",  smemof(wan_ss7_conf_t,t4_timer_emergency), DTYPE_UINT },
+  {"T4_TIMER_NORMAL",  smemof(wan_ss7_conf_t,t4_timer_normal), DTYPE_UINT },
+  {"T5_TIMER",		  smemof(wan_ss7_conf_t,t5_timer),	  DTYPE_UINT },
+  {"T6_TIMER",		  smemof(wan_ss7_conf_t,t6_timer),	  DTYPE_UINT },
+  {"T7_TIMER",		  smemof(wan_ss7_conf_t,t7_timer),	  DTYPE_UINT },
+  {"T8_TIMER",		  smemof(wan_ss7_conf_t,t8_timer),	  DTYPE_UINT },
+  {"N1",		  smemof(wan_ss7_conf_t,n1),	  DTYPE_UINT },
+  {"N2",		  smemof(wan_ss7_conf_t,n2),	  DTYPE_UINT },
+  {"TIN",		  smemof(wan_ss7_conf_t,tin),	  DTYPE_UINT },
+  {"TIE",		  smemof(wan_ss7_conf_t,tie),	  DTYPE_UINT },
+  {"SUERM_ERROR_THRESHOLD", smemof(wan_ss7_conf_t,suerm_error_threshold), DTYPE_UINT},
+  {"SUERM_NUMBER_OCTETS", smemof(wan_ss7_conf_t,suerm_number_octets), DTYPE_UINT},
+  {"SUERM_NUMBER_SUS", smemof(wan_ss7_conf_t,suerm_number_sus), DTYPE_UINT},
+  {"SIE_INTERVAL_TIMER", smemof(wan_ss7_conf_t,sie_interval_timer), DTYPE_UINT},
+  {"SIO_INTERVAL_TIMER", smemof(wan_ss7_conf_t,sio_interval_timer), DTYPE_UINT},
+  {"SIOS_INTERVAL_TIMER", smemof(wan_ss7_conf_t,sios_interval_timer), DTYPE_UINT},
+  {"FISU_INTERVAL_TIMER", smemof(wan_ss7_conf_t,fisu_interval_timer), DTYPE_UINT},
   { NULL, 0, 0 }
 };
 
@@ -959,55 +978,55 @@ key_word_t ss7_conftab[] =
 
 key_word_t x25_conftab[] =	/* X.25-specific configuration */
 {
-  { "LOWESTPVC",    offsetof(wan_x25_conf_t, lo_pvc),       DTYPE_UINT },
-  { "HIGHESTPVC",   offsetof(wan_x25_conf_t, hi_pvc),       DTYPE_UINT },
-  { "LOWESTSVC",    offsetof(wan_x25_conf_t, lo_svc),       DTYPE_UINT },
-  { "HIGHESTSVC",   offsetof(wan_x25_conf_t, hi_svc),       DTYPE_UINT },
-  { "HDLCWINDOW",   offsetof(wan_x25_conf_t, hdlc_window),  DTYPE_UINT },
-  { "PACKETWINDOW", offsetof(wan_x25_conf_t, pkt_window),   DTYPE_UINT },
-  { "T1", 	    offsetof(wan_x25_conf_t, t1), DTYPE_UINT },
-  { "T2", 	    offsetof(wan_x25_conf_t, t2), DTYPE_UINT },	
-  { "T4", 	    offsetof(wan_x25_conf_t, t4), DTYPE_UINT },
-  { "N2", 	    offsetof(wan_x25_conf_t, n2), DTYPE_UINT },
-  { "T10_T20", 	    offsetof(wan_x25_conf_t, t10_t20), DTYPE_UINT },
-  { "T11_T21", 	    offsetof(wan_x25_conf_t, t11_t21), DTYPE_UINT },	
-  { "T12_T22", 	    offsetof(wan_x25_conf_t, t12_t22), DTYPE_UINT },
-  { "T13_T23", 	    offsetof(wan_x25_conf_t, t13_t23), DTYPE_UINT },
-  { "T16_T26", 	    offsetof(wan_x25_conf_t, t16_t26), DTYPE_UINT },
-  { "T28", 	    offsetof(wan_x25_conf_t, t28), DTYPE_UINT },
-  { "R10_R20", 	    offsetof(wan_x25_conf_t, r10_r20), DTYPE_UINT },
-  { "R12_R22", 	    offsetof(wan_x25_conf_t, r12_r22), DTYPE_UINT },
-  { "R13_R23", 	    offsetof(wan_x25_conf_t, r13_r23), DTYPE_UINT },
-  { "CCITTCOMPAT",  offsetof(wan_x25_conf_t, ccitt_compat), DTYPE_UINT },
-  { "X25CONFIG",    offsetof(wan_x25_conf_t, x25_conf_opt), DTYPE_UINT }, 	
-  { "LAPB_HDLC_ONLY", offsetof(wan_x25_conf_t, LAPB_hdlc_only), DTYPE_UCHAR },
-  { "CALL_SETUP_LOG", offsetof(wan_x25_conf_t, logging), DTYPE_UCHAR },
-  { "OOB_ON_MODEM",   offsetof(wan_x25_conf_t, oob_on_modem), DTYPE_UCHAR},
-  { "STATION_ADDR", offsetof(wan_x25_conf_t, local_station_address), DTYPE_UCHAR},
-  { "DEF_PKT_SIZE", offsetof(wan_x25_conf_t, defPktSize),  DTYPE_USHORT },
-  { "MAX_PKT_SIZE", offsetof(wan_x25_conf_t, pktMTU),  DTYPE_USHORT },
-  { "STATION",      offsetof(wan_x25_conf_t, station),  DTYPE_UCHAR },
+  { "LOWESTPVC",    smemof(wan_x25_conf_t, lo_pvc),       DTYPE_UINT },
+  { "HIGHESTPVC",   smemof(wan_x25_conf_t, hi_pvc),       DTYPE_UINT },
+  { "LOWESTSVC",    smemof(wan_x25_conf_t, lo_svc),       DTYPE_UINT },
+  { "HIGHESTSVC",   smemof(wan_x25_conf_t, hi_svc),       DTYPE_UINT },
+  { "HDLCWINDOW",   smemof(wan_x25_conf_t, hdlc_window),  DTYPE_UINT },
+  { "PACKETWINDOW", smemof(wan_x25_conf_t, pkt_window),   DTYPE_UINT },
+  { "T1", 	    smemof(wan_x25_conf_t, t1), DTYPE_UINT },
+  { "T2", 	    smemof(wan_x25_conf_t, t2), DTYPE_UINT },	
+  { "T4", 	    smemof(wan_x25_conf_t, t4), DTYPE_UINT },
+  { "N2", 	    smemof(wan_x25_conf_t, n2), DTYPE_UINT },
+  { "T10_T20", 	    smemof(wan_x25_conf_t, t10_t20), DTYPE_UINT },
+  { "T11_T21", 	    smemof(wan_x25_conf_t, t11_t21), DTYPE_UINT },	
+  { "T12_T22", 	    smemof(wan_x25_conf_t, t12_t22), DTYPE_UINT },
+  { "T13_T23", 	    smemof(wan_x25_conf_t, t13_t23), DTYPE_UINT },
+  { "T16_T26", 	    smemof(wan_x25_conf_t, t16_t26), DTYPE_UINT },
+  { "T28", 	    smemof(wan_x25_conf_t, t28), DTYPE_UINT },
+  { "R10_R20", 	    smemof(wan_x25_conf_t, r10_r20), DTYPE_UINT },
+  { "R12_R22", 	    smemof(wan_x25_conf_t, r12_r22), DTYPE_UINT },
+  { "R13_R23", 	    smemof(wan_x25_conf_t, r13_r23), DTYPE_UINT },
+  { "CCITTCOMPAT",  smemof(wan_x25_conf_t, ccitt_compat), DTYPE_UINT },
+  { "X25CONFIG",    smemof(wan_x25_conf_t, x25_conf_opt), DTYPE_UINT }, 	
+  { "LAPB_HDLC_ONLY", smemof(wan_x25_conf_t, LAPB_hdlc_only), DTYPE_UCHAR },
+  { "CALL_SETUP_LOG", smemof(wan_x25_conf_t, logging), DTYPE_UCHAR },
+  { "OOB_ON_MODEM",   smemof(wan_x25_conf_t, oob_on_modem), DTYPE_UCHAR},
+  { "STATION_ADDR", smemof(wan_x25_conf_t, local_station_address), DTYPE_UCHAR},
+  { "DEF_PKT_SIZE", smemof(wan_x25_conf_t, defPktSize),  DTYPE_USHORT },
+  { "MAX_PKT_SIZE", smemof(wan_x25_conf_t, pktMTU),  DTYPE_USHORT },
+  { "STATION",      smemof(wan_x25_conf_t, station),  DTYPE_UCHAR },
   { NULL, 0, 0 }
 };
 
 key_word_t lapb_annexg_conftab[] =
 {
   //LAPB STUFF
-  { "T1", offsetof(wan_lapb_if_conf_t, t1),    DTYPE_UINT },
-  { "T2", offsetof(wan_lapb_if_conf_t, t2),    DTYPE_UINT },
-  { "T3", offsetof(wan_lapb_if_conf_t, t3),    DTYPE_UINT },
-  { "T4", offsetof(wan_lapb_if_conf_t, t4),    DTYPE_UINT },
-  { "N2", offsetof(wan_lapb_if_conf_t, n2),    DTYPE_UINT },
-  { "LAPB_MODE", 	offsetof(wan_lapb_if_conf_t, mode),    DTYPE_UINT },
-  { "MODE", 		offsetof(wan_lapb_if_conf_t, mode),    DTYPE_UINT },
-  { "LAPB_WINDOW", 	offsetof(wan_lapb_if_conf_t, window),    DTYPE_UINT },
-  { "WINDOW", 		offsetof(wan_lapb_if_conf_t, window),    DTYPE_UINT },
+  { "T1", smemof(wan_lapb_if_conf_t, t1),    DTYPE_UINT },
+  { "T2", smemof(wan_lapb_if_conf_t, t2),    DTYPE_UINT },
+  { "T3", smemof(wan_lapb_if_conf_t, t3),    DTYPE_UINT },
+  { "T4", smemof(wan_lapb_if_conf_t, t4),    DTYPE_UINT },
+  { "N2", smemof(wan_lapb_if_conf_t, n2),    DTYPE_UINT },
+  { "LAPB_MODE", 	smemof(wan_lapb_if_conf_t, mode),    DTYPE_UINT },
+  { "MODE", 		smemof(wan_lapb_if_conf_t, mode),    DTYPE_UINT },
+  { "LAPB_WINDOW", 	smemof(wan_lapb_if_conf_t, window),    DTYPE_UINT },
+  { "WINDOW", 		smemof(wan_lapb_if_conf_t, window),    DTYPE_UINT },
 
-  { "LABEL",		offsetof(wan_lapb_if_conf_t,label), DTYPE_STR},
-  { "VIRTUAL_ADDR",     offsetof(wan_lapb_if_conf_t,virtual_addr), DTYPE_STR},
-  { "REAL_ADDR",        offsetof(wan_lapb_if_conf_t,real_addr), DTYPE_STR},
+  { "LABEL",		smemof(wan_lapb_if_conf_t,label), DTYPE_STR},
+  { "VIRTUAL_ADDR",     smemof(wan_lapb_if_conf_t,virtual_addr), DTYPE_STR},
+  { "REAL_ADDR",        smemof(wan_lapb_if_conf_t,real_addr), DTYPE_STR},
 
-  { "MAX_PKT_SIZE", 	offsetof(wan_lapb_if_conf_t,mtu), DTYPE_UINT},
+  { "MAX_PKT_SIZE", 	smemof(wan_lapb_if_conf_t,mtu), DTYPE_UINT},
 
   { NULL, 0, 0 }
 };
@@ -1015,50 +1034,50 @@ key_word_t lapb_annexg_conftab[] =
 key_word_t x25_annexg_conftab[] =
 {
  //X25 STUFF
-  { "PACKETWINDOW", offsetof(wan_x25_if_conf_t, packet_window),   DTYPE_USHORT },
-  { "CCITTCOMPAT",  offsetof(wan_x25_if_conf_t, CCITT_compatibility), DTYPE_USHORT },
-  { "T10_T20", 	    offsetof(wan_x25_if_conf_t, T10_T20), DTYPE_USHORT },
-  { "T11_T21", 	    offsetof(wan_x25_if_conf_t, T11_T21), DTYPE_USHORT },	
-  { "T12_T22", 	    offsetof(wan_x25_if_conf_t, T12_T22), DTYPE_USHORT },
-  { "T13_T23", 	    offsetof(wan_x25_if_conf_t, T13_T23), DTYPE_USHORT },
-  { "T16_T26", 	    offsetof(wan_x25_if_conf_t, T16_T26), DTYPE_USHORT },
-  { "T28", 	    offsetof(wan_x25_if_conf_t, T28),     DTYPE_USHORT },
-  { "R10_R20", 	    offsetof(wan_x25_if_conf_t, R10_R20), DTYPE_USHORT },
-  { "R12_R22", 	    offsetof(wan_x25_if_conf_t, R12_R22), DTYPE_USHORT },
-  { "R13_R23", 	    offsetof(wan_x25_if_conf_t, R13_R23), DTYPE_USHORT },
+  { "PACKETWINDOW", smemof(wan_x25_if_conf_t, packet_window),   DTYPE_USHORT },
+  { "CCITTCOMPAT",  smemof(wan_x25_if_conf_t, CCITT_compatibility), DTYPE_USHORT },
+  { "T10_T20", 	    smemof(wan_x25_if_conf_t, T10_T20), DTYPE_USHORT },
+  { "T11_T21", 	    smemof(wan_x25_if_conf_t, T11_T21), DTYPE_USHORT },	
+  { "T12_T22", 	    smemof(wan_x25_if_conf_t, T12_T22), DTYPE_USHORT },
+  { "T13_T23", 	    smemof(wan_x25_if_conf_t, T13_T23), DTYPE_USHORT },
+  { "T16_T26", 	    smemof(wan_x25_if_conf_t, T16_T26), DTYPE_USHORT },
+  { "T28", 	    smemof(wan_x25_if_conf_t, T28),     DTYPE_USHORT },
+  { "R10_R20", 	    smemof(wan_x25_if_conf_t, R10_R20), DTYPE_USHORT },
+  { "R12_R22", 	    smemof(wan_x25_if_conf_t, R12_R22), DTYPE_USHORT },
+  { "R13_R23", 	    smemof(wan_x25_if_conf_t, R13_R23), DTYPE_USHORT },
   
-  { "X25_API_OPTIONS", offsetof(wan_x25_if_conf_t, X25_API_options), DTYPE_USHORT },
-  { "X25_PROTOCOL_OPTIONS", offsetof(wan_x25_if_conf_t, X25_protocol_options), DTYPE_USHORT },
-  { "X25_RESPONSE_OPTIONS", offsetof(wan_x25_if_conf_t, X25_response_options), DTYPE_USHORT },
-  { "X25_STATISTICS_OPTIONS", offsetof(wan_x25_if_conf_t, X25_statistics_options), DTYPE_USHORT },
+  { "X25_API_OPTIONS", smemof(wan_x25_if_conf_t, X25_API_options), DTYPE_USHORT },
+  { "X25_PROTOCOL_OPTIONS", smemof(wan_x25_if_conf_t, X25_protocol_options), DTYPE_USHORT },
+  { "X25_RESPONSE_OPTIONS", smemof(wan_x25_if_conf_t, X25_response_options), DTYPE_USHORT },
+  { "X25_STATISTICS_OPTIONS", smemof(wan_x25_if_conf_t, X25_statistics_options), DTYPE_USHORT },
  
-  { "GEN_FACILITY_1", offsetof(wan_x25_if_conf_t, genl_facilities_supported_1), DTYPE_USHORT },
-  { "GEN_FACILITY_2", offsetof(wan_x25_if_conf_t, genl_facilities_supported_2), DTYPE_USHORT },
-  { "CCITT_FACILITY", offsetof(wan_x25_if_conf_t, CCITT_facilities_supported), DTYPE_USHORT },
-  { "NON_X25_FACILITY",	offsetof(wan_x25_if_conf_t,non_X25_facilities_supported),DTYPE_USHORT },
+  { "GEN_FACILITY_1", smemof(wan_x25_if_conf_t, genl_facilities_supported_1), DTYPE_USHORT },
+  { "GEN_FACILITY_2", smemof(wan_x25_if_conf_t, genl_facilities_supported_2), DTYPE_USHORT },
+  { "CCITT_FACILITY", smemof(wan_x25_if_conf_t, CCITT_facilities_supported), DTYPE_USHORT },
+  { "NON_X25_FACILITY",	smemof(wan_x25_if_conf_t,non_X25_facilities_supported),DTYPE_USHORT },
 
-  { "DFLT_PKT_SIZE", offsetof(wan_x25_if_conf_t,default_packet_size), DTYPE_USHORT },
-  { "MAX_PKT_SIZE",  offsetof(wan_x25_if_conf_t,maximum_packet_size), DTYPE_USHORT },
+  { "DFLT_PKT_SIZE", smemof(wan_x25_if_conf_t,default_packet_size), DTYPE_USHORT },
+  { "MAX_PKT_SIZE",  smemof(wan_x25_if_conf_t,maximum_packet_size), DTYPE_USHORT },
 
-  { "LOWESTSVC",   offsetof(wan_x25_if_conf_t,lowest_two_way_channel), DTYPE_USHORT },
-  { "HIGHESTSVC",  offsetof(wan_x25_if_conf_t,highest_two_way_channel), DTYPE_USHORT},
+  { "LOWESTSVC",   smemof(wan_x25_if_conf_t,lowest_two_way_channel), DTYPE_USHORT },
+  { "HIGHESTSVC",  smemof(wan_x25_if_conf_t,highest_two_way_channel), DTYPE_USHORT},
   
-  { "LOWESTPVC",   offsetof(wan_x25_if_conf_t,lowest_PVC), DTYPE_USHORT },
-  { "HIGHESTPVC",  offsetof(wan_x25_if_conf_t,highest_PVC), DTYPE_USHORT},
+  { "LOWESTPVC",   smemof(wan_x25_if_conf_t,lowest_PVC), DTYPE_USHORT },
+  { "HIGHESTPVC",  smemof(wan_x25_if_conf_t,highest_PVC), DTYPE_USHORT},
 
-  { "X25_MODE", offsetof(wan_x25_if_conf_t, mode), DTYPE_UCHAR},
-  { "CALL_BACKOFF", offsetof(wan_x25_if_conf_t, call_backoff_timeout), DTYPE_UINT },
-  { "CALL_LOGGING", offsetof(wan_x25_if_conf_t, call_logging), DTYPE_UCHAR },
+  { "X25_MODE", smemof(wan_x25_if_conf_t, mode), DTYPE_UCHAR},
+  { "CALL_BACKOFF", smemof(wan_x25_if_conf_t, call_backoff_timeout), DTYPE_UINT },
+  { "CALL_LOGGING", smemof(wan_x25_if_conf_t, call_logging), DTYPE_UCHAR },
  
-  { "X25_CALL_STRING",      offsetof(wan_x25_if_conf_t, call_string),     DTYPE_STR},
-  { "X25_ACCEPT_DST_ADDR",  offsetof(wan_x25_if_conf_t, accept_called),   DTYPE_STR},
-  { "X25_ACCEPT_SRC_ADDR",  offsetof(wan_x25_if_conf_t, accept_calling),  DTYPE_STR},
-  { "X25_ACCEPT_FCL_DATA",  offsetof(wan_x25_if_conf_t, accept_facil),    DTYPE_STR},
-  { "X25_ACCEPT_USR_DATA",  offsetof(wan_x25_if_conf_t, accept_udata),    DTYPE_STR},
+  { "X25_CALL_STRING",      smemof(wan_x25_if_conf_t, call_string),     DTYPE_STR},
+  { "X25_ACCEPT_DST_ADDR",  smemof(wan_x25_if_conf_t, accept_called),   DTYPE_STR},
+  { "X25_ACCEPT_SRC_ADDR",  smemof(wan_x25_if_conf_t, accept_calling),  DTYPE_STR},
+  { "X25_ACCEPT_FCL_DATA",  smemof(wan_x25_if_conf_t, accept_facil),    DTYPE_STR},
+  { "X25_ACCEPT_USR_DATA",  smemof(wan_x25_if_conf_t, accept_udata),    DTYPE_STR},
 
-  { "LABEL",		offsetof(wan_x25_if_conf_t,label),        DTYPE_STR},
-  { "VIRTUAL_ADDR",     offsetof(wan_x25_if_conf_t,virtual_addr), DTYPE_STR},
-  { "REAL_ADDR",        offsetof(wan_x25_if_conf_t,real_addr),    DTYPE_STR},
+  { "LABEL",		smemof(wan_x25_if_conf_t,label),        DTYPE_STR},
+  { "VIRTUAL_ADDR",     smemof(wan_x25_if_conf_t,virtual_addr), DTYPE_STR},
+  { "REAL_ADDR",        smemof(wan_x25_if_conf_t,real_addr),    DTYPE_STR},
   
   { NULL, 0, 0 }
 };
@@ -1066,91 +1085,91 @@ key_word_t x25_annexg_conftab[] =
 key_word_t dsp_annexg_conftab[] =
 {
   //DSP_20 DSP STUFF
-  { "PAD",		offsetof(wan_dsp_if_conf_t, pad_type),		DTYPE_UCHAR },
-  { "T1_DSP",  		offsetof(wan_dsp_if_conf_t, T1), 		DTYPE_UINT },
-  { "T2_DSP",  		offsetof(wan_dsp_if_conf_t, T2), 		DTYPE_UINT },
-  { "T3_DSP",  		offsetof(wan_dsp_if_conf_t, T3), 		DTYPE_UINT },
-  { "DSP_AUTO_CE",  	offsetof(wan_dsp_if_conf_t, auto_ce), 		DTYPE_UCHAR },
-  { "DSP_AUTO_CALL_REQ",offsetof(wan_dsp_if_conf_t, auto_call_req), 	DTYPE_UCHAR },
-  { "DSP_AUTO_ACK",  	offsetof(wan_dsp_if_conf_t, auto_ack), 		DTYPE_UCHAR },
-  { "DSP_MTU",  	offsetof(wan_dsp_if_conf_t, dsp_mtu), 		DTYPE_USHORT },
+  { "PAD",		smemof(wan_dsp_if_conf_t, pad_type),		DTYPE_UCHAR },
+  { "T1_DSP",  		smemof(wan_dsp_if_conf_t, T1), 		DTYPE_UINT },
+  { "T2_DSP",  		smemof(wan_dsp_if_conf_t, T2), 		DTYPE_UINT },
+  { "T3_DSP",  		smemof(wan_dsp_if_conf_t, T3), 		DTYPE_UINT },
+  { "DSP_AUTO_CE",  	smemof(wan_dsp_if_conf_t, auto_ce), 		DTYPE_UCHAR },
+  { "DSP_AUTO_CALL_REQ",smemof(wan_dsp_if_conf_t, auto_call_req), 	DTYPE_UCHAR },
+  { "DSP_AUTO_ACK",  	smemof(wan_dsp_if_conf_t, auto_ack), 		DTYPE_UCHAR },
+  { "DSP_MTU",  	smemof(wan_dsp_if_conf_t, dsp_mtu), 		DTYPE_USHORT },
   { NULL, 0, 0 }
 };
 
 key_word_t chan_conftab[] =	/* Channel configuration parameters */
 {
-  { "IDLETIMEOUT",   	offsetof(wanif_conf_t, idle_timeout), 	DTYPE_UINT },
-  { "HOLDTIMEOUT",   	offsetof(wanif_conf_t, hold_timeout), 	DTYPE_UINT },
-  { "X25_SRC_ADDR",   	offsetof(wanif_conf_t, x25_src_addr), 	DTYPE_STR},
-  { "X25_ACCEPT_DST_ADDR",  offsetof(wanif_conf_t, accept_dest_addr), DTYPE_STR},
-  { "X25_ACCEPT_SRC_ADDR",  offsetof(wanif_conf_t, accept_src_addr),  DTYPE_STR},
-  { "X25_ACCEPT_USR_DATA",  offsetof(wanif_conf_t, accept_usr_data),  DTYPE_STR},
-  { "CIR",           	offsetof(wanif_conf_t, cir), 	   	DTYPE_UINT },
-  { "BC",            	offsetof(wanif_conf_t, bc),		DTYPE_UINT },
-  { "BE", 	     	offsetof(wanif_conf_t, be),		DTYPE_UINT },
-  { "MULTICAST",     	offsetof(wanif_conf_t, mc),		DTYPE_UCHAR},
-  { "IPX",	     	offsetof(wanif_conf_t, enable_IPX),	DTYPE_UCHAR},
-  { "NETWORK",       	offsetof(wanif_conf_t, network_number),	DTYPE_ULONG}, 
-  { "PAP",     	     	offsetof(wanif_conf_t, pap),		DTYPE_UCHAR},
-  { "CHAP",          	offsetof(wanif_conf_t, chap),		DTYPE_UCHAR},
-  { "USERID",        	offsetof(wanif_conf_t, userid),	 	DTYPE_STR},
-  { "PASSWD",        	offsetof(wanif_conf_t, passwd),		DTYPE_STR},
-  { "SYSNAME",       	offsetof(wanif_conf_t, sysname),		DTYPE_STR},
-  { "INARP", 	     	offsetof(wanif_conf_t, inarp),          	DTYPE_UCHAR},
-  { "INARPINTERVAL", 	offsetof(wanif_conf_t, inarp_interval), 	DTYPE_UINT },
-  { "INARP_RX",      	offsetof(wanif_conf_t, inarp_rx),          	DTYPE_UCHAR},
-  { "IGNORE_DCD",  	offsetof(wanif_conf_t, ignore_dcd),        	DTYPE_UCHAR},
-  { "IGNORE_CTS",    	offsetof(wanif_conf_t, ignore_cts),        	DTYPE_UCHAR},
-  { "IGNORE_KEEPALIVE", offsetof(wanif_conf_t, ignore_keepalive), 	DTYPE_UCHAR},
-  { "HDLC_STREAMING", 	offsetof(wanif_conf_t, hdlc_streaming), 	DTYPE_UCHAR},
+  { "IDLETIMEOUT",   	smemof(wanif_conf_t, idle_timeout), 	DTYPE_UINT },
+  { "HOLDTIMEOUT",   	smemof(wanif_conf_t, hold_timeout), 	DTYPE_UINT },
+  { "X25_SRC_ADDR",   	smemof(wanif_conf_t, x25_src_addr), 	DTYPE_STR},
+  { "X25_ACCEPT_DST_ADDR",  smemof(wanif_conf_t, accept_dest_addr), DTYPE_STR},
+  { "X25_ACCEPT_SRC_ADDR",  smemof(wanif_conf_t, accept_src_addr),  DTYPE_STR},
+  { "X25_ACCEPT_USR_DATA",  smemof(wanif_conf_t, accept_usr_data),  DTYPE_STR},
+  { "CIR",           	smemof(wanif_conf_t, cir), 	   	DTYPE_UINT },
+  { "BC",            	smemof(wanif_conf_t, bc),		DTYPE_UINT },
+  { "BE", 	     	smemof(wanif_conf_t, be),		DTYPE_UINT },
+  { "MULTICAST",     	smemof(wanif_conf_t, mc),		DTYPE_UCHAR},
+  { "IPX",	     	smemof(wanif_conf_t, enable_IPX),	DTYPE_UCHAR},
+  { "NETWORK",       	smemof(wanif_conf_t, network_number),	DTYPE_ULONG}, 
+  { "PAP",     	     	smemof(wanif_conf_t, pap),		DTYPE_UCHAR},
+  { "CHAP",          	smemof(wanif_conf_t, chap),		DTYPE_UCHAR},
+  { "USERID",        	smemof(wanif_conf_t, userid),	 	DTYPE_STR},
+  { "PASSWD",        	smemof(wanif_conf_t, passwd),		DTYPE_STR},
+  { "SYSNAME",       	smemof(wanif_conf_t, sysname),		DTYPE_STR},
+  { "INARP", 	     	smemof(wanif_conf_t, inarp),          	DTYPE_UCHAR},
+  { "INARPINTERVAL", 	smemof(wanif_conf_t, inarp_interval), 	DTYPE_UINT },
+  { "INARP_RX",      	smemof(wanif_conf_t, inarp_rx),          	DTYPE_UCHAR},
+  { "IGNORE_DCD",  	smemof(wanif_conf_t, ignore_dcd),        	DTYPE_UCHAR},
+  { "IGNORE_CTS",    	smemof(wanif_conf_t, ignore_cts),        	DTYPE_UCHAR},
+  { "IGNORE_KEEPALIVE", smemof(wanif_conf_t, ignore_keepalive), 	DTYPE_UCHAR},
+  { "HDLC_STREAMING", 	smemof(wanif_conf_t, hdlc_streaming), 	DTYPE_UCHAR},
 
-  { "KEEPALIVE_TX_TIMER",	offsetof(wanif_conf_t, keepalive_tx_tmr), 	DTYPE_UINT },
-  { "KEEPALIVE_RX_TIMER",	offsetof(wanif_conf_t, keepalive_rx_tmr), 	DTYPE_UINT },
-  { "KEEPALIVE_ERR_MARGIN",	offsetof(wanif_conf_t, keepalive_err_margin),	DTYPE_UINT },
-  { "SLARP_TIMER", 	offsetof(wanif_conf_t, slarp_timer),    		DTYPE_UINT },
+  { "KEEPALIVE_TX_TIMER",	smemof(wanif_conf_t, keepalive_tx_tmr), 	DTYPE_UINT },
+  { "KEEPALIVE_RX_TIMER",	smemof(wanif_conf_t, keepalive_rx_tmr), 	DTYPE_UINT },
+  { "KEEPALIVE_ERR_MARGIN",	smemof(wanif_conf_t, keepalive_err_margin),	DTYPE_UINT },
+  { "SLARP_TIMER", 	smemof(wanif_conf_t, slarp_timer),    		DTYPE_UINT },
 
-  { "TTL",        	offsetof(wanif_conf_t, ttl),         DTYPE_UCHAR },
+  { "TTL",        	smemof(wanif_conf_t, ttl),         DTYPE_UCHAR },
 
- // { "INTERFACE",  	offsetof(wanif_conf_t, interface),   DTYPE_UCHAR },
- // { "CLOCKING",   	offsetof(wanif_conf_t, clocking),    DTYPE_UCHAR },
- // { "BAUDRATE",   	offsetof(wanif_conf_t, bps),         DTYPE_UINT },
+ // { "INTERFACE",  	smemof(wanif_conf_t, interface),   DTYPE_UCHAR },
+ // { "CLOCKING",   	smemof(wanif_conf_t, clocking),    DTYPE_UCHAR },
+ // { "BAUDRATE",   	smemof(wanif_conf_t, bps),         DTYPE_UINT },
  
-  { "STATION" ,          offsetof(wanif_conf_t, station),     DTYPE_UCHAR },
-  { "DYN_INTR_CFG",  	offsetof(wanif_conf_t, if_down),     DTYPE_UCHAR },
-  { "GATEWAY",  	offsetof(wanif_conf_t, gateway),     DTYPE_UCHAR },
-  { "TRUE_ENCODING_TYPE", offsetof(wanif_conf_t,true_if_encoding), DTYPE_UCHAR },
+  { "STATION" ,          smemof(wanif_conf_t, station),     DTYPE_UCHAR },
+  { "DYN_INTR_CFG",  	smemof(wanif_conf_t, if_down),     DTYPE_UCHAR },
+  { "GATEWAY",  	smemof(wanif_conf_t, gateway),     DTYPE_UCHAR },
+  { "TRUE_ENCODING_TYPE", smemof(wanif_conf_t,true_if_encoding), DTYPE_UCHAR },
 
   /* ASYNC Options */
-  { "ASYNC_MODE",    	       offsetof(wanif_conf_t, async_mode), DTYPE_UCHAR},	
-  { "ASY_DATA_TRANSPARENT",    offsetof(wanif_conf_t, asy_data_trans), DTYPE_UCHAR}, 
-  { "RTS_HS_FOR_RECEIVE",      offsetof(wanif_conf_t, rts_hs_for_receive), DTYPE_UCHAR},
-  { "XON_XOFF_HS_FOR_RECEIVE", offsetof(wanif_conf_t, xon_xoff_hs_for_receive), DTYPE_UCHAR},
-  { "XON_XOFF_HS_FOR_TRANSMIT",offsetof(wanif_conf_t, xon_xoff_hs_for_transmit), DTYPE_UCHAR},
-  { "DCD_HS_FOR_TRANSMIT",     offsetof(wanif_conf_t, dcd_hs_for_transmit), DTYPE_UCHAR},	
-  { "CTS_HS_FOR_TRANSMIT",     offsetof(wanif_conf_t, cts_hs_for_transmit), DTYPE_UCHAR},
-  { "TX_BITS_PER_CHAR",        offsetof(wanif_conf_t, tx_bits_per_char),    DTYPE_UINT },
-  { "RX_BITS_PER_CHAR",        offsetof(wanif_conf_t, rx_bits_per_char),    DTYPE_UINT },
-  { "STOP_BITS",               offsetof(wanif_conf_t, stop_bits),    DTYPE_UINT },
-  { "PARITY",                  offsetof(wanif_conf_t, parity),    DTYPE_UCHAR },
-  { "BREAK_TIMER",             offsetof(wanif_conf_t, break_timer),    DTYPE_UINT },	
-  { "INTER_CHAR_TIMER",        offsetof(wanif_conf_t, inter_char_timer),    DTYPE_UINT },
-  { "RX_COMPLETE_LENGTH",      offsetof(wanif_conf_t, rx_complete_length),    DTYPE_UINT },
-  { "XON_CHAR",                offsetof(wanif_conf_t, xon_char),    DTYPE_UINT },	
-  { "XOFF_CHAR",               offsetof(wanif_conf_t, xoff_char),    DTYPE_UINT },	   
-  { "MPPP_PROT",	       offsetof(wanif_conf_t, protocol),  DTYPE_UCHAR},
-  { "PROTOCOL",	       	       offsetof(wanif_conf_t, protocol),  DTYPE_UCHAR},
-  { "ACTIVE_CH",	       offsetof(wanif_conf_t, active_ch),  DTYPE_ULONG},
-  { "SW_DEV_NAME",	       offsetof(wanif_conf_t, sw_dev_name),  DTYPE_STR},
+  { "ASYNC_MODE",    	       smemof(wanif_conf_t, async_mode), DTYPE_UCHAR},	
+  { "ASY_DATA_TRANSPARENT",    smemof(wanif_conf_t, asy_data_trans), DTYPE_UCHAR}, 
+  { "RTS_HS_FOR_RECEIVE",      smemof(wanif_conf_t, rts_hs_for_receive), DTYPE_UCHAR},
+  { "XON_XOFF_HS_FOR_RECEIVE", smemof(wanif_conf_t, xon_xoff_hs_for_receive), DTYPE_UCHAR},
+  { "XON_XOFF_HS_FOR_TRANSMIT",smemof(wanif_conf_t, xon_xoff_hs_for_transmit), DTYPE_UCHAR},
+  { "DCD_HS_FOR_TRANSMIT",     smemof(wanif_conf_t, dcd_hs_for_transmit), DTYPE_UCHAR},	
+  { "CTS_HS_FOR_TRANSMIT",     smemof(wanif_conf_t, cts_hs_for_transmit), DTYPE_UCHAR},
+  { "TX_BITS_PER_CHAR",        smemof(wanif_conf_t, tx_bits_per_char),    DTYPE_UINT },
+  { "RX_BITS_PER_CHAR",        smemof(wanif_conf_t, rx_bits_per_char),    DTYPE_UINT },
+  { "STOP_BITS",               smemof(wanif_conf_t, stop_bits),    DTYPE_UINT },
+  { "PARITY",                  smemof(wanif_conf_t, parity),    DTYPE_UCHAR },
+  { "BREAK_TIMER",             smemof(wanif_conf_t, break_timer),    DTYPE_UINT },	
+  { "INTER_CHAR_TIMER",        smemof(wanif_conf_t, inter_char_timer),    DTYPE_UINT },
+  { "RX_COMPLETE_LENGTH",      smemof(wanif_conf_t, rx_complete_length),    DTYPE_UINT },
+  { "XON_CHAR",                smemof(wanif_conf_t, xon_char),    DTYPE_UINT },	
+  { "XOFF_CHAR",               smemof(wanif_conf_t, xoff_char),    DTYPE_UINT },	   
+  { "MPPP_PROT",	       smemof(wanif_conf_t, protocol),  DTYPE_UCHAR},
+  { "PROTOCOL",	       	       smemof(wanif_conf_t, protocol),  DTYPE_UCHAR},
+  { "ACTIVE_CH",	       smemof(wanif_conf_t, active_ch),  DTYPE_ULONG},
+  { "SW_DEV_NAME",	       smemof(wanif_conf_t, sw_dev_name),  DTYPE_STR},
 
-  { "LIP_MTU",        	       offsetof(wanif_conf_t, mtu),  DTYPE_UINT},
+  { "LIP_MTU",        	       smemof(wanif_conf_t, mtu),  DTYPE_UINT},
 
-  { "DLCI_TRACE_QUEUE", offsetof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
-  { "MAX_TRACE_QUEUE", offsetof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
+  { "DLCI_TRACE_QUEUE", smemof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
+  { "MAX_TRACE_QUEUE", smemof(wanif_conf_t, max_trace_queue), DTYPE_UINT},
 
-  { "TDMV_ECHO_OFF",	offsetof(wanif_conf_t, tdmv_echo_off), DTYPE_UCHAR},
-  { "TDMV_CODEC",	offsetof(wanif_conf_t, tdmv_codec), DTYPE_UCHAR},
+  { "TDMV_ECHO_OFF",	smemof(wanif_conf_t, tdmv_echo_off), DTYPE_UCHAR},
+  { "TDMV_CODEC",	smemof(wanif_conf_t, tdmv_codec), DTYPE_UCHAR},
 
-  { "SINGLE_TX_BUF",    offsetof(wanif_conf_t, single_tx_buf), DTYPE_UCHAR},
+  { "SINGLE_TX_BUF",    smemof(wanif_conf_t, single_tx_buf), DTYPE_UCHAR},
 
   { NULL, 0, 0 }
 };
@@ -3202,34 +3221,42 @@ int set_conf_param (char* key, char* val, key_word_t* dtab, void* conf)
 	switch (dtab->dtype) {
 
 	case DTYPE_INT:
+		SIZEOFASSERT(dtab, sizeof(int)); 
 		*(int*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_UINT:
+		SIZEOFASSERT(dtab, sizeof(unsigned int));
 		*(uint*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_LONG:
+		SIZEOFASSERT(dtab, sizeof(long));
 		*(long*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_ULONG:
+		SIZEOFASSERT(dtab, sizeof(unsigned long));
 		*(unsigned long*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_SHORT:
+		SIZEOFASSERT(dtab, sizeof(short));
 		*(short*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_USHORT:
+		SIZEOFASSERT(dtab, sizeof(unsigned short));
 		*(ushort*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_CHAR:
+		SIZEOFASSERT(dtab, sizeof(char));
 		*(char*)((char*)conf + dtab->offset) = tmp;
 		break;
 
 	case DTYPE_UCHAR:
+		SIZEOFASSERT(dtab, sizeof(unsigned char));
 		*(unsigned char*)((char*)conf + dtab->offset) = tmp;
 		break;
 

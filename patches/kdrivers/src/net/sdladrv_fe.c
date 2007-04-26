@@ -61,19 +61,26 @@
 #define XILINX_MCPU_INTERFACE           0x44
 #define XILINX_MCPU_INTERFACE_ADDR      0x46
 
+#undef NC_WARN_FIX
 /***************************************************************************
 ****               F U N C T I O N   P R O T O T Y P E S                ****
 ***************************************************************************/
+#ifdef NC_WARN_FIX
 static int		sdla_te1_write_fe(void* phw, ...);
 static unsigned char	sdla_te1_read_fe (void* phw, ...);
-
 static int	      __sdla_shark_te1_write_fe(void *phw, ...);
-static int		sdla_shark_te1_write_fe(void *phw, ...);
 static unsigned char  __sdla_shark_te1_read_fe (void *phw, ...);
-static unsigned char	sdla_shark_te1_read_fe (void *phw, ...);
+#endif
 
+#ifdef NC_WARN_FIX
+static int		sdla_shark_te1_write_fe(void *phw, ...);
+static unsigned char	sdla_shark_te1_read_fe (void *phw, ...);
+#endif
+
+#ifdef NC_WARN_FIX
 static int 	      __sdla_shark_analog_write_fe (void* phw, ...);
 static int 		sdla_shark_analog_write_fe (void* phw, ...);
+#endif
 static unsigned char  __sdla_shark_analog_read_fe (void* phw, ...);
 unsigned char    	sdla_shark_analog_read_fe (void* phw, ...);
 
@@ -102,6 +109,7 @@ extern int sdla_hw_fe_set_bit(void *phw, int value);
 /***************************************************************************
 	Front End T1/E1 interface for Normal cards
 ***************************************************************************/
+#ifdef NC_WARN_FIX
 static int sdla_te1_write_fe(void* phw, ...)
 {
 	sdlahw_t*	hw = (sdlahw_t*)phw;
@@ -159,11 +167,13 @@ static unsigned char sdla_te1_read_fe (void* phw, ...)
 	}
         return tmp;
 }
+#endif
 
 
 /***************************************************************************
 	Front End T1/E1 interface for Shark subtype cards
 ***************************************************************************/
+#ifdef NC_WARN_FIX
 static int __sdla_shark_te1_write_fe (void *phw, ...)
 {
 	sdlahw_t*	hw = (sdlahw_t*)phw;
@@ -243,10 +253,12 @@ static int sdla_shark_te1_write_fe (void *phw, ...)
 	sdla_hw_fe_clear_bit(hw,0);
         return 0;
 }
+#endif
 
 /*============================================================================
  * Read TE1/56K Front end registers
  */
+#ifdef NC_WARN_FIX
 static unsigned char __sdla_shark_te1_read_fe (void *phw, ...)
 {
 	sdlahw_t*	hw = (sdlahw_t*)phw;
@@ -314,6 +326,7 @@ static unsigned char sdla_shark_te1_read_fe (void *phw, ...)
 	sdla_hw_fe_clear_bit(hw,0);
         return tmp;
 }
+#endif
 
 /***************************************************************************
 	Front End FXS/FXO interface for Shark subtype cards
@@ -321,6 +334,7 @@ static unsigned char sdla_shark_te1_read_fe (void *phw, ...)
 /*============================================================================
  * Read TE1/56K Front end registers
  */
+#ifdef NC_WARN_FIX
 int __sdla_shark_analog_write_fe (void* phw, ...)
 {
 	sdlahw_t	*hw = (sdlahw_t*)phw;
@@ -505,6 +519,7 @@ static int sdla_shark_analog_write_fe (void* phw, ...)
 	sdla_hw_fe_clear_bit(hw,0);
         return 0;
 }
+#endif
 
 static unsigned char __sdla_shark_analog_read_fe (void* phw, ...)
 {

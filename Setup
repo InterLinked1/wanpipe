@@ -467,11 +467,13 @@ prepare()
         }
 
         # Verify files and fix permissions.
+	if [ $superuser = "YES" ]; then
         echo "Fixing file permissions..."
         fix_perms || {
                 error "Product is not completely installed. Please re-install"
                 return 1
         }
+	fi
         #Check if wanpipe modules are currently loaded
         eval "lsmod | grep sdladrv > /dev/null"
         if [ $? -eq 0 ]; then
@@ -516,50 +518,6 @@ prepare()
                 echo "Failed!"
                 missing_packages=$missing_packages"make "
         fi
-
-        echo -n "Checking for bash2 ... "
-        if [ -f "/bin/bash2" ]; then
-                echo "#!/bin/bash2 -p" > tmp_file$$
-                #echo "OK"
-
-                cat $WANCFG | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                cat tmp_file$$ $TEMP > $WANCFG
-
-                cat $CFGFT1 | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                cat tmp_file$$ $TEMP > $CFGFT1
-
-                cat $WANROUTER_STARTUP_SMPL | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                cat tmp_file$$ $TEMP > $WANROUTER_STARTUP_SMPL
-
-                rm -f tmp_file$$
-                rm -f $TEMP
-
-        else
-                bash_ver=`echo $BASH_VERSION | cut -d'.' -f1 2> /dev/null`
-                if [ $bash_ver -gt 1 ]; then
-
-                        echo "#!/bin/bash -p" > tmp_file$$
-                        echo "OK"
-
-                        cat $WANCFG | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                        cat tmp_file$$ $TEMP > $WANCFG
-
-                        cat $CFGFT1 | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                        cat tmp_file$$ $TEMP > $CFGFT1
-
-                        cat $WANROUTER_STARTUP_SMPL | awk '{ gsub("#!.*", "") ; print }' > $TEMP
-                        cat tmp_file$$ $TEMP > $WANROUTER_STARTUP_SMPL
-
-                        rm -f tmp_file$$
-                        rm -f $TEMP
-                        echo "OK"
-                else
-                        echo "Failed!"
-                        missing_packages=$missing_packages"bash "
-                fi
-        fi
-
-        rm -f tmp_file$$
 
         echo -n "Checking for ncurses library ... "
         if [ ! -f "/usr/include/ncurses.h" ] && [ ! -f "/usr/include/ncurses/ncurses.h" ]; then
@@ -695,6 +653,7 @@ prepare()
                         return 1
                 fi
         fi
+	pause
 
         return 0
 }
@@ -792,7 +751,7 @@ update_wanpipe_drivers ()
 	cd $DRIVER_UPDATE_DIR/include/     
 
 	if [ ! -e $WANPIPE_INCLUDE_DIR ]; then
-          	eval "\mkdir $WANPIPE_INCLUDE_DIR"
+          	eval "\mkdir -p $WANPIPE_INCLUDE_DIR"
 	fi
 
 	if [ ! -e $WANPIPE_INCLUDE_DIR/linux ]; then
@@ -810,7 +769,7 @@ update_wanpipe_drivers ()
 
 	cd $DRIVER_UPDATE_DIR/include/
 	
-	if [ -e /usr/include/linux ]; then
+	if [ $superuser = "YES" ] && [ -e /usr/include/linux ]; then
 		eval "\cp -f *.h /usr/include/linux/ 2> /dev/null"
 	fi
 
@@ -1449,7 +1408,7 @@ function get_intr_dir ()
 	WAN_INTR_DIR=/etc/wanpipe/interfaces
 
 	if [ ! -d $WAN_INTR_DIR ]; then
-		\mkdir $WAN_INTR_DIR
+		\mkdir -p $WAN_INTR_DIR
 	fi
 
 #	if [ -d "/etc/sysconfig/network-scripts" ]; then
@@ -1657,6 +1616,7 @@ install_init()
           	return 0;
 	fi
 
+
 	# Examine system bootstrap files.
 	if [ -d /etc/rc0.d ]
 	then RC_DIR=/etc
@@ -1699,16 +1659,16 @@ ENDOFTEXT
 		[ -d $RC_DIR/init.d ] && ln -sf $PROD_INIT $RC_DIR/init.d/$PROD
 	else
 		# Install start scripts.
-		[ -d $RC_DIR/rc2.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc2.d/$START_SCRIPT
-		[ -d $RC_DIR/rc3.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc3.d/$START_SCRIPT
-		[ -d $RC_DIR/rc4.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc4.d/$START_SCRIPT
-		[ -d $RC_DIR/rc5.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc5.d/$START_SCRIPT
+		[ -d $RC_DIR/rc2.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc2.d/$START_SCRIPT
+		[ -d $RC_DIR/rc3.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc3.d/$START_SCRIPT
+		[ -d $RC_DIR/rc4.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc4.d/$START_SCRIPT
+		[ -d $RC_DIR/rc5.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL  $ROOT/$RC_DIR/rc5.d/$START_SCRIPT
 
 		# Install stop scripts.
-		[ -d $RC_DIR/rc0.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc0.d/$STOP_SCRIPT
-		[ -d $RC_DIR/rc1.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc1.d/$STOP_SCRIPT
-		[ -d $RC_DIR/rc6.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/rc6.d/$STOP_SCRIPT
-		[ -d $RC_DIR/init.d ] && install -D -m 755 $ROOT/$WANROUTER_STARTUP $ROOT/$RC_DIR/init.d/$PROD
+		[ -d $RC_DIR/rc0.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc0.d/$STOP_SCRIPT
+		[ -d $RC_DIR/rc1.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc1.d/$STOP_SCRIPT
+		[ -d $RC_DIR/rc6.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/rc6.d/$STOP_SCRIPT
+		[ -d $RC_DIR/init.d ] && install -D -m 755 $WANROUTER_STARTUP_SMPL $ROOT/$RC_DIR/init.d/$PROD
 	fi
 
 	pause
@@ -1930,7 +1890,7 @@ WARNING: The Linux source in $SOURCEDIR has not been configured.
 	if [ $ENABLE_ECHO_DEBUG -eq 1 ]; then
 		MAKEINC=$MAKEINC" ENABLE_WANPIPEMON_ZAP=YES " 
 	fi
-	eval "make CC=$CC SYSINC=$SOURCEDIR/include $MAKEINC >> $CMP_LOG 2>> $CMP_LOG"
+	eval "make CC=$CC SYSINC=$SOURCEDIR/include WANINCDIR=$WANPIPE_INCLUDE_DIR $MAKEINC >> $CMP_LOG 2>> $CMP_LOG"
 
 	if [ $? -eq 0 ]
 	then
@@ -1986,6 +1946,50 @@ WARNING: The Linux source in $SOURCEDIR has not been configured.
 	eval "make CC=$CC SYSINC=$SOURCEDIR/include > /dev/null"
 	echo -e "Done.\n"
 
+	echo
+	echo -n "Compiling WANPIPE LibSangoma TDM API library ..."
+
+	cd $PROD_HOME/api
+
+	cd libsangoma
+	eval "./configure --prefix=$ROOT/usr/include >> $CMP_LOG 2>> $CMP_LOG" 
+	eval "make clean >> $CMP_LOG 2>> $CMP_LOG" 
+	eval "make CC=$CC SYSINC=$SOURCEDIR/include >> $CMP_LOG 2>> $CMP_LOG" 
+	if [ $? -eq 0 ]; then
+		echo -e "Done.\n"
+	else
+		echo -e "Failed. \n"
+		pause
+	fi
+	eval "make install >> $CMP_LOG 2>> $CMP_LOG"
+
+
+	if [ $superuser = "YES" ]; then
+	if [ -d /etc/ld.so.conf.d ]; then
+		if [ ! -e $ROOT/etc/ld.so.conf.d/ ]; then
+			\mkdir -p $ROOT/etc/ld.so.conf.d/
+		fi
+          	\cp -f libsangoma.so.conf $ROOT/etc/ld.so.conf.d/  
+
+		if [ $superuser = "YES" ]; then
+			eval "ldconfig"
+		fi
+	elif [ -f /etc/ld.so.conf ]; then
+		if [ $superuser = "YES" ]; then
+                	cat /etc/ld.so.conf libsangoma.so.conf > ldconf.$$
+			mv ldconf.$$ /etc/ld.so.conf
+			eval "ldconfig"
+		fi
+	else
+		echo
+		echo "Warning: LD Conf files not found in /etc directory"
+		echo "Please add /usr/local/lib to the LD_LIBRARY_PATH"
+		echo
+		eval "ldconfig"
+		pause
+	fi             
+	fi
+	
 	echo
 	echo -n "Compiling WANPIPE API Development Utilities ..."
 
@@ -2197,7 +2201,7 @@ function wan_get_kernel_flags()
 #	echo "make -C $SOURCEDIR  SUBDIRS=$PWD drivers/net/wan/sdladrv 2> /dev/null"
 
 	if [ ! -d $SOURCEDIR/wanpipe ]; then
-		mkdir $SOURCEDIR/wanpipe
+		mkdir -p $SOURCEDIR/wanpipe
 	fi
 	cp $DRIVER_UPDATE_DIR/src/net/sdladrv.c $SOURCEDIR/wanpipe 
 
@@ -2368,7 +2372,8 @@ function build_wanec_module ()
 					      
 
 	local files="wanec_iface wanec_cmd wanec_utils wanec_dev $BTDIR/octapi_bt0 $LARGMATHDIR/octapi_largmath $LLMANDIR/octapi_llman $OCTAPIMIDIR/oct6100_mask_interrupts $OCTAPIDIR/oct6100_adpcm_chan $OCTAPIDIR/oct6100_channel $OCTAPIDIR/oct6100_chip_open $OCTAPIDIR/oct6100_chip_stats $OCTAPIDIR/oct6100_conf_bridge $OCTAPIDIR/oct6100_debug $OCTAPIDIR/oct6100_events $OCTAPIDIR/oct6100_interrupts $OCTAPIDIR/oct6100_memory $OCTAPIDIR/oct6100_miscellaneous  $OCTAPIDIR/oct6100_mixer $OCTAPIDIR/oct6100_phasing_tsst $OCTAPIDIR/oct6100_playout_buf $OCTAPIDIR/oct6100_remote_debug $OCTAPIDIR/oct6100_tlv $OCTAPIDIR/oct6100_tone_detection $OCTAPIDIR/oct6100_tsi_cnct $OCTAPIDIR/oct6100_tsst $OCTAPIDIR/oct6100_user " 
-                        
+         
+	               
 	eval "make clean > /dev/null 2> /dev/null"
 
 	if [ $KERN_VER -eq 24 ]; then
@@ -2491,27 +2496,27 @@ function select_compilation_mode()
 	Please Select Compilation Mode
 
 1. WAN Protocols Support (Default)
-       Protocols: Frame Relay, CHDLC, PPP, X25, ADSL, TDM API
+       Protocols: Frame Relay, CHDLC, PPP, ATM, X25, ADSL, TDM API
 
 2. TDM Voice (Zaptel) Support Only
        Protocols: TDMV (Zaptel), TDM API on AFT adatpers.
 
 3. TDM Voice (Zaptel) + WAN Protocol Support
-       Protocols: TDMV, TDM API, Frame Relay, CHDLC, PPP, X25, ADSL
 
 4. SMG (SS7) (Default for SMG install)
-       Protocols: MTP2 (SS7), TDM API on AFT adapters.
 
-5. SMG (SS7) + TDM Voice (Zaptel) 
-       Protocols: MTP2 (SS7), TDMV (Zaptel), TDM API  
+5. SMG (SS7) + TDM Voice (Zaptel)   
 
-6. Custom Compilation Mode
+6. TDM API (FreeSwitch Default) 
+       Protocols: TDM API on AFT adapters.
+
+7. Custom Compilation Mode
        Specify protocols to be added into the WANPIPE
        kernel drivers.
 
 ENDOFTEXT
 
-echo -n "Please select (1,2,3,4,5 or 6) [Default: 1]: "
+echo -n "Please select (1,2,3,4,5,6 or 7) [Default: 1]: "
 
 if test -z $NONINTERACTIVE; then
 
@@ -2544,6 +2549,9 @@ if test -z $NONINTERACTIVE; then
 		enable_protocols "AFT_TE1"
 
 	elif [ "$response"  -eq 6 ]; then
+                enable_protocols "AFT_TE1"
+
+	elif [ "$response"  -eq 7 ]; then
 		enable_custom_protocols 
 	else
 		select_compilation_mode
@@ -2626,7 +2634,7 @@ ENDOFTEXT
 	echo
 	getyn "Proceed to build ${DISTR_NAME} kernel modules ?" || return 0;
 	if [ ! -d $DRIVER_TMP_DIR ]; then
-		eval "\mkdir $DRIVER_TMP_DIR > /dev/null"
+		eval "\mkdir -p $DRIVER_TMP_DIR > /dev/null"
 		if [ $? -ne 0 ]; then
 			echo "ERROR: Failed to create $DRIVER_TMP_DIR directory!!!"
 			pause
@@ -2944,7 +2952,7 @@ ENDOFTEXT
 	
 - ATM Protocol
 	Support for AFT and S514-(X) T1/E1/V35 cards.
- 	Protocols: Ethernet over ATM (LLC/VC) (PPPoE)
+ 	Protocols: Ethernet over ATM (AAL5) (LLC/VC) (PPPoE)
 		   PPP over ATM (PPPoA) (LLC/VC) AFT Only
 	           Classical IP over ATM (LLC/VC)
 
@@ -2952,6 +2960,18 @@ ENDOFTEXT
 	pause
 	echo
 	fi
+
+	if [ "$KATM_PROT" = "YES" ]; then
+	cat << ENDOFTEXT
+	
+- Linux Kernel ATM Stack Protocol
+	Support for AFT T1/E1 cards.
+ 	Protocols: Kernel ATM Stack over AFT ATM (AAL5)
+
+ENDOFTEXT
+	pause
+	echo
+	fi     
 
 
 	if [ "$XMTP2_PROT" = "YES" ]; then
@@ -3187,6 +3207,8 @@ ENDOFTEXT
 		 LD_ELF="-m elf_i386" 
 		 ;;
 	i386*)   LD_ELF="-m elf_i386" 
+		 ;;
+	ppc*)
 		 ;;
 	*)	
 		echo "Error: Unsuppored architecture type $ARCH!"
@@ -3424,6 +3446,7 @@ ENDOFTEXT
 EVALCMD=eval
 WANPIPE_OBJS=
 
+	rm -f sdladrv_src.c
 	ln -s sdladrv.c sdladrv_src.c
 	build_kernel_module sdladrv "sdladrv_src sdladrv_fe"
 
@@ -3432,6 +3455,7 @@ WANPIPE_OBJS=
 	AF_EXTRA_FLAGS="-DCONFIG_PRODUCT_WANPIPE_SOCK_DATASCOPE"
 	check_for_af_wanpipe_updates
 
+	rm -f af_wanpipe_src.c
 	ln -s af_wanpipe.c af_wanpipe_src.c
 	build_kernel_module af_wanpipe "af_wanpipe_src af_wanpipe_datascope" "$AF_EXTRA_FLAGS"
 
@@ -3543,14 +3567,14 @@ WANPIPE_OBJS=
 		\cp $DRIVER_UPDATE_DIR/src/net/sdla_adsl.c .
 
 		adsl_file=wanpipe_adsl.gcc$GCC_VER.$ARCH$REGPARM_OPT.o
-		if [ ! -e $DRIVER_UPDATE_DIR/src/net/$adsl_file ]; then
+		if [ ! -e $DRIVER_UPDATE_DIR/src/bin/$adsl_file ]; then
 			echo "Warning: ADSL Binary $adsl_file not found!"
 			echo "Using wanpipe_adsl.gcc3.i386.o"
 			adsl_file=wanpipe_adsl.gcc3.i386.o
 		fi
 
-		\cp $DRIVER_UPDATE_DIR/src/net/$adsl_file tmp/wanpipe_adsl.o
-		\cp $DRIVER_UPDATE_DIR/src/net/$adsl_file wanpipe_adsl.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$adsl_file tmp/wanpipe_adsl.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$adsl_file wanpipe_adsl.o
 		
 		WANPIPE_OBJS=$WANPIPE_OBJS"sdla_adsl "
 		WANPIPE_BIN_OBJS=$WANPIPE_BIN_OBJS"wanpipe_adsl.o "
@@ -3562,14 +3586,14 @@ WANPIPE_OBJS=
 		\cp $DRIVER_UPDATE_DIR/src/net/sdla_atm.c .
 
 		atm_file=wanpipe_atm.gcc$GCC_VER.$ARCH$REGPARM_OPT.o
-		if [ ! -e $DRIVER_UPDATE_DIR/src/net/$atm_file ]; then
+		if [ ! -e $DRIVER_UPDATE_DIR/src/bin/$atm_file ]; then
 			echo "Warning: ATM Binary $atm_file not found!"
 			echo "Using wanpipe_atm.gcc3.i386.o"
 			atm_file=wanpipe_atm.gcc3.i386.o
 		fi
 
-		\cp $DRIVER_UPDATE_DIR/src/net/$atm_file tmp/wanpipe_atm.o
-		\cp $DRIVER_UPDATE_DIR/src/net/$atm_file wanpipe_atm.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$atm_file tmp/wanpipe_atm.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$atm_file wanpipe_atm.o
 
 		WANPIPE_OBJS=$WANPIPE_OBJS"sdla_atm "
 		WANPIPE_BIN_OBJS=$WANPIPE_BIN_OBJS"wanpipe_atm.o "
@@ -3580,15 +3604,15 @@ WANPIPE_OBJS=
 	if [ "$ECHO_MASTER_PROT" = "YES" ]; then
 
 		echo_file=wanpipe_edac.gcc$GCC_VER.$ARCH$REGPARM_OPT.o
-		if [ ! -e $DRIVER_UPDATE_DIR/src/net/$echo_file ]; then
+		if [ ! -e $DRIVER_UPDATE_DIR/src/bin/$echo_file ]; then
 			echo "Warning: ECHO MASTER Binary $echo_file not found!"
 			echo "Using wanpipe_edac.gcc3.i386.o"
 			echo_file=wanpipe_edac.gcc3.i386.o
 		fi
 
 		\cp $DRIVER_UPDATE_DIR/src/net/sdla_edac.c .
-		\cp $DRIVER_UPDATE_DIR/src/net/$echo_file tmp/wanpipe_edac.o
-		\cp $DRIVER_UPDATE_DIR/src/net/$echo_file wanpipe_edac.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$echo_file tmp/wanpipe_edac.o
+		\cp $DRIVER_UPDATE_DIR/src/bin/$echo_file wanpipe_edac.o
 		
 		WANPIPE_OBJS=$WANPIPE_OBJS"sdla_edac "
 		WANPIPE_BIN_OBJS=$WANPIPE_BIN_OBJS"wanpipe_edac.o "
@@ -3633,6 +3657,7 @@ WANPIPE_OBJS=
 
 
 	if [ "$SYNCPPP_PROT" = "YES" ]; then
+		rm -f wanpipe_syncppp_src.c
 		ln -s wanpipe_syncppp.c wanpipe_syncppp_src.c
 		build_kernel_module wanpipe_syncppp wanpipe_syncppp_src
 	fi
@@ -3657,6 +3682,7 @@ WANPIPE_OBJS=
 		\cp -f $DRIVER_UPDATE_DIR/src/wan_aften/*.c  .
 		\cp -f $DRIVER_UPDATE_DIR/src/wan_aften/*.h  .
 
+		rm -f wan_aften_src.c
 		ln -s wan_aften.c wan_aften_src.c
 		build_kernel_module wan_aften "wan_aften_src wanpipe_linux_iface"
 	fi
@@ -3665,6 +3691,7 @@ WANPIPE_OBJS=
 
 		home_tmp=`pwd`
 		cd $DRIVER_UPDATE_DIR/wanec
+		\cp -f $PROD_HOME/kbuild/Makefile.wanec Makefile		
 		build_wanec_module
 		if [ $? -eq 0 ]; then
 			echo "WAN HWEC module enabled and compiled!"
@@ -3684,6 +3711,11 @@ WANPIPE_OBJS=
 		echo
 		\cp -f $DRIVER_UPDATE_DIR/src/lip/*.c  .
 		\cp -f $DRIVER_UPDATE_DIR/src/lip/bin/*.o .
+
+		if [ -e $DRIVER_UPDATE_DIR/src/lip/lip_katm ]; then
+			\cp -f $DRIVER_UPDATE_DIR/src/lip/lip_katm/*.c .
+			\cp -f $DRIVER_UPDATE_DIR/src/lip/lip_katm/*.h .
+		fi
 
 		LIP_LINKED_PROTOCOLS=
 
@@ -3756,7 +3788,7 @@ WANPIPE_OBJS=
 
 		if [ $ATM_PROT = "YES" ]; then
 			lip_atm_file=wanpipe_lip_atm.gcc$GCC_VER.$ARCH$REGPARM_OPT.o
-			if [ ! -e $sppp_file ]; then
+			if [ ! -e $lip_atm_file ]; then
 				echo "Warning: LIP ATM Binary $lip_atm_file not found!"
 				echo "Using wanpipe_lip_atm.gcc3.i386.o"
 				lip_atm_file=wanpipe_lip_atm.gcc3.i386.o
@@ -3828,7 +3860,12 @@ WANPIPE_OBJS=
 
 		LIP_DEFINES="-DWANLIP_DRIVER -DWPLIP_TTY_SUPPORT"
 
-		build_kernel_module wanpipe_lip "wanpipe_lip_iface wanpipe_lip_bh wanpipe_lip_prot wanpipe_lip_netdev wanpipe_lip_sub wanpipe_lip_tty wanpipe_abstr wanpipe_linux_iface" "$LIP_DEFINES" "$LIP_BIN_OBJS" 
+		lip_src_mods="wanpipe_lip_iface wanpipe_lip_bh wanpipe_lip_prot wanpipe_lip_netdev wanpipe_lip_sub wanpipe_lip_tty wanpipe_abstr wanpipe_linux_iface "
+		if [ $KATM_PROT = "YES" ]; then
+                	lip_src_mods=$lip_src_mods" wanpipe_katm_iface wanpipe_katm_sub"
+		fi
+
+		build_kernel_module wanpipe_lip "$lip_src_mods" "$LIP_DEFINES" "$LIP_BIN_OBJS" 
 
 
 		if [ $FR_PROT = "YES" ]; then
@@ -4458,7 +4495,11 @@ function install_all ()
 	cd $PROD_HOME
 
 
-	\cp -f $DRIVER_UPDATE_DIR/include/* $ROOT/etc/wanpipe/api/include/linux/.
+	if [ ! -f $ROOT/etc/wanpipe/api/include/linux/ ]; then
+		\mkdir -p $ROOT/etc/wanpipe/api/include/linux/
+	fi
+
+	\cp -f $DRIVER_UPDATE_DIR/include/*.* $ROOT/etc/wanpipe/api/include/linux/
 	
 	pause
 	return 0
@@ -4766,13 +4807,12 @@ function tdmv_get_zaptel_path ()
                         fi
                         tdmv_get_zaptel_path
                 fi
-        fi
-
+       fi
 
 	#zaptel.c renamed to zaptel-base.c in zaptel v1.2.13 and later
-	if [ -e $ZAPTEL_INSTALL_DIR/zaptel-base.c ]; then
-		ZAPTEL_C_FILE="zaptel-base.c";
-	fi
+        if [ -e $ZAPTEL_INSTALL_DIR/zaptel-base.c ]; then
+                ZAPTEL_C_FILE="zaptel-base.c";
+        fi
         return 0;
 }
 
@@ -4962,7 +5002,7 @@ function tdmv_apply_zaptel_echo_debug_patch ()
 	lhome=`pwd`
 	cd $ZAPTEL_INSTALL_DIR
 
-	#check if some version of the patch is already installed in zaptel.c
+	#check if some version of the patch is already installed in $ZAPTEL_C_FILE
 	eval "grep \"GET_ECHO_SPIKE_SAMPLE\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
 	if [ $? -eq 0 ]; then
 		echo "Echo Debugging patch for Zaptel already installed in $ZAPTEL_C_FILE."
@@ -5388,6 +5428,22 @@ ENDOFTEXT
 		fi
 	fi
 
+	echo "$PROTOCOL" | grep "KATM" > /dev/null 
+	if [ $? -eq 0 ]; then
+
+		if [ $KATM_PROT != YES ]; then
+                	PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_LIP_KATM "  	
+		fi      
+
+		KATM_PROT=YES
+		PROT_MATCH=YES  
+
+		#Note that KATM will also match 
+ 		#ATM protocol, so ATM will automatically be
+	        #enabled.
+	fi
+
+
 	echo "$PROTOCOL" | grep "ATM" > /dev/null
 	if [ $? -eq 0 ]; then
 
@@ -5405,8 +5461,8 @@ ENDOFTEXT
 		else	
 	
 			if [ $ATM_PROT != YES ]; then
-			echo "Enabling the ATM Protocol"
-			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_LIP_ATM -DCONFIG_PRODUCT_WANPIPE_ATM "
+			
+				PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_LIP_ATM -DCONFIG_PRODUCT_WANPIPE_ATM "
 			fi
 			ATM_PROT=YES
 			PROT_MATCH=YES
@@ -5701,7 +5757,7 @@ ENDOFTEXT
 
 				TDM_PROT=YES
 				zaptel_modified=1;
-				if [ $zaptel_modified ] && [ $zaptel_modified -eq 1 ]; then
+				if [ $zaptel_modified ] && [ $zaptel_modified -eq 1 ] && [ "$ZAPTEL_COMPILE_DISABLE" = "NO" ]; then
 					getyn "Recompile/reinstall zaptel (recommended) ?"
 					if [ $? -eq 0 ]; then
 						tdmv_compile_zaptel
@@ -5826,6 +5882,7 @@ ANNEXG_PROT=NO
 ANNEXG_LOAD=NO
 MPPP_PROT=NO
 ATM_PROT=NO
+KATM_PROT=NO
 XMTP2_PROT=NO
 
 SS7_PROT=NO
@@ -6035,7 +6092,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-7
+PROD_VER=2.3.4-8
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6063,6 +6120,7 @@ DISABLE_GCC_DEBUG=0
 ENABLE_EDAC=0
 ENABLE_ECHO_DEBUG=0
 ZAPTEL_PATH_OP="NO"
+ZAPTEL_COMPILE_DISABLE="NO"
 ZAP_CHUNK_OP="NO"
 CMP_LOG=$PROD_HOME/setup_drv_compile.log
 CMP_BUILD=build.sh
@@ -6235,10 +6293,10 @@ else
 fi
 LINUXDRIVERS_WAN="net/wanrouter"
 
-[ "$UID" = 0 ] || {
-	error "You must be a superuser (root) to run this script"
-	exit 1
-}
+superuser=NO;
+if [ "$UID" = 0 ]; then
+	superuser=YES;
+fi
 
 # Check router home directory.
 [ -d "$PROD_HOME" ] || {
@@ -6380,7 +6438,11 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 			ZAPTEL_PATH_OP="YES";
 			echo "Zaptel path defined as: $ZAPTEL_INSTALL_DIR"
 			;;
-		
+	
+		 --no-zaptel-compile*)
+                        ZAPTEL_COMPILE_DISABLE="YES";
+                        ;;
+
 		--builddir*)
 			ROOT=`echo $arg | cut -d'=' -f2`;
 			if [ "$ROOT" = "" ]; then
@@ -6398,6 +6460,12 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 			fi
 			export ASTBROOT=$ROOT;
 			ASTBROOT=$ROOT;
+	
+			TMP_123=${WANPIPE_INCLUDE_DIR#/*}
+			WANPIPE_INCLUDE_DIR=$ROOT/$TMP_123
+			TMP_123=${WANCFG_ZAPTEL#/*} 
+			WANCFG_ZAPTEL=$ROOT/$TMP_123
+
 			;;
 		--acflags*)
 			USER_CFLAGS=`echo $arg | cut -d'=' -f2`
@@ -6608,6 +6676,7 @@ you know what you are doing :)
 		if [ "$setup_cmd" = "buildrpm" ]; then
                         compile_aft_firmware_util
 			detect_rpm_build_utility
+
  
 			if [ "$SPLIT_RPMS" = "YES" ]; then
 				eval "$RPM -bb --define '_unpackaged_files_terminate_build 0' $RPMOPT $PROD_HOME/rpmbuild $PROD_HOME/rpmspec/wanpipe-util.spec --target=$ARCH"

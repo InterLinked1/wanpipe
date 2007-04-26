@@ -59,6 +59,7 @@ queue_tdm_api_rx_dpc(
 
 #define WP_TDMAPI_MAJOR 241
 #define WP_TDMAPI_MINOR_OFFSET 0
+#define WP_TDMAPI_MAX_MINORS 1024
 
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0) || defined(__WINDOWS__)
@@ -99,7 +100,7 @@ static struct class_simple *wp_tdmapi_class = NULL;
 #define WP_TDM_MAX_RX_Q_LEN 10
 #define WP_TDM_MAX_TX_Q_LEN 5
 #define WP_TDM_MAX_HDLC_TX_Q_LEN 17
-#define WP_TDM_MAX_EVENT_Q_LEN 5
+#define WP_TDM_MAX_EVENT_Q_LEN 10
 #define WP_TDM_MAX_RX_FREE_Q_LEN 10
 
 #define WP_TDMAPI_MAX_SPANS 255
@@ -220,6 +221,11 @@ static void wp_wakeup_tdmapi(wanpipe_tdm_api_dev_t *tdm_api)
 }
 #endif
 
+static struct cdev wptdm_cdev = {
+	.kobj	=	{.name = "wptdm", },
+	.owner	=	THIS_MODULE,
+};
+
 static int wp_tdmapi_reg_globals(void)
 {
 	int err=0;
@@ -229,9 +235,38 @@ static int wp_tdmapi_reg_globals(void)
 	wan_spin_lock_init(&wp_tdmapi_hash_lock);
 	DEBUG_TEST("%s: Registering Wanpipe TDM Device!\n",__FUNCTION__);
 #if !defined(__WINDOWS__)
-	wp_tdmapi_class = class_create(THIS_MODULE, "wptdm");
-	if ((err = register_chrdev(WP_TDMAPI_MAJOR, "wptdm", &wp_tdmapi_fops))) {
-		DEBUG_EVENT("Unable to register tor device on %d\n", WP_TDMAPI_MAJOR);
+	{
+#ifdef LINUX_2_4
+		if ((err = register_chrdev(WP_TDMAPI_MAJOR, "wptdm", &wp_tdmapi_fops))) {
+			DEBUG_EVENT("Unable to register tor device on %d\n", WP_TDMAPI_MAJOR);
+			return err;
+		}    
+		
+		wp_tdmapi_class = class_create(THIS_MODULE, "wptdm");
+		 
+#else
+		dev_t dev = MKDEV(WP_TDMAPI_MAJOR, 0);
+		
+		if ((err=register_chrdev_region(dev, WP_TDMAPI_MAX_MINORS, "wptdm"))) {
+			DEBUG_EVENT("Unable to register tor device on %d\n", WP_TDMAPI_MAJOR);
+			return err;
+		}
+
+		cdev_init(&wptdm_cdev, &wp_tdmapi_fops);
+		if (cdev_add(&wptdm_cdev, dev, WP_TDMAPI_MAX_MINORS)) {
+			kobject_put(&wptdm_cdev.kobj);
+			unregister_chrdev_region(dev, WP_TDMAPI_MAX_MINORS);
+			return -EINVAL;
+		}      
+
+		wp_tdmapi_class = class_create(THIS_MODULE, "wptdm");
+		if (IS_ERR(wp_tdmapi_class)) {
+			DEBUG_EVENT("Error creating wptdm class.\n");
+			cdev_del(&wptdm_cdev);
+			unregister_chrdev_region(dev, WP_TDMAPI_MAX_MINORS);
+			return -EINVAL;
+		}
+#endif
 	}
 #endif
 	return err;
@@ -242,7 +277,12 @@ static int wp_tdmapi_unreg_globals(void)
 	DEBUG_EVENT("%s: Unregistering Wanpipe TDM Device!\n",__FUNCTION__);
 #if !defined(__WINDOWS__)
 	class_destroy(wp_tdmapi_class);
+# ifdef LINUX_2_4
 	unregister_chrdev(WP_TDMAPI_MAJOR, "wptdm");
+# else
+	cdev_del(&wptdm_cdev);
+  	unregister_chrdev_region(MKDEV(WP_TDMAPI_MAJOR, 0), WP_TDMAPI_MAX_MINORS);   
+# endif
 #endif
 
 	if (tx_gains) {
@@ -305,7 +345,11 @@ int wanpipe_tdm_api_reg(wanpipe_tdm_api_dev_t *tdm_api)
 		tdm_api->cfg.hdlc		=0;
 		tdm_api->tx_q_len		= WP_TDM_MAX_TX_Q_LEN;
 	
+		if (tdm_api->cfg.idle_flag == 0) {
+        		tdm_api->cfg.idle_flag=0xFF; 	
+		}
 	}
+
 	
 	tdm_api->critical=0;
 	wan_clear_bit(0,&tdm_api->used);

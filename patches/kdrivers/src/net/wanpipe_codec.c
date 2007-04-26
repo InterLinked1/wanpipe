@@ -40,7 +40,7 @@ wanpipe_codec_ops_t *WANPIPE_CODEC_OPS[WP_TDM_HW_CODING_MAX][WP_TDM_CODEC_MAX];
 
 
  
-int wanpipe_codec_init(void)
+__init int wanpipe_codec_init(void)
 {
 	wanpipe_codec_ops_t *wp_codec_ops;	
 

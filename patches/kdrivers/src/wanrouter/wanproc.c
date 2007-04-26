@@ -63,7 +63,6 @@
 #define PROC_STATS_2_FORMAT "%25s: %10lu %25s: %10lu\n"
 #define PROC_STATS_ALARM_FORMAT "%25s: %10s %25s: %10s\n"
 #define PROC_STATS_STR_FORMAT "%25s: %10s\n"
-#define PROC_STATS_PMON_FORMAT "%25s: %10lu %25s: %10lu\n"
 
 /****** Defines and Macros **************************************************/
 

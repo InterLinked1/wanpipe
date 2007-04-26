@@ -33,6 +33,7 @@
 #include <netinet/in.h>
 #if defined(__LINUX__)
 # include <linux/if.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 #endif
 #endif
@@ -230,7 +231,11 @@ CHAR *ToneBufferPaths[WAN_NUM_PLAYOUT_TONES] =
 /******************************************************************************
 ** 			FUNCTION PROTOTYPES
 ******************************************************************************/
-#if !defined(__WINDOWS__)
+#if defined(__WINDOWS__)
+HANDLE wanec_api_lib_open(wan_ec_api_t *ec_api);
+int wanec_api_lib_close(wan_ec_api_t *ec_api, HANDLE dev);
+int wanec_api_lib_ioctl(HANDLE dev, wan_ec_api_t *ec_api, int verbose);
+#else
 static int wanec_api_lib_open(wan_ec_api_t *ec_api);
 static int wanec_api_lib_close(wan_ec_api_t *ec_api, int dev);
 static int wanec_api_lib_ioctl(int dev, wan_ec_api_t *ec_api, int verbose);
@@ -513,42 +518,18 @@ static struct wan_ec_image *wanec_api_lib_image_search(int hwec_chan_no)
 }
 #endif
 
-int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
-{
-#if !defined(__WINDOWS__)
-	int		dev;
+int wanec_api_lib_chip_load(
+#if defined(__WINDOWS__)
+	HANDLE dev, 
 #else
-	HANDLE	dev;
+	int dev, 
 #endif
+	wan_ec_api_t *ec_api, int verbose)
+{
 	static wanec_image_list_t *image_list;
 	static wanec_image_info_t *image_info;
 	int	err, cnt = 0,image_no = 0;
 
-	printf("%s: Configuring Echo Canceller device...\t",
-				ec_api->devname);
-
-	dev = wanec_api_lib_open(ec_api);
-#if !defined(__WINDOWS__)
-	if (dev < 0){
-#else
-	if (dev == INVALID_HANDLE_VALUE){
-#endif
-		printf("Failed (Device open)!\n");
-		return -ENXIO;
-	}
-
-	ec_api->cmd = WAN_EC_CMD_GETINFO;
-	err = wanec_api_lib_ioctl(dev, ec_api, verbose);
-	if (err || ec_api->err){
-		wanec_api_lib_close(ec_api, dev);
-		return (err) ? -EINVAL : 0;
-	}
-
-	if (ec_api->state == WAN_OCT6100_STATE_CHIP_OPEN ||
-	    ec_api->state == WAN_OCT6100_STATE_CHIP_READY){
-		return 0;	    
-	}	
-	
 #if defined(__WINDOWS__)
 	//////////////////////////////////////////////////////////////////////////////////////////
 	//initialize globals
@@ -559,9 +540,14 @@ int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
 	_snprintf(OCT6116_64S_IMAGE_PATH,	MAX_PATH, "%s\\%s", WAN_EC_DIR, OCT6116_64S_IMAGE_NAME);
 	_snprintf(OCT6126_128S_IMAGE_PATH,	MAX_PATH, "%s\\%s", WAN_EC_DIR, OCT6126_128S_IMAGE_NAME);
 	_snprintf(OCT6116_256S_IMAGE_PATH,	MAX_PATH, "%s\\%s", WAN_EC_DIR, OCT6116_256S_IMAGE_NAME);
-
-	printf("Searching image for %d channels...\n", ec_api->u_info.max_channels);
 #endif
+
+	if(ec_api->u_info.max_channels == 0){
+		printf("ERROR: %s: this card does NOT have Echo Canceller chip!\n",
+					ec_api->devname);
+		return -EINVAL;
+	}
+	printf("Searching image for %d channels...\n", ec_api->u_info.max_channels);
 	
 #if 1
 	image_list = wanec_api_lib_image_search(ec_api->u_info.max_channels);
@@ -573,7 +559,6 @@ int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
 			"ERROR: %s: Failed to find image file to EC chip (max=%d)!\n",
 					ec_api->devname,
 					ec_api->u_info.max_channels);
-			wanec_api_lib_close(ec_api, dev);
 			return -EINVAL;
 		}
 		
@@ -587,6 +572,9 @@ int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
 		ec_api->u_config.max_channels		= ec_api->u_info.max_channels;
 		ec_api->u_config.memory_chip_size	= image_info->memory_chip_size;
 		ec_api->u_config.debug_data_mode	= image_info->debug_data_mode;
+		if (image_no+1 == image_list->images_no){
+			ec_api->u_config.imageLast	= WANOPT_YES;
+		}
 	
 		/* Load the image file */
 		err = wanec_api_lib_loadImageFile(	ec_api,
@@ -594,14 +582,12 @@ int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
 						&ec_api->u_config.imageData,
 						&ec_api->u_config.imageSize);
 		if (err){
-			wanec_api_lib_close(ec_api, dev);
 			return -EINVAL;
 		}
 		ec_api->cmd = WAN_EC_CMD_CONFIG;
 		err = wanec_api_lib_ioctl(dev, ec_api, verbose);
 		if (err || ec_api->err){
 			free(ec_api->u_config.imageData);
-			wanec_api_lib_close(ec_api, dev);
 			return (err) ? -EINVAL : 0;
 		}
 		free(ec_api->u_config.imageData);
@@ -628,10 +614,55 @@ config_poll:
 	if (ec_api->state != WAN_OCT6100_STATE_CHIP_OPEN &&
 	    ec_api->state != WAN_OCT6100_STATE_CHIP_READY){
 		printf("Timeout!\n");
-		wanec_api_lib_close(ec_api, dev);
 		return -EINVAL;
 	}
-	
+
+	return 0;
+}
+
+int wanec_api_lib_config(wan_ec_api_t *ec_api, int verbose)
+{
+#if !defined(__WINDOWS__)
+	int		dev;
+#else
+	HANDLE	dev;
+#endif
+	int	err;
+
+	printf("%s: Configuring Echo Canceller device...\t",
+				ec_api->devname);
+
+	dev = wanec_api_lib_open(ec_api);
+#if !defined(__WINDOWS__)
+	if (dev < 0){
+#else
+	if (dev == INVALID_HANDLE_VALUE){
+#endif
+		printf("Failed (Device open)!\n");
+		return -ENXIO;
+	}
+
+	ec_api->cmd = WAN_EC_CMD_GETINFO;
+	err = wanec_api_lib_ioctl(dev, ec_api, verbose);
+	if (err || ec_api->err){
+		wanec_api_lib_close(ec_api, dev);
+		return (err) ? -EINVAL : 0;
+	}
+
+	if (ec_api->state == WAN_OCT6100_STATE_RESET){
+		if (wanec_api_lib_chip_load(dev, ec_api, verbose)){
+			wanec_api_lib_close(ec_api, dev);
+			return -EINVAL;
+		}
+	}
+	if (ec_api->state != WAN_OCT6100_STATE_CHIP_OPEN &&
+	    ec_api->state != WAN_OCT6100_STATE_CHIP_READY){
+		printf("%s: WARNING: Incorrect Echo Canceller state (%s)!\n",
+				ec_api->devname,
+				WAN_OCT6100_STATE_DECODE(ec_api->state));
+		return -EINVAL;
+	}	
+
 	/* Open all channels */	
 	ec_api->cmd = WAN_EC_CMD_CHANNEL_OPEN;
 	err = wanec_api_lib_ioctl(dev, ec_api, verbose);

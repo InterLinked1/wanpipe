@@ -74,8 +74,8 @@ enum {
 	AFT_FE_CFG_ERR,
 	AFT_FE_CFG,
 	AFT_FE_INTR,
-	AFT_FE_POLL
-		
+	AFT_FE_POLL,
+	AFT_FE_LED
 };
 
 #define MAX_IP_ERRORS	10
@@ -343,6 +343,7 @@ static void 	xilinx_rx_post_complete (sdla_t *card, private_area_t *chan,
 static unsigned char read_cpld(sdla_t *card, unsigned short cpld_off);
 #endif
 static int	write_cpld(void *pcard, unsigned short cpld_off,unsigned char cpld_data);
+static int 	write_fe_cpld(void *pcard, unsigned short off,unsigned char data);
 
 static int 	aft_devel_ioctl(sdla_t *card,struct ifreq *ifr);
 static int 	xilinx_write_bios(sdla_t *card, wan_cmd_api_t *api_cmd);
@@ -401,7 +402,11 @@ static void 	aft_port_task (void * card_ptr);
 #else
 static void 	aft_port_task (void * card_ptr, int arg);
 #endif
+
+#if 0
 static void 	aft_fe_intr_ctrl(sdla_t *card, int status);
+#endif
+
 static void 	__aft_fe_intr_ctrl(sdla_t *card, int status);
 
 static void 	aft_reset_rx_chain_cnt(private_area_t *chan); 
@@ -524,6 +529,8 @@ int wp_aft_te3_init (sdla_t* card, wandev_conf_t* conf)
 		card->fe.name = card->devname;
 		card->fe.card = card;
 		card->fe.write_cpld	= write_cpld;
+		card->fe.write_fe_cpld	= write_fe_cpld; 
+		
 //		card->fe.read_cpld	= read_cpld;
 		card->fe.write_framer	= write_framer;
 		card->fe.read_framer	= read_framer;
@@ -1434,6 +1441,9 @@ static void disable_comm (sdla_t *card)
 
 	WP_DELAY(10);
 
+	aft_te3_led_ctrl(card, WAN_AFT_RED, 1, WAN_AFT_ON);	
+	aft_te3_led_ctrl(card, WAN_AFT_GREEN, 1,WAN_AFT_ON);
+	
 	xilinx_t3_exar_chip_unconfigure(card);
 		
 	return;
@@ -3368,18 +3378,16 @@ static void handle_front_end_state(void *card_id)
 		if (card->wandev.state != WAN_CONNECTED){
 			enable_data_error_intr(card);
 			port_set_state(card,WAN_CONNECTED);
-			aft_te3_led_ctrl(card, WAN_AFT_RED, 0,WAN_AFT_OFF);
-			aft_te3_led_ctrl(card, WAN_AFT_GREEN, 0, WAN_AFT_ON);
 			card->u.xilinx.state_change_exit_isr=1;
+			wan_set_bit(AFT_FE_LED,&card->u.aft.port_task_cmd);
 		}else{
 		}
 	}else{
 		if (card->wandev.state != WAN_DISCONNECTED){
 			port_set_state(card,WAN_DISCONNECTED);
 			disable_data_error_intr(card,LINK_DOWN);
-			aft_te3_led_ctrl(card, WAN_AFT_RED, 0,WAN_AFT_ON);
-			aft_te3_led_ctrl(card, WAN_AFT_GREEN, 0, WAN_AFT_OFF);
 			card->u.xilinx.state_change_exit_isr=1;
+			wan_set_bit(AFT_FE_LED,&card->u.aft.port_task_cmd);
 		}
 	}
 }
@@ -3421,6 +3429,41 @@ static int write_cpld(void *pcard, unsigned short off,unsigned char data)
 
         off &= ~BIT_DEV_ADDR_CLEAR;
         off |= BIT_DEV_ADDR_CPLD;
+
+        /*ALEX: Save the current original address */
+        card->hw_iface.bus_read_2(card->hw,
+                                XILINX_MCPU_INTERFACE_ADDR,
+                                &org_off);
+
+	/* This delay is required to avoid bridge optimization 
+	 * (combining two writes together)*/
+	WP_DELAY(5);
+
+        card->hw_iface.bus_write_2(card->hw,
+                                XILINX_MCPU_INTERFACE_ADDR,
+                                off);
+        
+	/* This delay is required to avoid bridge optimization 
+	 * (combining two writes together)*/
+	WP_DELAY(5);
+
+	card->hw_iface.bus_write_1(card->hw,
+                                XILINX_MCPU_INTERFACE,
+                                data);
+        /*ALEX: Restore the original address */
+        card->hw_iface.bus_write_2(card->hw,
+                                XILINX_MCPU_INTERFACE_ADDR,
+                                org_off);
+        return 0;
+}
+
+static int write_fe_cpld(void *pcard, unsigned short off,unsigned char data)
+{
+	sdla_t	*card = (sdla_t*)pcard;
+	u16             org_off;
+
+        off &= ~AFT3_BIT_DEV_ADDR_EXAR_CLEAR;
+        off |= AFT3_BIT_DEV_ADDR_EXAR_CPLD;
 
         /*ALEX: Save the current original address */
         card->hw_iface.bus_read_2(card->hw,
@@ -3938,18 +3981,17 @@ static int xilinx_write_ctrl_hdlc(sdla_t *card, u32 timeslot, u8 reg_off, u32 da
 static int set_chan_state(sdla_t* card, netdevice_t* dev, int state)
 {
        private_area_t *chan = wan_netif_priv(dev);
+       if (!chan || !wan_test_bit(0,&chan->up)) {
+        	return -ENODEV;
+       }
 
        chan->common.state = state;
        if (state == WAN_CONNECTED){
                wan_clear_bit(0,&chan->idle_start);
-	       aft_te3_led_ctrl(card, WAN_AFT_RED, 1, WAN_AFT_OFF);	
-	       aft_te3_led_ctrl(card, WAN_AFT_GREEN, 1,WAN_AFT_ON);
 	       WAN_NETIF_CARRIER_ON(dev);
 	       WAN_NETIF_WAKE_QUEUE(dev);
 	       chan->opstats.link_active_count++;
        }else{
-	       aft_te3_led_ctrl(card, WAN_AFT_RED, 1, WAN_AFT_ON);	
-	       aft_te3_led_ctrl(card, WAN_AFT_GREEN, 1,WAN_AFT_OFF);
 	       WAN_NETIF_CARRIER_OFF(dev);
 	       WAN_NETIF_STOP_QUEUE(dev);
     	       chan->opstats.link_inactive_modem_count++;
@@ -5690,10 +5732,38 @@ static void aft_free_tx_descriptors(private_area_t *chan)
 static void aft_te3_led_ctrl(sdla_t *card, int color, int led_pos, int on)
 {
 	u32 reg;
-	card->hw_iface.bus_read_4(card->hw,TE3_LOCAL_CONTROL_STATUS_REG,&reg);
-	aft_te3_set_led(color, led_pos, on, &reg);
-	card->hw_iface.bus_write_4(card->hw,TE3_LOCAL_CONTROL_STATUS_REG,reg);
-}
+	if (card->adptr_subtype == AFT_SUBTYPE_SHARK) {
+		
+		switch (color){
+		
+		case WAN_AFT_RED:
+			if (on){
+				wan_clear_bit(0,&card->u.aft.led_ctrl);
+				wan_clear_bit(2,&card->u.aft.led_ctrl);
+			}else{
+				wan_set_bit(0,&card->u.aft.led_ctrl);
+				wan_set_bit(2,&card->u.aft.led_ctrl);
+			}	
+			break;
+		
+		case WAN_AFT_GREEN:
+			if (on){
+				wan_clear_bit(1,&card->u.aft.led_ctrl);
+				wan_clear_bit(3,&card->u.aft.led_ctrl);
+			}else{
+				wan_set_bit(1,&card->u.aft.led_ctrl);
+				wan_set_bit(3,&card->u.aft.led_ctrl);
+			}	
+			break;			
+		}
+		
+		write_cpld(card,0x00,card->u.aft.led_ctrl);
+	} else {
+		card->hw_iface.bus_read_4(card->hw,TE3_LOCAL_CONTROL_STATUS_REG,&reg);
+		aft_te3_set_led(color, led_pos, on, &reg);
+		card->hw_iface.bus_write_4(card->hw,TE3_LOCAL_CONTROL_STATUS_REG,reg);
+	}
+}           
 
 
 static void __aft_fe_intr_ctrl(sdla_t *card, int status)
@@ -5709,6 +5779,7 @@ static void __aft_fe_intr_ctrl(sdla_t *card, int status)
 	card->hw_iface.bus_write_4(card->hw,XILINX_CHIP_CFG_REG,reg);
 }
 
+#if 0
 static void aft_fe_intr_ctrl(sdla_t *card, int status)
 {
 	wan_smp_flag_t	smp_flags;
@@ -5717,6 +5788,7 @@ static void aft_fe_intr_ctrl(sdla_t *card, int status)
 	__aft_fe_intr_ctrl(card, status);
 	wan_spin_unlock_irq(&card->wandev.lock,&smp_flags);
 }
+#endif
 
 
 #if defined(__LINUX__)
@@ -5760,6 +5832,23 @@ static void aft_port_task (void * card_ptr, int arg)
 		
 		card->hw_iface.hw_unlock(card->hw,&smp_flags);
 	}
+
+	if (wan_test_bit(AFT_FE_LED,&card->u.aft.port_task_cmd)){
+		card->hw_iface.hw_lock(card->hw,&smp_flags);
+		wan_spin_lock_irq(&card->wandev.lock,&isr_flags);
+		__aft_fe_intr_ctrl(card, 0);
+		if (card->wandev.state == WAN_CONNECTED){
+			aft_te3_led_ctrl(card, WAN_AFT_RED, 0, WAN_AFT_OFF);	
+			aft_te3_led_ctrl(card, WAN_AFT_GREEN, 0,WAN_AFT_ON);
+		}else{
+			aft_te3_led_ctrl(card, WAN_AFT_RED, 0, WAN_AFT_ON);	
+			aft_te3_led_ctrl(card, WAN_AFT_GREEN, 0,WAN_AFT_OFF);
+		}
+		wan_clear_bit(AFT_FE_LED,&card->u.aft.port_task_cmd);
+		__aft_fe_intr_ctrl(card, 1);
+		wan_spin_unlock_irq(&card->wandev.lock,&isr_flags);
+		card->hw_iface.hw_unlock(card->hw,&smp_flags);
+	}      
 }
 
 static void aft_critical_shutdown (sdla_t *card)

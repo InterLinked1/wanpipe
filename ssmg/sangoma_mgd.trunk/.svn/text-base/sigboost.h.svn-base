@@ -27,6 +27,8 @@ enum	e_sigboost_event_id_values
 	SIGBOOST_EVENT_CALL_STOPPED_ACK			= 0x86, /*134*/
 	SIGBOOST_EVENT_SYSTEM_RESTART			= 0x87, /*135*/
 	SIGBOOST_EVENT_HEARTBEAT			= 0x88, /*136*/
+	SIGBOOST_EVENT_INSERT_CHECK_LOOP                = 0x89, /*137*/
+        SIGBOOST_EVENT_REMOVE_CHECK_LOOP                = 0x8a, /*138*/  
 };
 
 enum	e_sigboost_release_cause_values
@@ -62,20 +64,22 @@ enum	e_sigboost_call_setup_ack_nack_cause_values
 
 #pragma pack(1)
 typedef struct
-{
-	uint32_t	event_id;
-	uint32_t	seqno;
-	uint32_t	call_setup_id;
-	uint32_t	trunk_group;
-	uint32_t	span;
-	uint32_t	chan;
-	uint32_t	called_number_digits_count;
-	int8_t		called_number_digits [MAX_DIALED_DIGITS + 1]; /* it's a null terminated string */
-	uint32_t	calling_number_digits_count; /* it's an array */
-	int8_t		calling_number_digits [MAX_DIALED_DIGITS + 1]; /* it's a null terminated string */
-	uint32_t	release_cause;
-	struct timeval  tv;
-	uint32_t	calling_number_presentation;
+{	
+	uint32_t        event_id;
+        uint32_t        seqno;
+        uint32_t        call_setup_id;
+        uint32_t        trunk_group;
+        uint32_t        span;
+        uint32_t        chan;
+        uint32_t        called_number_digits_count;
+        int8_t          called_number_digits [MAX_DIALED_DIGITS + 1]; /* it's a null terminated string */
+        uint32_t        calling_number_digits_count; /* it's an array */
+        int8_t          calling_number_digits [MAX_DIALED_DIGITS + 1]; /* it's a null terminated string */
+        uint32_t        release_cause;
+        struct timeval  tv;
+        /* ref. Q.931 Table 4-11 and Q.951 Section 3 */
+        uint32_t        calling_number_presentation;
+        int8_t          redirection_string [80]; /* it's a null terminated string */ 
 } t_sigboost;
 #pragma pack()
 

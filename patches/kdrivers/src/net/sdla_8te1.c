@@ -105,62 +105,62 @@
 	fe->write_fe_reg(						\
 		fe->card, 						\
 		fe->fe_cfg.line_no,					\
-		(int)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)),	\
-		(int)(val))
+		(u32)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)),	\
+		(u32)(val))
 
 #define WRITE_REG_LINE(fe_line_no, reg,val)				\
 	fe->write_fe_reg(						\
 		fe->card,						\
 		fe_line_no,						\
-		(int)sdla_ds_te1_address(fe,fe_line_no,(reg)),		\
-		(int)(val))
+		(u32)sdla_ds_te1_address(fe,fe_line_no,(reg)),		\
+		(u32)(val))
 	
 #define READ_REG(reg)							\
 	fe->read_fe_reg(						\
 		fe->card,						\
 		fe->fe_cfg.line_no,					\
-		(int)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)))
+		(u32)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)))
 	
 #define __READ_REG(reg)							\
 	fe->__read_fe_reg(						\
 		fe->card,						\
 		fe->fe_cfg.line_no,					\
-		(int)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)))
+		(u32)sdla_ds_te1_address(fe,fe->fe_cfg.line_no,(reg)))
 	
 #define READ_REG_LINE(fe_line_no, reg)					\
 	fe->read_fe_reg(						\
 		fe->card,						\
 		fe_line_no,						\
-		(int)sdla_ds_te1_address(fe,fe_line_no,(reg)))
+		(u32)sdla_ds_te1_address(fe,fe_line_no,(reg)))
 
 #else		
 /* Read/Write to front-end register */
 #define WRITE_REG(reg,val)						\
 	fe->write_fe_reg(						\
 		fe->card,						\
-		(int)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))),\
-		(int)(val))
+		(u32)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))),\
+		(u32)(val))
 
 #define WRITE_REG_LINE(fe_line_no, reg,val)				\
 	fe->write_fe_reg(						\
 		fe->card,						\
-			(int)((reg) + (fe_line_no)*(DLS_PORT_DELTA(reg))),	\
-		(int)(val))
+			(u32)((reg) + (fe_line_no)*(DLS_PORT_DELTA(reg))),	\
+		(u32)(val))
 	
 #define READ_REG(reg)							\
 	fe->read_fe_reg(						\
 		fe->card,						\
-		(int)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))))
+		(u32)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))))
 	
 #define __READ_REG(reg)							\
 	fe->__read_fe_reg(						\
 		fe->card,						\
-		(int)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))))
+		(u32)((reg) + ((fe->fe_cfg.line_no)*(DLS_PORT_DELTA(reg)))))
 	
 #define READ_REG_LINE(fe_line_no, reg)					\
 	fe->read_fe_reg(						\
 		fe->card,						\
-		(int)((reg) + (fe_line_no)*(DLS_PORT_DELTA(reg))))
+		(u32)((reg) + (fe_line_no)*(DLS_PORT_DELTA(reg))))
 #endif
 
 #define IS_T1_ALARM(alarm)			\
@@ -186,6 +186,9 @@
 
 
 #define WAN_DS_REGBITMAP(fe)	(((fe)->fe_chip_id==DEVICE_ID_DS26521)?0:WAN_FE_LINENO((fe)))
+
+
+#define WAN_TE1_FRAMED_ALARMS		(WAN_TE_BIT_RED_ALARM |	WAN_TE_BIT_OOF_ALARM)
 
 /******************************************************************************
 *			  STRUCTURES AND TYPEDEFS
@@ -298,7 +301,7 @@ static int sdla_ds_te1_address(sdla_fe_t *fe, int port_no, int reg)
 	if (fe->fe_chip_id == DEVICE_ID_DS26521){
 		port_no = 0;
 	}
-	return (int)((reg) + ((port_no)*(DLS_PORT_DELTA(reg))));
+	return (u32)((reg) + ((port_no)*(DLS_PORT_DELTA(reg))));
 }
 
 /*
@@ -634,7 +637,7 @@ static int sdla_ds_te1_config(void* pfe)
 				FE_LCODE_DECODE(fe),
 				FE_FRAME_DECODE(fe),
 				TE_LBO_DECODE(fe));
-	DEBUG_EVENT("%s:    Clk %s:%d, Ch %X\n",
+	DEBUG_EVENT("%s:    Clk %s:%d, Ch %lX\n",
 				fe->name, 
 				TE_CLK_DECODE(fe),
 				WAN_TE1_REFCLK(fe),
@@ -773,6 +776,8 @@ static int sdla_ds_te1_config(void* pfe)
 			WRITE_REG(REG_RCR1, value & ~BIT_RCR1_E1_RSIGM);
 //			value = READ_REG(REG_RSIGC);
 //			WRITE_REG(REG_RSIGC, value | BIT_RSIGC_CASMS);
+			value = READ_REG(REG_TCR1);
+			WRITE_REG(REG_TCR1, value | BIT_TCR1_E1_T16S);
 		}else{
 
 			/* CCS signalling mode */
@@ -1102,6 +1107,8 @@ static int sdla_ds_te1_post_config(sdla_fe_t* fe)
 			WRITE_REG(REG_RCR1, value & ~BIT_RCR1_E1_RSIGM);
 //			value = READ_REG(REG_RSIGC);
 //			WRITE_REG(REG_RSIGC, value | BIT_RSIGC_CASMS);
+			value = READ_REG(REG_TCR1);
+			WRITE_REG(REG_TCR1, value | BIT_TCR1_E1_T16S);
 		}else{
 
 			DEBUG_EVENT("%s: Enabling CCS Signalling mode!\n",
@@ -1138,35 +1145,26 @@ static int sdla_ds_te1_sigctrl(sdla_fe_t *fe, int sig_mode, unsigned long ch_map
 ** Returns:	1 - the port is connected
 **		0 - the port is disconnected
 ******************************************************************************/
-static int sdla_ds_te1_is_connected(sdla_fe_t *fe, unsigned long alarms)
+static int sdla_ds_t1_is_connected(sdla_fe_t *fe, unsigned long alarms)
 {
-
-#if 0
-	sdla_te_pmon_t	*pmon = &fe->fe_stats.u.te_pmon;
-#endif
-	
-	if (IS_T1_FEMEDIA(fe)){
-		if (IS_T1_ALARM(alarms)) {
-#if 0
-		       	||
-		    pmon->lcv_diff || /*pmon->bee_diff || pmon->oof_diff ||*/
-		    (fe->liu_alarm & WAN_TE_BIT_LIU_ALARM_OC)){
-#endif
-			return 0;
-		}
-		return 1;
-	}else if (IS_E1_FEMEDIA(fe)){
-		if (IS_E1_ALARM(alarms)) {
-#if 0		       
-		    pmon->lcv_diff /*|| pmon->crc4_diff || pmon->fas_diff || pmon->feb_diff ||*/
-	 	    /*(fe->liu_alarm & WAN_TE_BIT_LIU_ALARM_OC)*/){
-#endif
-    			    return 0;
-		}
-		return 1;
-	}
-	return 0;
+	if (alarms & WAN_TE1_FRAMED_ALARMS) return 0;
+	return 1;
 }
+
+/******************************************************************************
+**			sdla_ds_e1_is_connected()	
+**
+** Description: Verify E1 status.
+** Arguments:
+** Returns:	1 - the port is connected
+**		0 - the port is disconnected
+******************************************************************************/
+static int sdla_ds_e1_is_connected(sdla_fe_t *fe, unsigned long alarms)
+{
+	if (alarms & WAN_TE1_FRAMED_ALARMS) return 0;
+	return 1;
+}
+
 
 /*
  ******************************************************************************
@@ -1184,13 +1182,17 @@ static void sdla_ds_te1_set_status(sdla_fe_t* fe, unsigned long alarms)
 	unsigned char	curr_fe_status = fe->fe_status;
 
 	if (IS_T1_FEMEDIA(fe)){
-		if (sdla_ds_te1_is_connected(fe, alarms)){
+		if (sdla_ds_t1_is_connected(fe, alarms)){
 			sdla_ds_te1_clear_alarms(fe, WAN_TE_BIT_YEL_ALARM);
 			if (!(fe->fe_alarm & WAN_TE_BIT_YEL_ALARM)){
 				if (fe->fe_status != FE_CONNECTED){
 					fe->fe_status = FE_CONNECTED;
 				}
 			}else{
+				if (WAN_NET_RATELIMIT()){
+				DEBUG_EVENT("%s: T1 Waiting for Yellow Alarm to clear...\n",
+						fe->name);
+				}    
 				fe->fe_status = FE_DISCONNECTED;
 			}
 		}else{
@@ -1200,7 +1202,7 @@ static void sdla_ds_te1_set_status(sdla_fe_t* fe, unsigned long alarms)
 			}
 		}
 	}else{
-		if (sdla_ds_te1_is_connected(fe, alarms)){
+		if (sdla_ds_e1_is_connected(fe, alarms)){
 			if (fe->fe_status != FE_CONNECTED){
 				fe->fe_status = FE_CONNECTED;
 			}
@@ -2412,7 +2414,7 @@ static int sdla_ds_te1_intr(sdla_fe_t *fe)
 
 	sdla_ds_te1_set_status(fe, fe->fe_alarm);
 	if (status != fe->fe_status){
-		if (fe->fe_status == FE_DISCONNECTED){
+		if (fe->fe_status != FE_CONNECTED){
 			/* AL: March 1, 2006: Mask global FE intr */
 			sdla_ds_te1_intr_ctrl(fe, 0, WAN_TE_INTR_GLOBAL, WAN_FE_INTR_MASK, 0x00);
 			/* Disable automatic update */

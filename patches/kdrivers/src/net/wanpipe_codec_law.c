@@ -368,7 +368,7 @@ int wanpipe_codec_convert_s_2_alaw(u16 *data,
 
 
 
-int wanpipe_codec_law_init(void)
+__init int wanpipe_codec_law_init(void)
 {
 	int i;
 

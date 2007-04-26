@@ -13,18 +13,8 @@ DEBUG	= 2
 # Project file paths.
 SYSINC=/lib/modules/$(shell uname -r)/build/include
 
-HOSTCFLAGS=-I/usr/src/linux/include 
-ifeq (/usr/include/ncurses/ncurses.h, $(wildcard /usr/include/ncurses/ncurses.h))
-        HOSTCFLAGS += -I/usr/include/ncurses
-else
-ifeq (/usr/include/ncurses/curses.h, $(wildcard /usr/include/ncurses/curses.h))
-        HOSTCFLAGS += -I/usr/include/ncurses
-else
-endif
-endif
-
 # Tools options.
-CFLAGS  = -D__LINUX__ -Wall -O2 -D_GNUC_ -I$(SYSINC) -D$(OS_TYPE) -D_DEBUG_=$(DEBUG) $(HOSTCFLAGS) 
+CFLAGS  = -D__LINUX__ -Wall -O2 -D_GNUC_ -I$(SYSINC) -D$(OS_TYPE) -D_DEBUG_=$(DEBUG)  
 LIBS = -lncurses
 
 ####### RULES ################################################################

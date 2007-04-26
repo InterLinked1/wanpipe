@@ -2,7 +2,7 @@
  * wanec_iface.c   WANPIPE Echo Canceller Layer (WANEC)
  *
  *
- *
+ *  
  * ===========================================================
  *
  * May 10 2006	Alex Feldman	Initial Versionr
@@ -483,7 +483,8 @@ static int wanec_config(wan_ec_dev_t *ec_dev, wan_ec_api_t *ec_api)
 			wanec_reset(ec_dev, 1);
 			return -EINVAL;
 		}
-		ec->state = WAN_OCT6100_STATE_CHIP_OPEN_PENDING;
+		ec->imageLast	= ec_api->u_config.imageLast;
+		ec->state	= WAN_OCT6100_STATE_CHIP_OPEN_PENDING;
 		wanec_enable_timer(ec_dev, WAN_EC_POLL_CHIPOPENPENDING, 10);
 	}
 	ec_dev->state = ec->state;
@@ -1736,13 +1737,13 @@ int wanec_init(void *arg)
 #endif
 
 	if (WANPIPE_VERSION_BETA){
-		DEBUG_EVENT("%s Beta%s-%s %s\n",
+		DEBUG_EVENT("%s Beta %s.%s %s\n",
 				wpec_fullname,
-				WANPIPE_SUB_VERSION,
 				WANPIPE_VERSION,
+				WANPIPE_SUB_VERSION,
 				wpec_copyright);
 	}else{
-		DEBUG_EVENT("%s Stable %s-%s %s\n",
+		DEBUG_EVENT("%s Stable %s.%s %s\n",
 				wpec_fullname,
 				WANPIPE_VERSION,
 				WANPIPE_SUB_VERSION,

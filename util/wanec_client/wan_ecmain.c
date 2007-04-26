@@ -33,6 +33,7 @@
 #include <netinet/in.h>
 #if defined(__LINUX__)
 # include <linux/if.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 #endif
 
@@ -76,11 +77,20 @@ int main(int argc, char *argv[])
 	wanec_client_t	ec_client;
 
 #if defined(__WINDOWS__)
+	unsigned char	win_parse = 0;
 	////////////////////////////////////////////////////////////////////////////
 	//Get and parse command line arguments.
-	//If "-f <file name> is provided, parse the file.
 	////////////////////////////////////////////////////////////////////////////
 	if(argc == 3 && !strcmp(argv[1], "-f")){
+		//If "-f <file name> is provided, parse the file.
+		win_parse = 1;
+	}
+	if(argc == 2 && !strcmp(argv[1], "-v")){
+		//If "-v", print out version.
+		win_parse = 1;
+	}
+
+	if(win_parse == 1){
 		return parse_cmd_line_args(argc, argv);
 	}
 #endif

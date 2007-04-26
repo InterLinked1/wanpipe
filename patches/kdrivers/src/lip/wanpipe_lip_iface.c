@@ -1439,10 +1439,10 @@ int wanpipe_lip_init(void *arg)
 	
 	if (WANPIPE_VERSION_BETA){
 		DEBUG_EVENT("%s Beta%s-%s %s\n",
-			wplip_fullname, WANPIPE_SUB_VERSION, WANPIPE_VERSION, wplip_copyright);
+			wplip_fullname, WANPIPE_SUB_VERSION, WANPIPE_VERSION, WANPIPE_COPYRIGHT_DATES);
 	}else{
 		DEBUG_EVENT("%s Stable %s-%s %s\n",
-			wplip_fullname, WANPIPE_VERSION, WANPIPE_SUB_VERSION, wplip_copyright);
+			wplip_fullname, WANPIPE_VERSION, WANPIPE_SUB_VERSION, WANPIPE_COPYRIGHT_DATES);
 	}
 
 	err=wplip_init_prot();

@@ -303,6 +303,7 @@ typedef struct wanec_config_ {
 	UINT32	debug_data_mode;
 	PUINT8	imageData;	
 	UINT32	imageSize;
+	int	imageLast;
 } wanec_config_t;
 
 typedef struct wanec_param_ {
@@ -447,6 +448,7 @@ typedef struct wan_ec_ {
 	u_int32_t	events;			/* enable events map */
 	
 	PUINT8				pImageData;
+	int				imageLast;
 	tOCT6100_CHIP_OPEN		f_OpenChip;
 
 	tOCTPCIDRV_USER_PROCESS_CONTEXT	f_Context;

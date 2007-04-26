@@ -4,6 +4,7 @@
 #if !defined(__WANEC_API_H__)
 # define __WANEC_API_H__
 
+extern int wanec_api_init(void);
 extern int wanec_api_param(char *key, char *value);
 extern int wanec_api_config(char*,int);
 extern int wanec_api_release(char*,int);

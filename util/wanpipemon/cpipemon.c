@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stddef.h>	/* offsetof(), etc. */
 #include <ctype.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -43,6 +44,7 @@
 #include <netinet/udp.h>
 #if defined(__LINUX__)
 # include <linux/version.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 # include <linux/if_wanpipe.h>
 # include <linux/if_ether.h>
@@ -126,6 +128,8 @@ static void set_FT1_monitor_status( unsigned char);
 static void read_ft1_op_stats( void );
 static void read_ft1_te1_56k_config( void );
 static void ft1_usage (void);
+
+static wp_trace_output_iface_t trace_iface;
 
 static char *gui_main_menu[]={
 "chdlc_card_stats_menu","Card Status",
@@ -818,6 +822,234 @@ int CHDLCDisableTrace(void)
 	return 0;
 }
 
+static int print_local_time (char *date_string)
+{
+	
+  	char tmp_time[50];
+	time_t time_val;
+	struct tm *time_tm;
+	
+	date_string[0]='\0';
+
+	time_val=time(NULL);
+		
+	/* Parse time and date */
+	time_tm=localtime(&time_val);
+
+	strftime(tmp_time,sizeof(tmp_time),"%b",time_tm);
+	sprintf(date_string, " %s ",tmp_time);
+
+	strftime(tmp_time,sizeof(tmp_time),"%d",time_tm);
+	sprintf(date_string+strlen(date_string), "%s ",tmp_time);
+
+	strftime(tmp_time,sizeof(tmp_time),"%H",time_tm);
+	sprintf(date_string+strlen(date_string), "%s:",tmp_time);
+
+	strftime(tmp_time,sizeof(tmp_time),"%M",time_tm);
+	sprintf(date_string+strlen(date_string), "%s:",tmp_time);
+
+	strftime(tmp_time,sizeof(tmp_time),"%S",time_tm);
+	sprintf(date_string+strlen(date_string), "%s",tmp_time);
+
+	return 0;
+}
+
+static int loop_rx_data(int passnum)
+{
+	unsigned int num_frames;
+	unsigned short curr_pos = 0;
+	wan_trace_pkt_t *trace_pkt;
+	unsigned int i;
+	struct timeval to;
+	int timeout=0;
+	unsigned char date_string[100];
+	
+	gettimeofday(&to, NULL);
+	to.tv_sec = 0;
+	to.tv_usec = 0;
+	
+	print_local_time(date_string);
+		
+	printf("%s | Test %04i | ",
+		date_string, passnum);
+	
+        for(;;) {
+	
+		select(1,NULL, NULL, NULL, &to);
+		
+		wan_udp.wan_udphdr_command = CPIPE_GET_TRACE_INFO;
+		wan_udp.wan_udphdr_return_code = 0xaa;
+		wan_udp.wan_udphdr_data_len = 0;
+		DO_COMMAND(wan_udp);
+		
+		if (wan_udp.wan_udphdr_return_code == 0 && wan_udp.wan_udphdr_data_len) { 
+		     
+			num_frames = wan_udp.wan_udphdr_aft_num_frames;
+
+		     	for ( i = 0; i < num_frames; i++) {
+				trace_pkt= (wan_trace_pkt_t *)&wan_udp.wan_udphdr_data[curr_pos];
+
+				/*  frame type */
+				if (trace_pkt->status & 0x01) {
+					trace_iface.status |= WP_TRACE_OUTGOING;
+				}else{
+					if (trace_pkt->status & 0x10) { 
+						trace_iface.status |= WP_TRACE_ABORT;
+					} else if (trace_pkt->status & 0x20) {
+						trace_iface.status |= WP_TRACE_CRC;
+					} else if (trace_pkt->status & 0x40) {
+						trace_iface.status |= WP_TRACE_OVERRUN;
+					}
+				}
+
+				trace_iface.len = trace_pkt->real_length;
+				trace_iface.timestamp=trace_pkt->time_stamp;
+				trace_iface.sec = trace_pkt->sec;
+				trace_iface.usec = trace_pkt->usec;
+				
+				curr_pos += sizeof(wan_trace_pkt_t);
+		
+				if (trace_pkt->real_length >= WAN_MAX_DATA_SIZE){
+					printf("\t:the frame data is to big (%u)!",
+									trace_pkt->real_length);
+					fflush(stdout);
+					continue;
+
+				}else if (trace_pkt->data_avail == 0) {
+
+					printf("\t: the frame data is not available" );
+					fflush(stdout);
+					continue;
+				} 
+
+				
+				/* update curr_pos again */
+				curr_pos += trace_pkt->real_length;
+			
+				trace_iface.trace_all_data=trace_all_data;
+				trace_iface.data=(unsigned char*)&trace_pkt->data[0];
+
+				
+				if (trace_pkt->status & 0x01){ 
+					continue;
+				}
+				
+				if (trace_iface.data[0] == (0x0F) &&
+				    trace_iface.data[1] == (0x0F) &&
+				    trace_iface.data[2] == (0x0F) &&
+				    trace_iface.data[3] == (0x0F)) {
+				 	printf("Successful (%s)!\n",
+						trace_iface.status & WP_TRACE_ABORT ? "Abort" :
+						trace_iface.status & WP_TRACE_CRC ? "Crc" :
+						trace_iface.status & WP_TRACE_OVERRUN ? "Overrun" : "Ok"
+						);   
+					return 0;
+				} 
+				
+				
+
+		   	} //for
+		} //if
+		curr_pos = 0;
+
+		if (!wan_udp.wan_udphdr_chdlc_ismoredata){
+			to.tv_sec = 0;
+			to.tv_usec = WAN_TRACE_DELAY;
+			timeout++;
+			if (timeout > 100) {
+				printf("Timeout!\n");
+				break;
+			}   
+		}else{
+			to.tv_sec = 0;
+			to.tv_usec = 0;
+		}
+	}
+	return 0;
+}
+
+
+static int aft_digital_loop_test( void )
+{
+	int passnum=0;
+	int i;
+	
+        /* Disable trace to ensure that the buffers are flushed */
+        wan_udp.wan_udphdr_command= CPIPE_DISABLE_TRACING;
+        wan_udp.wan_udphdr_return_code = 0xaa;
+        wan_udp.wan_udphdr_data_len = 0;
+        DO_COMMAND(wan_udp);
+
+        wan_udp.wan_udphdr_command= CPIPE_ENABLE_TRACING;
+        wan_udp.wan_udphdr_return_code = 0xaa;
+        wan_udp.wan_udphdr_data_len = 1;
+        wan_udp.wan_udphdr_data[0]=0;
+
+        DO_COMMAND(wan_udp);
+	if (wan_udp.wan_udphdr_return_code != 0 && 
+            wan_udp.wan_udphdr_return_code != 1) {
+		printf("Error: Failed to start loop test: failed to start tracing!\n");
+		return -1;
+	}
+	
+	printf("Starting Loop Test (press ctrl-c to exit)!\n\n");
+
+	
+	
+	while (1) {
+
+		wan_udp.wan_udphdr_command= DIGITAL_LOOPTEST;
+		wan_udp.wan_udphdr_return_code = 0xaa;
+		
+		for (i=0;i<100;i++){ 
+			wan_udp.wan_udphdr_data[i] = 0x0F;
+		}
+		wan_udp.wan_udphdr_data_len = 100;
+		DO_COMMAND(wan_udp);	
+
+		switch (wan_udp.wan_udphdr_return_code) {
+		
+		case 0:
+			break;
+		case 1:
+	                printf("Error: Failed to start loop test: dev not found\n");
+			goto loop_rx_exit;
+		case 2:
+	                printf("Error: Failed to start loop test: dev state not connected\n");
+			goto loop_rx_exit;
+		case 3:
+	                printf("Error: Failed to start loop test: memory error\n");
+			goto loop_rx_exit;
+		case 4:
+	                printf("Error: Failed to start loop test: invalid operation mode\n");
+			goto loop_rx_exit;
+
+		default:
+			printf("Error: Failed to start loop test: unknown error (%i)\n",
+				wan_udp.wan_udphdr_return_code);
+			goto loop_rx_exit;
+		}
+
+
+		loop_rx_data(++passnum);
+		usleep(500000);
+		fflush(stdout);
+		
+	}
+
+loop_rx_exit:
+	
+	wan_udp.wan_udphdr_command= CPIPE_DISABLE_TRACING;
+        wan_udp.wan_udphdr_return_code = 0xaa;
+        wan_udp.wan_udphdr_data_len = 0;
+        DO_COMMAND(wan_udp);
+
+	return 0;
+}
+
+
+
+
 static void line_trace(int trace_mode, int trace_subtype)
 {
   if(!connected_to_hw_level){
@@ -1089,6 +1321,7 @@ int CHDLCUsage(void)
 	printf("\t             salb    Send Loopback Activate Code (T1/E1 card only)\n");  
 	printf("\t             sdlb    Send Loopback Deactive Code (T1/E1 card only)\n");  
 	printf("\t             a       Read T1/E1/56K alarms.\n");  
+	printf("\t             lt      Diagnostic Digital Loopback testing (T1/E1 card only)\n"); 
 	printf("\tFlush Statistics\n");
 	//printf("\t   f         g       Flush Global Statistics\n");
 	printf("\t    f        c       Flush Communication Error Statistics\n");
@@ -1536,6 +1769,10 @@ int CHDLCMain(char *command,int argc, char* argv[])
 					view_FT1_status();
 				 }
 				set_FT1_monitor_status(0x00);
+			
+			}else if (!strcmp(opt,"lt")){
+ 				aft_digital_loop_test();
+				
 			}else if (!strcmp(opt, "s")){
 				set_FT1_monitor_status(0x01);
 				if(!gfail){	 	

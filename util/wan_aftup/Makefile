@@ -29,6 +29,7 @@ ifeq "$(SYSINC)" ""
 SYSINC=/lib/modules/$(shell uname -r)/build/include
 endif
 
+SYSINC=../../patches/kdrivers/include
 WAN_VIRTUAL=
 
 

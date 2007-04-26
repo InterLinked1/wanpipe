@@ -50,6 +50,7 @@
 #include <arpa/inet.h>
 #if defined(__LINUX__)
 # include <linux/version.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 # include <linux/if_wanpipe.h>
 # include <linux/if_ether.h>

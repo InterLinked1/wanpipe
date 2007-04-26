@@ -66,11 +66,11 @@ typedef struct {
 } sdla_te3_cfg_t;
 
 typedef struct {
-	unsigned long	pmon_lcv;
-	unsigned long	pmon_framing;
-	unsigned long	pmon_parity;
-	unsigned long 	pmon_febe;
-	unsigned long	pmon_cpbit;
+	unsigned int	pmon_lcv;
+	unsigned int	pmon_framing;
+	unsigned int	pmon_parity;
+	unsigned int 	pmon_febe;
+	unsigned int	pmon_cpbit;
 } sdla_te3_pmon_t;
 
 #define IS_DS3(cfg)	((cfg)->media == WAN_MEDIA_DS3)

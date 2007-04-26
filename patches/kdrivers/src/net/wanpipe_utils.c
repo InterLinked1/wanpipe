@@ -184,6 +184,21 @@ void wanpipe_set_baud (void* card_id, unsigned int baud)
 	card->wandev.bps=baud*1000;
 }
 
+void wanpipe_set_dev_carrier_state(sdla_t* card, int state)
+{
+	netdevice_t *dev;
+	dev = WAN_DEVLE2DEV(WAN_LIST_FIRST(&card->wandev.dev_head));
+        if (dev && WAN_NETIF_UP(dev)) {
+		if (state == WAN_CONNECTED) {
+                 	WAN_NETIF_CARRIER_ON(dev);
+	       		WAN_NETIF_WAKE_QUEUE(dev);       		
+		} else {
+                	WAN_NETIF_CARRIER_OFF(dev);
+	       		WAN_NETIF_STOP_QUEUE(dev); 
+		}			
+	}
+}
+
 
 /* 
  * ============================================================================
@@ -208,6 +223,10 @@ void wanpipe_set_state (void* card_id, int state)
 			break;
 		}
 		card->wandev.state = state;
+
+		if (card->wandev.config_id == WANCONFIG_ADSL) {
+			wanpipe_set_dev_carrier_state(card,state);
+		}
 	}
 	card->state_tick = SYSTEM_TICKS;
 }

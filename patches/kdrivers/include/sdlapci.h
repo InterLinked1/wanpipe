@@ -40,20 +40,23 @@
 #define PLX_VENDOR_ID			0x10b5	/* PLX vendor ID number */
 #define PLX_DEVICE_ID  			0x8111	/* PLX device ID number */
 
-#define A101_1TE1_SUBSYS_VENDOR		0xA010	/* A101 with T1/E1 1 line  */
-#define A101_2TE1_SUBSYS_VENDOR		0xA011	/* A101 with T1/E1 2 lines */
-#define A104_4TE1_SUBSYS_VENDOR		0xA013	/* A104 with T1/E1 4 lines */
-#define A300_UTE3_SUBSYS_VENDOR		0xA020	/* A300 with T3/E3 (unchannelized) */
-#define A305_CT3_SUBSYS_VENDOR		0xA030	/* A305 with T3 (channelized) */
+#define A101_1TE1_SUBSYS_VENDOR			0xA010	/* A101 with T1/E1 1 line  */
+#define A101_2TE1_SUBSYS_VENDOR			0xA011	/* A101 with T1/E1 2 lines */
+#define A104_4TE1_SUBSYS_VENDOR			0xA013	/* A104 with T1/E1 4 lines */
+#define A300_UTE3_SUBSYS_VENDOR			0xA020	/* A300 with T3/E3 (unchannelized) */
+#define A305_CT3_SUBSYS_VENDOR			0xA030	/* A305 with T3 (channelized) */
 
-#define AFT_1TE1_SHARK_SUBSYS_VENDOR	0xA111	/* A101-SHARK T1/E1 1 lines */
-#define AFT_2TE1_SHARK_SUBSYS_VENDOR	0xA112	/* A102-SHARK T1/E1 2 lines */
-#define AFT_4TE1_SHARK_SUBSYS_VENDOR	0xA113	/* A104-SHARK T1/E1 4 lines */
-#define AFT_8TE1_SHARK_SUBSYS_VENDOR	0xA114	/* A108-SHARK T1/E1 8 lines */
-#define A300_UTE3_SHARK_SUBSYS_VENDOR	0xA115	/* A300-SHARK with T3/E3 (unchannelized) */
-#define A305_CTE3_SHARK_SUBSYS_VENDOR	0xA116	/* A305-SHARK with T3 (channelized) */
-#define A200_REMORA_SHARK_SUBSYS_VENDOR	0xA200	/* AFT-REMORA-SH A200 Analog board */
-#define A400_REMORA_SHARK_SUBSYS_VENDOR	0xA400	/* AFT-REMORA-SH A400 Analog board */
+#define AFT_1TE1_SHARK_SUBSYS_VENDOR		0xA111	/* A101-SHARK T1/E1 1 lines */
+#define AFT_2TE1_SHARK_SUBSYS_VENDOR		0xA112	/* A102-SHARK T1/E1 2 lines */
+#define AFT_4TE1_SHARK_SUBSYS_VENDOR		0xA113	/* A104-SHARK T1/E1 4 lines */
+#define AFT_8TE1_SHARK_SUBSYS_VENDOR		0xA114	/* A108-SHARK T1/E1 8 lines */
+#define A300_UTE3_SHARK_SUBSYS_VENDOR		0xA115	/* A300-SHARK with T3/E3 (unchannelized) */
+#define A305_CTE3_SHARK_SUBSYS_VENDOR		0xA116	/* A305-SHARK with T3 (channelized) */
+#define A200_REMORA_SHARK_SUBSYS_VENDOR		0xA200	/* AFT-REMORA SHARK analog board */
+#define A400_REMORA_SHARK_SUBSYS_VENDOR		0xA400	/* AFT-REMORA SHARK analog board */
+
+#define AFT_ISDN_BRI_SHARK_SUBSYS_VENDOR	0xA500	/* AFT-ISDN BRI SHARK board */
+#define AFT_56K_SHARK_SUBSYS_VENDOR		0xA056	/* AFT-56K SHARK board */
 
 #define AFT_CORE_ID_MASK	0x00FF
 #define AFT_CORE_REV_MASK	0xFF00
@@ -152,4 +155,3 @@
 
 
 #endif	/* _SDLAPCI_H */
-

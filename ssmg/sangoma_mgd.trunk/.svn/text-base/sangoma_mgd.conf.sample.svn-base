@@ -33,4 +33,9 @@ woomera_port		=> 42420
 out_tx_test		=> 0
 
 
+#Used to trace media loop
+#Used for ccr conformance testing
+#Options: 0 - Disable
+#	  1 - Enable
+loop_trace		=> 0
 

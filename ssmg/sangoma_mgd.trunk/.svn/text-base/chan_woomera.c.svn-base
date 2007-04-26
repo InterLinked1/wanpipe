@@ -12,6 +12,10 @@
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  * =============================================
+ * v1.7 Nenad Corbic <ncorbic@sangoma.com>
+ *	Added smgdebug to enable smg debugging
+ *	Added rdnis
+ *
  * v1.6 Nenad Corbic <ncorbic@sangoma.com>
  *      Added incoming trunk group context 
  *      The trunk number will be added to the
@@ -65,9 +69,9 @@
 #include "asterisk.h"
 extern int option_verbose;
 
-#define WOOMERA_VERSION "v1.6"
+#define WOOMERA_VERSION "v1.7"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
 static int tech_count = 0;
 
 static const char desc[] = "Woomera Channel Driver";
@@ -253,6 +257,7 @@ struct private_object {
 	char dtmfbuf[WOOMERA_STRLEN];
 	char cid_name[WOOMERA_STRLEN];
 	char cid_num[WOOMERA_STRLEN];
+	char *cid_rdnis;
 	int  cid_pres;
 	char ds[WOOMERA_STRLEN];
 	struct ast_dsp *dsp;  
@@ -970,7 +975,7 @@ retry_activate_again:
 		  
 		  woomera_printf(tech_pvt->profile,
 				 tech_pvt->command_channel, 
-				 "CALL %s%sRaw-Audio: %s/%d%sLocal-Name: %s!%s%sLocal-Number:%s%sPresentation:%d%s", 
+				 "CALL %s%sRaw-Audio: %s/%d%sLocal-Name: %s!%s%sLocal-Number:%s%sPresentation:%d%sRDNIS:%s%s", 
 				 tech_pvt->dest, 
 				 WOOMERA_LINE_SEPARATOR,
 				 tech_pvt->profile->audio_ip,
@@ -982,6 +987,8 @@ retry_activate_again:
 				 tech_pvt->cid_num,
 				 WOOMERA_LINE_SEPARATOR,
 				 tech_pvt->cid_pres,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_rdnis?tech_pvt->cid_rdnis:"",
 				 WOOMERA_RECORD_SEPARATOR
 				 );
 
@@ -1241,6 +1248,11 @@ static void tech_destroy(private_object *tech_pvt, struct ast_channel *owner)
 	
 	ast_mutex_destroy(&tech_pvt->iolock);
 	ast_mutex_destroy(&tech_pvt->event_queue.lock);
+
+	if (tech_pvt->cid_rdnis) { 
+		free(tech_pvt->cid_rdnis);
+		tech_pvt->cid_rdnis=NULL;
+	}
 
 	free(tech_pvt);	
 	ast_mutex_lock(&usecnt_lock);
@@ -1516,6 +1528,7 @@ static void *tech_monitor_thread(void *obj)
 		if (ast_test_flag(tech_pvt, TFLAG_PARSE_INCOMING)) {
 			char *exten;
 			char *cid_name;
+			char *cid_rdnis;
 			char *cid_num;
 			char *tg_string="1";
 			char *pres_string;
@@ -1559,6 +1572,7 @@ static void *tech_monitor_thread(void *obj)
 				presentation = atoi(pres_string);
 			}
 
+
 			cid_name = ast_strdupa(woomera_message_header(&wmsg, "Remote-Name"));
 
 			if ((cid_num = strchr(cid_name, '!'))) {
@@ -1567,6 +1581,8 @@ static void *tech_monitor_thread(void *obj)
 			} else {
 				cid_num = woomera_message_header(&wmsg, "Remote-Number");
 			}
+			
+			cid_rdnis = woomera_message_header(&wmsg, "RDNIS");
 		
 
 			{
@@ -1581,6 +1597,10 @@ static void *tech_monitor_thread(void *obj)
 				strncpy(owner->exten, exten, sizeof(owner->exten) - 1);
 				ast_set_callerid(owner, cid_num, cid_name, cid_num);
 				owner->cid.cid_pres=presentation;
+
+				if (cid_rdnis) {
+					owner->cid.cid_rdnis=strdup(cid_rdnis);
+				}
 
 				validext = ast_exists_extension(owner,
 							owner->context,
@@ -2708,7 +2728,7 @@ static int connect_woomera(int *new_socket, woomera_profile *profile, int flags)
 					
 					profile->coding=AST_FORMAT_SLINEAR;
 				
-					if (strncmp(audio_format,"PMC-16",15) == 0){
+					if (strncmp(audio_format,"PMC-16",20) == 0){
 						profile->coding=AST_FORMAT_SLINEAR;
 					} else if (strncmp(audio_format,"ULAW",15) == 0) {
 						profile->coding=AST_FORMAT_ULAW;
@@ -2977,6 +2997,11 @@ static int tech_call(struct ast_channel *self, char *dest, int timeout)
 		strncpy(tech_pvt->cid_num, self->cid.cid_num, sizeof(tech_pvt->cid_num)-1);
 	}
 	tech_pvt->cid_pres = self->cid.cid_pres;
+
+
+	if (self->cid.cid_rdnis) {
+		tech_pvt->cid_rdnis=strdup(self->cid.cid_rdnis);
+	}
 
 	if ((workspace = ast_strdupa(dest))) {
 		char *addr, *profile_name, *proto;
@@ -3546,7 +3571,19 @@ static int woomera_cli(int fd, int argc, char *argv[])
 			
 		} else if (!strcmp(argv[1], "threads")) {
 			ast_cli(fd, "chan_woomera is using %s threads!\n", globals.more_threads ? "more" : "less");
-		
+
+		} else if (!strcmp(argv[1], "smgdebug")) {
+			if (argc > 2) {
+				int smgdebug;
+				if (sscanf(argv[2], "%d", &smgdebug) != 1) {
+					ast_cli(fd, "Woomera Invalid smgdebug level: %s\n",argv[2]);
+				} else {
+					
+					woomera_printf(NULL, default_profile.woomera_socket , "debug %d%s", 
+					   smgdebug,
+					   WOOMERA_RECORD_SEPARATOR);
+				}
+			}
 		} else if (!strcmp(argv[1], "abort")) {
 			global_set_flag(TFLAG_ABORT);
 		}

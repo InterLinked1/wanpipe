@@ -72,7 +72,8 @@ void yyerror(char* msg);
 start_args	: TEST_TOKEN
 		  { action = WAN_EC_ACT_TEST; }
 		| CHAR_STRING
-		  { memcpy(gl_ec_client->devname, $<str>1, strlen($<str>1)); }
+		  { memcpy(gl_ec_client->devname, $<str>1, strlen($<str>1));
+		    wanec_api_init(); }
 				command
 		;
 

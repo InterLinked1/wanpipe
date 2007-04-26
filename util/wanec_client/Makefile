@@ -9,6 +9,7 @@
 ####### DEFINES ##############################################################
 
 # Build Options.
+PWD = $(shell pwd)    
 PROD	= wan_ec_setup
 VERSION	= 1.0
 DEBUG	= 2
@@ -17,7 +18,7 @@ YACC	= yacc
 # Project File Paths.
 TMPDIR		= tmp
 OUTDIR		= mod/
-SYSINC		= /lib/modules/$(shell uname -r)/build/include 
+SYSINC		= -I/lib/modules/$(shell uname -r)/build/include 
 VPATH		= $(LOCINC):$(TMPDIR)
 ARCH    	= $(shell uname -m)
 DIR_EC_APILIB	= ../wanec_apilib
@@ -25,11 +26,13 @@ DIR_EC_APILIB	= ../wanec_apilib
 PRODS=wan_ec_client
 SRC_CLIENT=wan_ecmain.c y.tab.c wan_ec_argl.c
 
-SRC_EC_APILIB=$(DIR_EC_APILIB)/wanec_api.c $(DIR_EC_APILIB)/wanec_api_lib.c
-INC_EC_APILIB=-I/usr/include/wanpipe/oct6100_api -I$(DIR_EC_APILIB)
+SRC_EC_APILIB = $(DIR_EC_APILIB)/wanec_api.c $(DIR_EC_APILIB)/wanec_api_lib.c
+INC_EC_APILIB = -I../../patches/kdrivers/wanec -I../../patches/kdrivers/include 
+INC_EC_APILIB += -I../../patches/kdrivers/wanec/oct6100_api/include 
+INC_EC_APILIB += -I$(DIR_EC_APILIB)
 
 CFLAGS	= -Wall -O2 -D__LINUX__ -DCONFIG_PRODUCT_WANPIPE_TDMV_EC -D_DEBUG_=$(DEBUG) -D_GNUC_
-CFLAGS	+= -I$(SYSINC) -I/usr/include/wanpipe $(INC_EC_APILIB)
+CFLAGS	+= -I$(SYSINC) $(INC_EC_APILIB) $(EXTRA_FLAGS)
 
 #$(WANEC_DIR) -I$(WANEC_DIR)/oct6100_api/include -I$(WANEC_DIR)/oct6100_api/octdeviceapi/oct6100api/
 

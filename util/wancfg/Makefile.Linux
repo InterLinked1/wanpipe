@@ -16,7 +16,7 @@ PROTOCOL_DEFINES = -DCONFIG_PRODUCT_WANPIPE_LIP_ATM
 
 # Project file paths. Initilize to compile in develpment environment.
 # Changed when Setup script is running.
-SYSINC	= /usr/src/linux/include
+SYSINC	= ../../patches/kdrivers/include
 WAN_VIRTUAL=
 ENABLE_ZAPTEL_PARSER=
 ZAPINC=/usr/src/zaptel

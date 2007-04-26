@@ -1,8 +1,0 @@
-#!/bin/sh
-lhome=`pwd`
-cd /etc/wanpipe/samples/trixbox/
-./setup-sangoma.pl
-cd $lhome
-
-
-

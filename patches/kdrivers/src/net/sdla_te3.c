@@ -53,21 +53,24 @@
 ******************************************************************************/
 
 #if defined(DEBUG)
-#define WRITE_CPLD(reg,val)						\
+# define WRITE_CPLD(reg,val)						\
 	DEBUG_EVENT("%s: Write to CPLD reg %d value %X\n", 		\
 			fe->name, reg, val);
 
-#define WRITE_FRAMER(reg,val) 						\
+# define WRITE_REG(reg,val) 						\
 	DEBUG_EVENT("%s: Write to Framer off %X value %X\n", 		\
 			fe->name, reg, val);
 #else
 
-#define WRITE_CPLD(reg,val)						\
+# define WRITE_CPLD(reg,val)						\
 	(fe->write_cpld) ? fe->write_cpld(fe->card, reg, val) : -EINVAL
 
-#define WRITE_FRAMER(reg,val)						\
+# define WRITE_EXAR_CPLD(reg,val)						\
+	(fe->write_fe_cpld) ? fe->write_fe_cpld(fe->card, reg, val) : -EINVAL
+
+# define WRITE_REG(reg,val)						\
 	(fe->write_framer) ? fe->write_framer(fe->card, reg, val) : -EINVAL
-#define READ_FRAMER(reg)						\
+# define READ_REG(reg)						\
 	(fe->read_framer) ? fe->read_framer(fe->card, reg) : 0
 #endif
 
@@ -218,7 +221,7 @@ static int sdla_ds3_tx_isr(sdla_fe_t *fe)
 {
 	unsigned char	value;
 	
-	value = READ_FRAMER(REG_TxDS3_LAPD_STATUS);
+	value = READ_REG(REG_TxDS3_LAPD_STATUS);
 	if (value & BIT_TxDS3_LAPD_STATUS_INT){
 		DEBUG_EVENT("%s: LAPD Interrupt!\n",
 				fe->name);
@@ -238,8 +241,8 @@ static int sdla_ds3_rx_isr(sdla_fe_t *fe)
 	unsigned char	value, status;
 
 	/* RxDS3 Interrupt status register (0x13) */
-	value = READ_FRAMER(REG_RxDS3_INT_STATUS);
-	status = READ_FRAMER(REG_RxDS3_CFG_STATUS);
+	value = READ_REG(REG_RxDS3_INT_STATUS);
+	status = READ_REG(REG_RxDS3_CFG_STATUS);
 	if (fe->fe_cfg.frame == WAN_FR_DS3_Cbit && value & BIT_RxDS3_INT_STATUS_CPBIT_ERR){
 		if (WAN_NET_RATELIMIT()){
 			DEBUG_EVENT("%s: CP Bit Error interrupt detected!\n",
@@ -278,7 +281,7 @@ static int sdla_ds3_rx_isr(sdla_fe_t *fe)
 			fe->fe_alarm &= ~WAN_TE3_BIT_OOF_ALARM;
 		}
 	}
-	status = READ_FRAMER(REG_RxDS3_STATUS);
+	status = READ_REG(REG_RxDS3_STATUS);
 	if (value & BIT_RxDS3_INT_STATUS_FERF){
 		if (status & BIT_RxDS3_STATUS_RxFERF){
 			DEBUG_EVENT("%s: Rx FERF status is ON (YELLOW)!\n",
@@ -301,7 +304,7 @@ static int sdla_ds3_rx_isr(sdla_fe_t *fe)
 	}
 
 	/* RxDS3 FEAC Interrupt (0x17) */
-	value = READ_FRAMER(REG_RxDS3_FEAC_INT);
+	value = READ_REG(REG_RxDS3_FEAC_INT);
 	if (value & BIT_RxDS3_FEAC_REMOVE_INT_STATUS){
 		DEBUG_EVENT("%s: RxFEAC Remove Interrupt!\n",
 				fe->name);
@@ -325,7 +328,7 @@ static int sdla_ds3_isr(sdla_fe_t *fe)
 {
 	unsigned char	value;
 	
-	value = READ_FRAMER(REG_BLOCK_INT_STATUS);
+	value = READ_REG(REG_BLOCK_INT_STATUS);
 	if (value & BIT_BLOCK_INT_STATUS_RxDS3_E3){
 		sdla_ds3_rx_isr(fe);
 	}
@@ -364,9 +367,9 @@ static int sdla_e3_rx_isr(sdla_fe_t *fe)
 	unsigned char	int_status1, int_status2;
 	unsigned char	status;
 
-	int_status1 = READ_FRAMER(REG_RxE3_INT_STATUS_1);
-	int_status2 = READ_FRAMER(REG_RxE3_INT_STATUS_2);
-	status = READ_FRAMER(REG_RxE3_CFG_STATUS_2);
+	int_status1 = READ_REG(REG_RxE3_INT_STATUS_1);
+	int_status2 = READ_REG(REG_RxE3_INT_STATUS_2);
+	status = READ_REG(REG_RxE3_CFG_STATUS_2);
 	if (int_status1 & BIT_RxE3_INT_STATUS_OOF){
 		if (status & BIT_RxE3_CFG_STATUS_RxOOF){
 			DEBUG_EVENT("%s: OOF Alarm ON!\n",
@@ -442,7 +445,7 @@ static int sdla_e3_isr(sdla_fe_t *fe)
 {
 	unsigned char	value;
 	
-	value = READ_FRAMER(REG_BLOCK_INT_STATUS);
+	value = READ_REG(REG_BLOCK_INT_STATUS);
 	if (value & BIT_BLOCK_INT_STATUS_RxDS3_E3){
 		sdla_e3_rx_isr(fe);
 	}
@@ -466,7 +469,7 @@ static int sdla_te3_isr(sdla_fe_t *fe)
 	unsigned char	value;
 	int		err = 0;
 	
-	value = READ_FRAMER(REG_BLOCK_INT_STATUS);
+	value = READ_REG(REG_BLOCK_INT_STATUS);
 	switch(fe_cfg->media){
 	case WAN_MEDIA_DS3:
 		err = sdla_ds3_isr(fe);
@@ -494,7 +497,7 @@ static unsigned int sdla_te3_alarm(sdla_fe_t *fe, int update)
 	unsigned char	value;
 	
 	if (fe_cfg->media == WAN_MEDIA_DS3){
-		value = READ_FRAMER(REG_RxDS3_CFG_STATUS);
+		value = READ_REG(REG_RxDS3_CFG_STATUS);
 		if (value & BIT_RxDS3_CFG_STATUS_RxAIS){
 			alarm |= WAN_TE3_BIT_AIS_ALARM;
 			DEBUG_TE3("%s: (T3/E3) AIS Alarm is ON\n", fe->name);
@@ -516,7 +519,7 @@ static unsigned int sdla_te3_alarm(sdla_fe_t *fe, int update)
 			alarm &= ~WAN_TE3_BIT_OOF_ALARM;
 			DEBUG_TE3("%s: (T3/E3) OOF Alarm is OFF\n", fe->name);
 		}
-		value = READ_FRAMER(REG_RxDS3_STATUS);
+		value = READ_REG(REG_RxDS3_STATUS);
 		if (value & BIT_RxDS3_STATUS_RxFERF){
 			alarm |= WAN_TE3_BIT_YEL_ALARM;
 			DEBUG_TE3("%s: (T3/E3) YEL Alarm is ON\n", fe->name);
@@ -525,7 +528,7 @@ static unsigned int sdla_te3_alarm(sdla_fe_t *fe, int update)
 			DEBUG_TE3("%s: (T3/E3) YEL Alarm is OFF\n", fe->name);
 		}
 	}else{
-		value = READ_FRAMER(REG_RxE3_CFG_STATUS_2);
+		value = READ_REG(REG_RxE3_CFG_STATUS_2);
 		if (value & BIT_RxE3_CFG_STATUS_RxOOF){
 			DEBUG_TE3("%s: (T3/E3) OOF Alarm ON!\n",
 						fe->name);
@@ -613,24 +616,24 @@ static int sdla_te3_read_pmon(sdla_fe_t *fe, int action)
 	sdla_te3_pmon_t	*pmon = (sdla_te3_pmon_t*)&fe->fe_stats.u.te3_pmon;
 	unsigned char value_msb, value_lsb;
 
-	value_msb = READ_FRAMER(REG_PMON_LCV_MSB);
-	value_lsb = READ_FRAMER(REG_PMON_LCV_LSB);
+	value_msb = READ_REG(REG_PMON_LCV_MSB);
+	value_lsb = READ_REG(REG_PMON_LCV_LSB);
 	pmon->pmon_lcv += ((value_msb << 8) | value_lsb);
 
-	value_msb = READ_FRAMER(REG_PMON_FRAMING_ERR_CNT_MSB);
-	value_lsb = READ_FRAMER(REG_PMON_FRAMING_ERR_CNT_LSB);
+	value_msb = READ_REG(REG_PMON_FRAMING_ERR_CNT_MSB);
+	value_lsb = READ_REG(REG_PMON_FRAMING_ERR_CNT_LSB);
 	pmon->pmon_framing += ((value_msb << 8) | value_lsb); 
 
-	value_msb = READ_FRAMER(REG_PMON_PARITY_ERR_CNT_MSB);
-	value_lsb = READ_FRAMER(REG_PMON_PARITY_ERR_CNT_LSB);
+	value_msb = READ_REG(REG_PMON_PARITY_ERR_CNT_MSB);
+	value_lsb = READ_REG(REG_PMON_PARITY_ERR_CNT_LSB);
 	pmon->pmon_parity += ((value_msb << 8) | value_lsb); 
 
-	value_msb = READ_FRAMER(REG_PMON_FEBE_EVENT_CNT_MSB);
-	value_lsb = READ_FRAMER(REG_PMON_FEBE_EVENT_CNT_LSB);
+	value_msb = READ_REG(REG_PMON_FEBE_EVENT_CNT_MSB);
+	value_lsb = READ_REG(REG_PMON_FEBE_EVENT_CNT_LSB);
 	pmon->pmon_febe += ((value_msb << 8) | value_lsb); 
 
-	value_msb = READ_FRAMER(REG_PMON_CPBIT_ERROR_CNT_MSB);
-	value_lsb = READ_FRAMER(REG_PMON_CPBIT_ERROR_CNT_LSB);
+	value_msb = READ_REG(REG_PMON_CPBIT_ERROR_CNT_MSB);
+	value_lsb = READ_REG(REG_PMON_CPBIT_ERROR_CNT_LSB);
 	pmon->pmon_cpbit += ((value_msb << 8) | value_lsb); 
 	return 0;
 }
@@ -701,14 +704,16 @@ static int sdla_te3_set_intr(sdla_fe_t *fe)
 {
 	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
 
+	DEBUG_EVENT("%s: Enabling interrupts for %s (%d)!\n",
+					fe->name, FE_MEDIA_DECODE(fe), IS_DS3(fe_cfg));
 	/* Enable Framer Interrupts */
 	/* 1. Block Interrupt Enable */
-	WRITE_FRAMER(REG_BLOCK_INT_ENABLE,
+	WRITE_REG(REG_BLOCK_INT_ENABLE,
 			BIT_BLOCK_INT_ENABLE_RxDS3_E3 |
 			BIT_BLOCK_INT_ENABLE_TxDS3_E3);
 	if (IS_DS3(fe_cfg)){
 		/* 1. RxDS3 Interrupt Enable */
-		WRITE_FRAMER(REG_RxDS3_INT_ENABLE, 
+		WRITE_REG(REG_RxDS3_INT_ENABLE, 
 				BIT_RxDS3_INT_ENABLE_CPBIT_ERR	|
 				BIT_RxDS3_INT_ENABLE_LOS 	|
 				BIT_RxDS3_INT_ENABLE_OOF	|
@@ -719,24 +724,24 @@ static int sdla_te3_set_intr(sdla_fe_t *fe)
 				BIT_RxDS3_INT_ENABLE_PBIT_ERR	);
 
 		/* RxDS3 FEAC */
-		WRITE_FRAMER(REG_RxDS3_FEAC_INT, 
+		WRITE_REG(REG_RxDS3_FEAC_INT, 
 				BIT_RxDS3_FEAC_REMOVE_INT_EN	|
 				BIT_RxDS3_FEAC_VALID_INT_EN);
 
 		/* RxDS3 LAPD */
-		WRITE_FRAMER(REG_TxDS3_LAPD_STATUS, 
+		WRITE_REG(REG_TxDS3_LAPD_STATUS, 
 				BIT_TxDS3_LAPD_STATUS_INT_EN);
 
 	}else if (IS_E3(fe_cfg)){
 		/* RxE3 Interrupt Enable 1 (0x12) */
-		WRITE_FRAMER(REG_RxE3_INT_ENABLE_1,
+		WRITE_REG(REG_RxE3_INT_ENABLE_1,
 				BIT_RxE3_INT_ENABLE_OOF	|
 				BIT_RxE3_INT_ENABLE_LOS	|
 				BIT_RxE3_INT_ENABLE_LOF	|
 				BIT_RxE3_INT_ENABLE_AIS);
 
 		/* RxE3 Interrupt Enable 2 (0x13) */
-		WRITE_FRAMER(REG_RxE3_INT_ENABLE_2,
+		WRITE_REG(REG_RxE3_INT_ENABLE_2,
 				BIT_RxE3_INT_ENABLE_FERF	|
 				BIT_RxE3_INT_ENABLE_FRAMING);
 	}else{
@@ -755,7 +760,8 @@ static int sdla_te3_set_intr(sdla_fe_t *fe)
  * Returns:	WAN_TRUE - TE3 configred successfully, otherwise WAN_FALSE.
  ******************************************************************************
  */
-static int sdla_te3_liu_config(sdla_fe_t *fe, sdla_te3_liu_cfg_t *liu, char *name)
+static int 
+sdla_te3_liu_config(sdla_fe_t *fe, sdla_te3_liu_cfg_t *liu, char *name)
 {
 	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
 	unsigned char	data = 0x00;
@@ -825,6 +831,87 @@ static int sdla_te3_liu_config(sdla_fe_t *fe, sdla_te3_liu_cfg_t *liu, char *nam
 	return 0;
 }
 
+/******************************************************************************
+ *				sdla_te3_shark_liu_config()	
+ *
+ * Description: Configure Sangoma TE3 Shark board
+ * Arguments:	
+ * Returns:	WAN_TRUE - TE3 configred successfully, otherwise WAN_FALSE.
+ ******************************************************************************
+ */
+static int 
+sdla_te3_shark_liu_config(sdla_fe_t *fe, sdla_te3_liu_cfg_t *liu, char *name)
+{
+	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
+	unsigned char	data = 0x00;
+
+	if (fe_cfg->media == WAN_MEDIA_E3){
+		data |= BIT_EXAR_CPLD_CNTRL_E3;
+	}
+	/* Write value to CPLD Control register */
+	WRITE_EXAR_CPLD(REG_EXAR_CPLD_CNTRL, data);
+	
+	data = 0x00;
+	if (liu->rx_equal == WAN_TRUE){
+		DEBUG_TE3("%s: (T3/E3) Enable Receive Equalizer\n",
+				name);
+		data |= BIT_LINE_INTERFACE_DRIVE_REQB;
+	}else{
+		DEBUG_TE3("%s: (T3/E3) Disable Receive Equalizer\n",
+				name);
+		data &= ~BIT_LINE_INTERFACE_DRIVE_REQB;
+	}
+	if (liu->tx_lbo == WAN_TRUE){
+		DEBUG_TE3("%s: (T3/E2) Enable Transmit Build-out\n",
+				name);
+		data |= BIT_LINE_INTERFACE_DRIVE_TxLEV;
+	}else{
+		DEBUG_TE3("%s: (T3/E3) Disable Transmit Build-out\n",
+				name);
+		data &= ~BIT_LINE_INTERFACE_DRIVE_TxLEV;
+	}
+	if (liu->taos == WAN_TRUE){
+		DEBUG_TE3("%s: (T3/E3) Enable Transmit All Ones\n",
+				name);
+		data |= BIT_LINE_INTERFACE_DRIVE_TAOS;
+	}else{
+		DEBUG_TE3("%s: (T3/E3) Disable Transmit All Ones\n",
+				name);
+		data &= ~BIT_LINE_INTERFACE_DRIVE_TAOS;
+	}
+	
+	switch(liu->lb_mode){
+	case WAN_TE3_LIU_LB_NORMAL:
+		break;
+	case WAN_TE3_LIU_LB_ANALOG:
+		DEBUG_TE3("%s: (T3/E3) Enable Analog Loopback mode!\n",
+				name);
+		data |= BIT_LINE_INTERFACE_DRIVE_LLOOP;
+		data &= ~BIT_LINE_INTERFACE_DRIVE_RLOOP;
+		break;
+	case WAN_TE3_LIU_LB_REMOTE:
+		DEBUG_TE3("%s: (T3/E3) Enable Remote Loopback mode!\n",
+				name);
+		data &= ~BIT_LINE_INTERFACE_DRIVE_LLOOP;
+		data |= BIT_LINE_INTERFACE_DRIVE_RLOOP;
+		break;
+	case WAN_TE3_LIU_LB_DIGITAL:
+		DEBUG_TE3("%s: (T3/E3) Enable Digital Loopback mode!\n",
+				name);
+		data |= BIT_LINE_INTERFACE_DRIVE_LLOOP;
+		data |= BIT_LINE_INTERFACE_DRIVE_RLOOP;
+		break;
+	default :
+		DEBUG_EVENT("%s: (T3/E3) Unknown loopback mode!\n",
+				name);
+		break;
+	}		
+	WRITE_REG(REG_LINE_INTERFACE_DRIVE, data);
+	
+	return 0;
+}
+
+
 int sdla_te3_iface_init(void *p_fe_iface)
 {
 	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)p_fe_iface;
@@ -849,12 +936,26 @@ int sdla_te3_iface_init(void *p_fe_iface)
 static int sdla_te3_config(void *p_fe)
 {
 	sdla_fe_t	*fe = (sdla_fe_t*)p_fe;
+	sdla_t*		card = (sdla_t*)fe->card;
 	sdla_fe_cfg_t	*fe_cfg = &fe->fe_cfg;
 	sdla_te3_cfg_t	*te3_cfg = &fe_cfg->cfg.te3_cfg;
+	u16		adptr_subtype;
 	unsigned char	data = 0x00;
 	
+	card->hw_iface.getcfg(card->hw, SDLA_ADAPTERSUBTYPE, &adptr_subtype);
+	
+	data = READ_REG(0x02);
+	
 	/* configure Line Interface Unit */
-	sdla_te3_liu_config(fe, &te3_cfg->liu_cfg, fe->name);
+	if (card->adptr_subtype == AFT_SUBTYPE_NORMAL){
+		sdla_te3_liu_config(fe, &te3_cfg->liu_cfg, fe->name);
+	}else if (card->adptr_subtype == AFT_SUBTYPE_SHARK){
+		sdla_te3_shark_liu_config(fe, &te3_cfg->liu_cfg, fe->name);	
+	}else{
+		DEBUG_EVENT("%s: Unknown Adapter Subtype (%X)\n",
+				fe->name, card->adptr_subtype);
+		return -EINVAL;
+	}
 
 	switch(fe_cfg->media){
 	case WAN_MEDIA_DS3:
@@ -921,7 +1022,7 @@ static int sdla_te3_config(void *p_fe)
 	}
 	data |= BIT_OPMODE_INTERNAL_LOS;
 	data |= (BIT_OPMODE_TIMREFSEL1 | BIT_OPMODE_TIMREFSEL0);
-	WRITE_FRAMER(REG_OPMODE, data);
+	WRITE_REG(REG_OPMODE, data);
 
 	data = 0x00;
 	switch(fe_cfg->lcode){
@@ -948,12 +1049,12 @@ static int sdla_te3_config(void *p_fe)
 	data |= BIT_IO_CONTROL_DISABLE_TXLOC;
 	data |= BIT_IO_CONTROL_DISABLE_RXLOC;
 	data |= BIT_IO_CONTROL_RxLINECLK;
-	WRITE_FRAMER(REG_IO_CONTROL, data);
+	WRITE_REG(REG_IO_CONTROL, data);
 
 	/* Initialize Front-End parameters */
 	fe->fe_status	= FE_DISCONNECTED;
-	DEBUG_EVENT("%s: DS3 disconnected!\n",
-						fe->name);
+	DEBUG_EVENT("%s: %s disconnected!\n",
+					fe->name, FE_MEDIA_DECODE(fe));
 	sdla_te3_alarm(fe, 1);
 
 	sdla_te3_set_intr(fe);

@@ -22,7 +22,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 # As a special exception to the GNU General Public License, if you
 # distribute this file as part of a program that contains a
@@ -33,11 +33,11 @@
 SED="/bin/sed"
 
 # Sed that helps us avoid accidentally triggering echo(1) options like -n.
-Xsed="/bin/sed -e 1s/^X//"
+Xsed="/bin/sed -e s/^X//"
 
 # The HP-UX ksh and POSIX shell print the target directory to stdout
 # if CDPATH is set.
-(unset CDPATH) >/dev/null 2>&1 && unset CDPATH
+if test "X${CDPATH+set}" = Xset; then CDPATH=:; export CDPATH; fi
 
 # The names of the tagged configurations supported by this script.
 available_tags=" CXX F77"
@@ -67,12 +67,6 @@ fast_install=yes
 # The host system.
 host_alias=
 host=i686-pc-linux-gnu
-host_os=linux-gnu
-
-# The build system.
-build_alias=
-build=i686-pc-linux-gnu
-build_os=linux-gnu
 
 # An echo program that does not interpret backslashes.
 echo="echo"
@@ -149,7 +143,7 @@ max_cmd_len=32768
 # Does compiler simultaneously support -c and -o options?
 compiler_c_o="yes"
 
-# Must we lock files when doing compilation?
+# Must we lock files when doing compilation ?
 need_locks="no"
 
 # Do we need the lib prefix for modules?
@@ -210,9 +204,9 @@ old_archive_from_expsyms_cmds=""
 # Commands used to build and install a shared archive.
 archive_cmds="\$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname -o \$lib"
 archive_expsym_cmds="\$echo \\\"{ global:\\\" > \$output_objdir/\$libname.ver~
-  cat \$export_symbols | sed -e \\\"s/\\\\(.*\\\\)/\\\\1;/\\\" >> \$output_objdir/\$libname.ver~
-  \$echo \\\"local: *; };\\\" >> \$output_objdir/\$libname.ver~
-	  \$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname \${wl}-version-script \${wl}\$output_objdir/\$libname.ver -o \$lib"
+cat \$export_symbols | sed -e \\\"s/\\\\(.*\\\\)/\\\\1;/\\\" >> \$output_objdir/\$libname.ver~
+\$echo \\\"local: *; };\\\" >> \$output_objdir/\$libname.ver~
+        \$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname \${wl}-version-script \${wl}\$output_objdir/\$libname.ver -o \$lib"
 postinstall_cmds=""
 postuninstall_cmds=""
 
@@ -263,7 +257,7 @@ finish_cmds="PATH=\\\"\\\$PATH:/sbin\\\" ldconfig -n \$libdir"
 finish_eval=""
 
 # Take the output of nm and produce a listing of raw symbols and C names.
-global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
+global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\(\\)\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2\\3 \\3/p'"
 
 # Transform the output of nm in a proper C declaration
 global_symbol_to_cdecl="sed -n -e 's/^. .* \\(.*\\)\$/extern int \\1;/p'"
@@ -325,7 +319,7 @@ link_all_deplibs=unknown
 sys_lib_search_path_spec=" /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../ /lib/i386-redhat-linux/3.4.3/ /lib/ /usr/lib/i386-redhat-linux/3.4.3/ /usr/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/local/lib /usr/lib/qt-3.3/lib /usr/X11R6/lib /usr/X11R6/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib include ld.so.conf.d/*.conf /usr/X11R6/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""
@@ -6774,12 +6768,6 @@ fast_install=yes
 # The host system.
 host_alias=
 host=i686-pc-linux-gnu
-host_os=linux-gnu
-
-# The build system.
-build_alias=
-build=i686-pc-linux-gnu
-build_os=linux-gnu
 
 # An echo program that does not interpret backslashes.
 echo="echo"
@@ -6856,7 +6844,7 @@ max_cmd_len=32768
 # Does compiler simultaneously support -c and -o options?
 compiler_c_o="yes"
 
-# Must we lock files when doing compilation?
+# Must we lock files when doing compilation ?
 need_locks="no"
 
 # Do we need the lib prefix for modules?
@@ -6967,7 +6955,7 @@ finish_cmds="PATH=\\\"\\\$PATH:/sbin\\\" ldconfig -n \$libdir"
 finish_eval=""
 
 # Take the output of nm and produce a listing of raw symbols and C names.
-global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
+global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\(\\)\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2\\3 \\3/p'"
 
 # Transform the output of nm in a proper C declaration
 global_symbol_to_cdecl="sed -n -e 's/^. .* \\(.*\\)\$/extern int \\1;/p'"
@@ -7029,7 +7017,7 @@ link_all_deplibs=unknown
 sys_lib_search_path_spec=" /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../ /lib/i386-redhat-linux/3.4.3/ /lib/ /usr/lib/i386-redhat-linux/3.4.3/ /usr/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/local/lib /usr/lib/qt-3.3/lib /usr/X11R6/lib /usr/X11R6/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib include ld.so.conf.d/*.conf /usr/X11R6/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""
@@ -7076,12 +7064,6 @@ fast_install=yes
 # The host system.
 host_alias=
 host=i686-pc-linux-gnu
-host_os=linux-gnu
-
-# The build system.
-build_alias=
-build=i686-pc-linux-gnu
-build_os=linux-gnu
 
 # An echo program that does not interpret backslashes.
 echo="echo"
@@ -7158,7 +7140,7 @@ max_cmd_len=32768
 # Does compiler simultaneously support -c and -o options?
 compiler_c_o="yes"
 
-# Must we lock files when doing compilation?
+# Must we lock files when doing compilation ?
 need_locks="no"
 
 # Do we need the lib prefix for modules?
@@ -7219,9 +7201,9 @@ old_archive_from_expsyms_cmds=""
 # Commands used to build and install a shared archive.
 archive_cmds="\$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname -o \$lib"
 archive_expsym_cmds="\$echo \\\"{ global:\\\" > \$output_objdir/\$libname.ver~
-  cat \$export_symbols | sed -e \\\"s/\\\\(.*\\\\)/\\\\1;/\\\" >> \$output_objdir/\$libname.ver~
-  \$echo \\\"local: *; };\\\" >> \$output_objdir/\$libname.ver~
-	  \$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname \${wl}-version-script \${wl}\$output_objdir/\$libname.ver -o \$lib"
+cat \$export_symbols | sed -e \\\"s/\\\\(.*\\\\)/\\\\1;/\\\" >> \$output_objdir/\$libname.ver~
+\$echo \\\"local: *; };\\\" >> \$output_objdir/\$libname.ver~
+        \$CC -shared \$libobjs \$deplibs \$compiler_flags \${wl}-soname \$wl\$soname \${wl}-version-script \${wl}\$output_objdir/\$libname.ver -o \$lib"
 postinstall_cmds=""
 postuninstall_cmds=""
 
@@ -7272,7 +7254,7 @@ finish_cmds="PATH=\\\"\\\$PATH:/sbin\\\" ldconfig -n \$libdir"
 finish_eval=""
 
 # Take the output of nm and produce a listing of raw symbols and C names.
-global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
+global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\(\\)\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2\\3 \\3/p'"
 
 # Transform the output of nm in a proper C declaration
 global_symbol_to_cdecl="sed -n -e 's/^. .* \\(.*\\)\$/extern int \\1;/p'"
@@ -7334,7 +7316,7 @@ link_all_deplibs=unknown
 sys_lib_search_path_spec=" /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../../i386-redhat-linux/lib/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../i386-redhat-linux/3.4.3/ /usr/lib/gcc/i386-redhat-linux/3.4.3/../../../ /lib/i386-redhat-linux/3.4.3/ /lib/ /usr/lib/i386-redhat-linux/3.4.3/ /usr/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/local/lib /usr/lib/qt-3.3/lib /usr/X11R6/lib /usr/X11R6/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib include ld.so.conf.d/*.conf /usr/X11R6/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""

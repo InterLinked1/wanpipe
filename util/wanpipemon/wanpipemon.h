@@ -2,6 +2,8 @@
 #include "../lxdialog/dialog.h"
 #endif
 
+#include <wanpipe_hdlc.h>
+
 #ifdef WANPIPEMON_ZAP
 extern int MakeZapConnection(void);
 extern int zap_chan;
@@ -395,7 +397,8 @@ enum {
 	WP_OUT_TRACE_PCAP,
 	WP_OUT_TRACE_INTERP_IPV4,
 	WP_OUT_TRACE_ATM_RAW_PHY,
-	WP_OUT_TRACE_ATM_INTERPRETED_PHY
+	WP_OUT_TRACE_ATM_INTERPRETED_PHY,
+	WP_OUT_TRACE_HDLC
 };
 
 #define WP_TRACE_OUTGOING 0x01
@@ -475,7 +478,6 @@ extern char*	get_hardware_level_interface_name(char* interface_name);
 extern int 	make_hardware_level_connection(void);
 extern void	cleanup_hardware_level_connection(void);
 
-extern void	read_te1_56k_stat(void);
 extern void	flush_te1_pmon(void);
 
 extern void	hw_line_trace(int trace_mode);

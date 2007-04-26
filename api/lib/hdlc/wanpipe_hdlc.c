@@ -99,7 +99,7 @@ int wanpipe_hdlc_decode (wanpipe_hdlc_engine_t *hdlc_eng,
 		}
 
 		if (hdlc_decoder->rx_decode_len >= MAX_SOCK_HDLC_LIMIT){
- 			printf("ERROR Rx decode len > max\n");	
+ 			//printf("ERROR Rx decode len > max\n");	
 			hdlc_decoder->stats.errors++;
 			hdlc_decoder->stats.frame_overflow++;	
 			init_hdlc_decoder(hdlc_decoder);
@@ -408,7 +408,11 @@ static int decode_byte (wanpipe_hdlc_engine_t *hdlc_eng,
 						 * the API socket */
 						if (chan->crc_fin==chan->rx_orig_crc){
 							chan->stats.packets++;
-							//tx_up_decode_pkt(hdlc_eng,chan);
+							if (hdlc_eng->hdlc_data) {
+								hdlc_eng->hdlc_data(hdlc_eng,
+										      chan->rx_decode_buf,
+										      chan->rx_decode_len); 	       
+							}
 							gotdata=1;
 						}else{
 							chan->stats.errors++;

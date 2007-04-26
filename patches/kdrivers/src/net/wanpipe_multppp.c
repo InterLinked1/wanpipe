@@ -207,6 +207,8 @@ static int if_do_ioctl(netdevice_t *dev, struct ifreq *ifr, int cmd);
 static void chdlc_enable_timer (void* card_id);
 static void wp_bh (unsigned long data);
 
+static int digital_loop_test(sdla_t* card,wan_udp_pkt_t* wan_udp_pkt);
+
 
 #ifdef CONFIG_PRODUCT_WANPIPE_ANNEXG
 static int bind_annexg(netdevice_t *dev, netdevice_t *annexg_dev);
@@ -348,10 +350,6 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 		card->fe.card		= card;
 		card->fe.write_fe_reg	= write_front_end_reg;
 		card->fe.read_fe_reg	= read_front_end_reg;
-
-		if (card->u.c.comm_port == WANOPT_PRI){
-			conf->clocking = WANOPT_EXTERNAL;
-		}
 
 	}else{
 		card->fe.fe_status = FE_CONNECTED;
@@ -1260,12 +1258,10 @@ static int if_send (struct sk_buff* skb, netdevice_t* dev)
 		goto if_send_crit_exit;
 	}
 
-	if (card->wandev.state != WAN_CONNECTED){
+	if (card->u.c.state != WAN_CONNECTED){
 		++card->wandev.stats.tx_carrier_errors;
-		stop_net_queue(dev);
-		dev->trans_start = jiffies;
-		err=1;
-		goto if_send_crit_exit_down;
+		start_net_queue(dev);
+		goto if_send_crit_exit;
 	}
 
 	/* If it's an API packet pull off the API
@@ -1286,8 +1282,16 @@ static int if_send (struct sk_buff* skb, netdevice_t* dev)
 	}
 	
 	if ((err=chdlc_send(card, skb->data, skb->len))){
-		err=1;
-		stop_net_queue(dev);
+		 if(card->type == SDLA_S514){ 
+	       	 	wan_smp_flag_t smp_flags1;
+	       		wan_spin_lock_irq(&card->wandev.lock,&smp_flags1);
+			err=1;
+			stop_net_queue(dev);
+	       		wan_spin_unlock_irq(&card->wandev.lock,&smp_flags1);
+		} else {
+                        err=1;
+			stop_net_queue(dev); 
+		}
 	}else{
 		++card->wandev.stats.tx_packets;
        		card->wandev.stats.tx_bytes += skb->len;
@@ -1306,7 +1310,6 @@ if_send_crit_exit:
 		card->hw_iface.set_bit(card->hw, card->intr_perm_off, APP_INT_ON_TX_FRAME);
 	}
 
-if_send_crit_exit_down:
 	wan_clear_bit(SEND_CRIT, (void*)&card->wandev.critical);
 	if(card->type != SDLA_S514){
 		s508_unlock(card,&smp_flags);
@@ -1577,8 +1580,8 @@ static unsigned char read_front_end_reg (void* card1, ...)
         int err;
 
 	va_start(args, card1);
-	line_no	= (u16)va_arg(args, int);
-	reg	= (u16)va_arg(args, int);
+	line_no	= (u16)va_arg(args, u32);
+	reg	= (u16)va_arg(args, u32);
 	va_end(args);
 
         ((FRONT_END_REG_STRUCT *)data)->register_number = (unsigned short)reg;
@@ -1606,9 +1609,9 @@ static int write_front_end_reg (void* card1, ... )
 	int retry=15;
 
 	va_start(args, card1);
-	line_no	= (u16)va_arg(args, int);
-	reg	= (u16)va_arg(args, int);
-	value	= (u8)va_arg(args, int);
+	line_no	= (u16)va_arg(args, u32);
+	reg	= (u16)va_arg(args, u32);
+	value	= (u8)va_arg(args, u32);
 	va_end(args);
 
 	do {
@@ -1622,6 +1625,11 @@ static int write_front_end_reg (void* card1, ... )
 			chdlc_error(card,err,mb);
 		}
 	}while(err && --retry);
+
+	if (err) {
+         	DEBUG_EVENT("%s: Error: Failed to write front end reg!\n",
+				card->devname);
+	}
 
         return err;
 }
@@ -1734,6 +1742,11 @@ STATIC void wsppp_isr (sdla_t* card)
 				wanpipe_lip_kick(chan,0);
 				break;
 			}
+
+			if (chan->common.usedby == API){
+				start_net_queue(dev);	
+                         	wan_wakeup_api(chan);
+			}   
 
 #ifdef CONFIG_PRODUCT_WANPIPE_ANNEXG
 			if (chan->common.usedby == ANNEXG && 
@@ -2289,10 +2302,15 @@ static void handle_front_end_state(void* card_id)
 			port_set_state(card,WAN_CONNECTED);
 		}
 	}else{
-		netdevice_t	*dev;
-		dev = WAN_DEVLE2DEV(WAN_LIST_FIRST(&card->wandev.dev_head));
-		send_ppp_term_request(dev);
-		port_set_state(card,WAN_DISCONNECTED);
+		if (!IS_56K_CARD(card)) {
+                	netdevice_t     *dev;
+                        dev = WAN_DEVLE2DEV(WAN_LIST_FIRST(&card->wandev.dev_head));
+                        send_ppp_term_request(dev);
+                        port_set_state(card,WAN_DISCONNECTED);
+                } else {
+                       card->wandev.state = WAN_DISCONNECTED;
+                }
+
 	}
 }
 
@@ -2318,14 +2336,24 @@ static int process_chdlc_exception(sdla_t *card)
 			card->u.c.state = WAN_CONNECTED;
 			DEBUG_EVENT("%s: Exception condition: Link active!\n",
 					card->devname);
-			if (card->wandev.ignore_front_end_status == WANOPT_YES ||
-			    card->fe.fe_status == FE_CONNECTED){
-				port_set_state(card, WAN_CONNECTED);
-			}
+		
+			if (IS_56K_CARD(card)) {
+                                port_set_state(card, WAN_CONNECTED);
+                                if (card->fe.fe_status != FE_CONNECTED) {
+                                       card->wandev.state = WAN_DISCONNECTED;
+                                }
+                        } else {
+                               	if (card->wandev.ignore_front_end_status == WANOPT_YES ||
+                               	    card->fe.fe_status == FE_CONNECTED){
+                                       	port_set_state(card, WAN_CONNECTED);
+                               	}
+                        }
+
+			
 			break;
 
 		case EXCEP_LINK_INACTIVE_MODEM:
-			DEBUG_EVENT("%s: Exception condition: Link active!\n",
+			DEBUG_EVENT("%s: Exception condition: Link In-active!\n",
 					card->devname);
 			card->u.c.state = WAN_DISCONNECTED;
 			port_set_state(card, WAN_DISCONNECTED);
@@ -2463,21 +2491,16 @@ static int if_do_ioctl(netdevice_t *dev, struct ifreq *ifr, int cmd)
 				return -EFAULT;
 			}
 
-			spin_lock_irqsave(&card->wandev.lock, smp_flags);
+                        if (wan_udp_pkt->wan_udp_command == DIGITAL_LOOPTEST) {
+                                process_udp_mgmt_pkt(card,dev,chan,1);
+                        } else {
 
-			/* We have to check here again because we don't know
-			 * what happened during spin_lock */
-			if (wan_test_bit(0,&card->in_isr)) {
-				printk(KERN_INFO "%s:%s Pipemon command failed, Driver busy: try again.\n",
-						card->devname,dev->name);
-				atomic_set(&chan->udp_pkt_len,0);
+				spin_lock_irqsave(&card->wandev.lock, smp_flags);
+				
+				process_udp_mgmt_pkt(card,dev,chan,1);
+				
 				spin_unlock_irqrestore(&card->wandev.lock, smp_flags);
-				return -EBUSY;
 			}
-			
-			process_udp_mgmt_pkt(card,dev,chan,1);
-			
-			spin_unlock_irqrestore(&card->wandev.lock, smp_flags);
 
 			/* This area will still be critical to other
 			 * PIPEMON commands due to udp_pkt_len
@@ -2736,6 +2759,12 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 			wan_udp_pkt->wan_udp_return_code = COMMAND_OK;
 			break;
 
+		case DIGITAL_LOOPTEST:
+			wan_udp_pkt->wan_udp_return_code = 
+				digital_loop_test(card,wan_udp_pkt);
+			break;
+
+			
    		case FT1_MONITOR_STATUS_CTRL:
 			/* Enable FT1 MONITOR STATUS */
 	        	if ((wan_udp_pkt->wan_udp_data[0] & ENABLE_READ_FT1_STATUS) ||  
@@ -3630,5 +3659,65 @@ get_map(wan_device_t *wandev, netdevice_t *dev, struct seq_file* m, int* stop_cn
 }
 
 #endif
+
+
+static int digital_loop_test(sdla_t* card,wan_udp_pkt_t* wan_udp_pkt)
+{
+
+	netskb_t* skb;
+	netdevice_t* dev;
+	char* buf;
+	private_area_t *chan;
+
+	dev = WAN_DEVLE2DEV(WAN_LIST_FIRST(&card->wandev.dev_head));
+	if (dev == NULL) {
+		return 1;
+	}
+	chan = wan_netif_priv(dev);
+	if (chan == NULL) {
+		return 1;
+	}
+	
+	if (chan->common.state != WAN_CONNECTED) {
+		DEBUG_EVENT("%s: Loop test failed: dev not connected!\n",
+		                        card->devname);
+		return 2;
+	}
+	 
+	skb = wan_skb_alloc(wan_udp_pkt->wan_udp_data_len+100);
+	if (skb == NULL) {
+		return 3;
+	}
+
+	switch (chan->common.usedby) {
+
+	case API:
+		wan_skb_push(skb, sizeof(api_rx_hdr_t));
+		break;
+
+	case STACK:
+	case WANPIPE:
+		break;
+
+	default:
+		DEBUG_EVENT("%s: Loop test failed: invalid operation mode!\n",
+			card->devname);
+		wan_skb_free(skb);
+		return 4;
+	}
+
+	buf = wan_skb_put(skb, wan_udp_pkt->wan_udp_data_len);
+	memcpy(buf, wan_udp_pkt->wan_udp_data, wan_udp_pkt->wan_udp_data_len);
+
+
+	skb->next = skb->prev = NULL;
+        skb->dev = dev;
+        skb->protocol = htons(ETH_P_IP);
+        skb->mac.raw  = wan_skb_data(skb);
+        dev_queue_xmit(skb);
+
+	return 0;
+}
+
 
 /****** End ****************************************************************/

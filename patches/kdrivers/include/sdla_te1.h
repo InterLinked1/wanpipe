@@ -202,6 +202,7 @@
 #define LINELB_TE1_TIMER	40	/* 40ms */
 #define LINELB_CODE_CNT		10	/* no. of repetitions for lb_code */
 #define LINELB_CHANNEL_CNT	10	/* no. of repetitions for channel */
+#define RBOC_CODE_YEL           0x00
 #define LINELB_ACTIVATE_CODE	0x07
 #define LINELB_DEACTIVATE_CODE	0x1C
 #define LINELB_DS3LINE		0x1B
@@ -362,19 +363,19 @@ typedef struct sdla_te_cfg {
 /* Performamce monitor counters */
 typedef struct {
 	unsigned char	mask;
-	unsigned long	lcv_errors;	/* Line code violation (T1/E1) */
+	unsigned int	lcv_errors;	/* Line code violation (T1/E1) */
 	unsigned short	lcv_diff;
-	unsigned long	bee_errors;	/* Bit errors (T1) */
+	unsigned int	bee_errors;	/* Bit errors (T1) */
 	unsigned short	bee_diff;
-	unsigned long	oof_errors;	/* Frame out of sync (T1) */
+	unsigned int	oof_errors;	/* Frame out of sync (T1) */
 	unsigned short	oof_diff;
-	unsigned long	crc4_errors;	/* CRC4 errors (E1) */
+	unsigned int	crc4_errors;	/* CRC4 errors (E1) */
 	unsigned short	crc4_diff;
-	unsigned long	fas_errors;	/* Frame Aligment Signal (E1)*/
+	unsigned int	fas_errors;	/* Frame Aligment Signal (E1)*/
 	unsigned short	fas_diff;
-	unsigned long	feb_errors;	/* Far End Block errors (E1) */
+	unsigned int	feb_errors;	/* Far End Block errors (E1) */
 	unsigned short	feb_diff;
-	unsigned long	fer_errors;	/* Framing bit errors (T1) */
+	unsigned int	fer_errors;	/* Framing bit errors (T1) */
 	unsigned short	fer_diff;
 } sdla_te_pmon_t;
 

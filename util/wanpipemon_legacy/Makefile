@@ -12,10 +12,7 @@ DEBUG	= 2
 
 PROD=wanpipemon_legacy
 # Project file paths.
-SYSINC=$(shell if [ -f ../../.sysinclude ]; then cat ../../.sysinclude;  else echo ""; fi)
-ifeq "$(SYSINC)" "" 
 SYSINC=/lib/modules/$(shell uname -r)/build/include
-endif
 WAN_VIRTUAL=
 LXDIR=../lxdialog
 ENABLE_GUI=YES
@@ -24,21 +21,8 @@ PROTOCOL_DEFS=
 
 CC = gcc 
 CPP = gcc -E
-CFLAGS = -Wall -Wstrict-prototypes -I$(SYSINC) -D$(OS_TYPE) -I/usr/include/ncurses -I../ft1 -O2 -fomit-frame-pointer -DLOCALE -D_DEBUG_=$(DEBUG) $(HOSTCFLAGS)
-LDFLAGS = -s -L .
+CFLAGS = -Wall -Wstrict-prototypes -I$(SYSINC) -D$(OS_TYPE) -I../ft1 -O2 -fomit-frame-pointer -DLOCALE -D_DEBUG_=$(DEBUG) -DCURSES_LOC="<ncurses.h>"
 WAN_VIRTUAL=
-
-
-HOSTCFLAGS=-I$(SYSINC)
-ifeq (/usr/include/ncurses/ncurses.h, $(wildcard /usr/include/ncurses/ncurses.h))
-        HOSTCFLAGS += -I/usr/include/ncurses
-else
-ifeq (/usr/include/ncurses/curses.h, $(wildcard /usr/include/ncurses/curses.h))
-        HOSTCFLAGS += -I/usr/include/ncurses
-else
-endif
-endif
-# Tools options.
 
 ifeq "${ENABLE_GUI}" "NO"
 LX_OBJ =
@@ -50,21 +34,6 @@ GUI_OBJ = wangui.o
 LDLIBS = -lncurses
 
 CFLAGS += -DWANPIPEMON_GUI -DLOCALE  
-
-ifeq (/usr/include/ncurses/ncurses.h, $(wildcard /usr/include/ncurses/ncurses.h))
-        CFLAGS += -I/usr/include/ncurses -DCURSES_LOC="<ncurses.h>"
-else
-ifeq (/usr/include/ncurses/curses.h, $(wildcard /usr/include/ncurses/curses.h))
-        CFLAGS += -I/usr/include/ncurses -DCURSES_LOC="<ncurses/curses.h>"
-else
-ifeq (/usr/include/ncurses.h, $(wildcard /usr/include/ncurses.h))
-        CFLAGS += -DCURSES_LOC="<ncurses.h>"
-else
-	CFLAGS += -DCURSES_LOC="<curses.h>"
-endif
-endif
-endif
-
 endif
 
 OBJS= wanpipemon_legacy.o fpipemon.o cpipemon.o ppipemon.o xpipemon.o atmpipemon.o aftpipemon.o dslpipemon.o prot_trace.o ss7pipemon.o bpipemon.o fe_lib.o xml_lib.o ../ft1/unixio.o 
@@ -76,23 +45,10 @@ OBJS+=$(LX_OBJ)
 
 ####### RULES ################################################################
 
-all:    ncurses \
-	$(PROD) 
+all:    $(PROD) 
 	@echo "Ok."
 
 $(PROD):  $(OBJS) 
-
-ncurses:
-	@x=`find /lib/ /usr/lib/ /usr/lib64/ /usr/local/lib/ -maxdepth 1 -name 'libncurses.*' 2> /dev/null` ;\
-	if [ ! "$$x" ]; then \
-		echo -e "\007" ;\
-		echo ">> Unable to find the Ncurses libraries." ;\
-		echo ">>" ;\
-		echo ">> You must have Ncurses installed in order" ;\
-		echo ">> to use 'make menuconfig'" ;\
-		echo ;\
-		exit 1 ;\
-	fi
 
 install:
 	@echo "Installing Wanpipe utilites in $(WAN_VIRTUAL)/usr/sbin"

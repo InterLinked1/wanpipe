@@ -37,6 +37,8 @@ static struct call_signal_map call_signal_table[] = {
 	{SIGBOOST_EVENT_CALL_STOPPED_ACK, "CALL_STOPPED_ACK"},
 	{SIGBOOST_EVENT_SYSTEM_RESTART, "SYSTEM_RESTART"},
 	{SIGBOOST_EVENT_HEARTBEAT, "HEARTBEAT"},
+	{SIGBOOST_EVENT_INSERT_CHECK_LOOP, "LOOP START"},
+	{SIGBOOST_EVENT_REMOVE_CHECK_LOOP, "LOOP STOP"} 
 }; 
 
 
@@ -111,6 +113,13 @@ call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon)
 		rxseq++;
 
 		return &mcon->event;
+	} else {
+                clog_printf(0, mcon->log,
+                        "------------------------------------------\n");
+                clog_printf(0, mcon->log,
+                        "Critical Error: Invalid Event lenght from boost\n");
+                clog_printf(0, mcon->log,
+                        "------------------------------------------\n");
 	}
 
 	return NULL;
@@ -124,7 +133,7 @@ int call_signal_connection_write(call_signal_connection_t *mcon, call_signal_eve
 		return -EINVAL;
 	}
 
-	if (event->span < 0 || event->chan < 0 || event->span > 7 || event->chan > 30) {
+	if (event->span < 0 || event->chan < 0 || event->span > 16 || event->chan > 30) {
 		clog_printf(0, mcon->log, 
 			"------------------------------------------\n");
 		clog_printf(0, mcon->log, 
@@ -145,6 +154,44 @@ int call_signal_connection_write(call_signal_connection_t *mcon, call_signal_eve
 	if (err != sizeof(call_signal_event_t)) {
 		err = -1;
 	}
+
+	
+#if 0
+	clog_printf(2, mcon->log, "TX EVENT\n");
+	clog_printf(2, mcon->log, "===================================\n");
+	clog_printf(2, mcon->log, "       tType: %s (%0x HEX)\n",
+				call_signal_event_id_name(event->event_id),event->event_id);
+	clog_printf(2, mcon->log, "       tSpan: [%d]\n",event->span+1);
+	clog_printf(2, mcon->log, "       tChan: [%d]\n",event->chan+1);
+	clog_printf(2, mcon->log, "  tCalledNum: %s\n",
+			(event->called_number_digits_count ? (char *) event->called_number_digits : "N/A"));
+	clog_printf(2, mcon->log, " tCallingNum: %s\n",
+			(event->calling_number_digits_count ? (char *) event->calling_number_digits : "N/A"));
+	clog_printf(2, mcon->log, "      tCause: %d\n",event->release_cause);
+	clog_printf(2, mcon->log, "  tInterface: [w%dg%d]\n",event->span+1,event->chan+1);
+	clog_printf(2, mcon->log, "   tEvent ID: [%d]\n",event->event_id);
+	clog_printf(2, mcon->log, "   tSetup ID: [%d]\n",event->call_setup_id);
+	clog_printf(2, mcon->log, "        tSeq: [%d]\n",event->seqno);
+	clog_printf(2, mcon->log, "===================================\n");
+#endif
+
+#if 1
+ 	clog_printf(2, mcon->log,
+                           "TX EVENT: %s:(%X) [w%dg%d] Rc=%i CSid=%i Seq=%i Cd=[%s] Ci=[%s]\n",
+                           call_signal_event_id_name(event->event_id),
+                           event->event_id,
+                           event->span+1,
+                           event->chan+1,
+                           event->release_cause,
+                           event->call_setup_id,
+                           event->seqno,
+                           (event->called_number_digits_count ? (char *) event->called_number_digits : "N/A"),
+                           (event->calling_number_digits_count ? (char *) event->calling_number_digits : "N/A")
+                           );
+#endif
+
+
+#if 0
 
 	clog_printf(2, mcon->log,
                            "\nTX EVENT\n"
@@ -174,6 +221,7 @@ int call_signal_connection_write(call_signal_connection_t *mcon, call_signal_eve
                            event->call_setup_id,
                            event->seqno
                            );
+#endif
 
 
 	return err;

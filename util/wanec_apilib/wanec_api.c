@@ -33,6 +33,7 @@
 #include <netinet/in.h>
 #if defined(__LINUX__)
 # include <linux/if.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 #endif
 #endif
@@ -47,6 +48,7 @@
 # include <wanpipe_defines.h>
 # include <wanpipe_cfg.h>
 # include "wan_ecmain.h"
+# include <wanec_iface.h>
 #else
 # include <wanpipe_defines.h>
 # include <wanpipe_cfg.h>
@@ -665,11 +667,16 @@ static int wanec_api_verbose(int verbose)
 }
 
 
+int wanec_api_init(void)
+{
+	memset(&ec_api, 0, sizeof(ec_api));
+	return 0;
+}
+
 int wanec_api_config(	char*		devname,
 			int		verbose)
 {
 	
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd	= WAN_EC_CMD_CONFIG;
 	ec_api.verbose	= wanec_api_verbose(verbose);
@@ -680,7 +687,6 @@ int wanec_api_release(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd	= WAN_EC_CMD_RELEASE;
 	ec_api.verbose	= wanec_api_verbose(verbose);
@@ -692,7 +698,6 @@ int wanec_api_enable(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd		= WAN_EC_CMD_ENABLE;
 	ec_api.verbose		= wanec_api_verbose(verbose);
@@ -705,7 +710,6 @@ int wanec_api_disable(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd		= WAN_EC_CMD_DISABLE;
 	ec_api.verbose		= wanec_api_verbose(verbose);
@@ -719,7 +723,6 @@ int wanec_api_bypass(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd		= (enable) ?
 					WAN_EC_CMD_BYPASS_ENABLE : 
@@ -735,7 +738,6 @@ int wanec_api_mode(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	switch(mode){
 	case 0:
@@ -763,7 +765,6 @@ int wanec_api_dtmf(	char*		devname,
 			int		verbose)
 {
 		
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd		= (enable) ?
 					WAN_EC_CMD_DTMF_ENABLE : 
@@ -783,7 +784,6 @@ int wanec_api_stats(	char*		devname,
 {
 	int	err;
 	
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd			= (full) ?
 						WAN_EC_CMD_STATS_FULL : 
@@ -831,7 +831,6 @@ int wanec_api_tone_load(char*	devname,
 {
 	int	err;
 
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd	= WAN_EC_CMD_TONE_LOAD;
 	ec_api.verbose	= wanec_api_verbose(verbose);
@@ -849,7 +848,6 @@ int wanec_api_tone_unload(	char*		devname,
 {
 	int	err;
 
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd				= WAN_EC_CMD_TONE_LOAD;
 	ec_api.verbose	= wanec_api_verbose(verbose);
@@ -868,7 +866,6 @@ int wanec_api_playout(	char*		devname,
 {
 	int	err;
 
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd	= (start) ? 
 				WAN_EC_CMD_PLAYOUT_START :
@@ -890,7 +887,6 @@ int wanec_api_monitor(	char*	devname,
 {
 	int	err;
 
-	memset(&ec_api, 0, sizeof(ec_api));
 	memcpy(ec_api.devname, devname, strlen(devname));
 	ec_api.cmd			= WAN_EC_CMD_MONITOR;
 	ec_api.verbose	= wanec_api_verbose(verbose);
@@ -906,9 +902,9 @@ int wanec_api_monitor(	char*	devname,
 int wanec_api_param(char *key, char *value)
 {
 	strlcpy(ec_api.param[ec_api.param_no].key,
-					key, MAX_EC_PARAM_LEN); 
+					key, MAX_PARAM_LEN); 
 	strlcpy(ec_api.param[ec_api.param_no].value,
-					value, MAX_EC_VALUE_LEN); 
+					value, MAX_VALUE_LEN); 
 	ec_api.param_no++;
 	return 0;
 }

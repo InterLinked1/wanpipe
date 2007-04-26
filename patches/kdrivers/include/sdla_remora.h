@@ -124,6 +124,7 @@ typedef struct sdla_remora_cfg_ {
 	char	opermode_name[WAN_RM_OPERMODE_LEN];
 /*	int	tdmv_law;*/	/* WAN_TDMV_ALAW or WAN_TDMV_MULAW */
 	int	reversepolarity;
+	int	network_sync;
 } sdla_remora_cfg_t;
 
 typedef struct {

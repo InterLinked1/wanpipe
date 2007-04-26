@@ -5,7 +5,11 @@
  *
  * ===========================================================
  *
- * May 10 2006	Alex Feldman	Initial Version
+ * May 10 2006		Alex Feldman	Initial Version
+ *
+ * March 19, 2006	Alex Feldman	Enable Sout Adaptive Noise
+ *					Reduction for all channel by
+ *					default.
  */
 
 
@@ -26,9 +30,9 @@
 # include <wanpipe_includes.h>
 # include <wanpipe_defines.h>
 # include <wanpipe.h>
+#endif
 
 int verbose;
-#endif
 
 #include "oct6100_api.h"
 #include "oct6100_version.h"
@@ -246,11 +250,63 @@ int wanec_ChipStats(wan_ec_dev_t *ec_dev, wan_ec_api_t *ec_api, int reset)
 			"%s: Echo Canceller image description:\n%s\n",
 					ec->name, f_ChipImageInfo.szVersionNumber);
 			PRINT1(ec_api->verbose,
-			"%s: Echo Canceller image build ID %08X\n",
+			"%s: Echo Canceller image build ID\t\t\t%08X\n",
 					ec->name, f_ChipImageInfo.ulBuildId);
 			PRINT1(ec_api->verbose,
-			"%s: Echo Canceller maximum number of channels %d\n",
+			"%s: Echo Canceller maximum number of channels\t%d\n",
 					ec->name, f_ChipImageInfo.ulMaxChannels);	
+#if 0	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller maximum tail displacement\t\t%d\n",
+					ec->name, f_ChipImageInfo.ulMaxTailDisplacement);	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller per channel tail displacement\t%s\n",
+					ec->name,
+					(f_ChipImageInfo.fPerChannelTailDisplacement == TRUE)?"TRUE":"FALSE");
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller per channel tail length\t\t%s\n",
+					ec->name,
+					(f_ChipImageInfo.fPerChannelTailLength == TRUE)?"TRUE":"FALSE");
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller maximum tail length\t\t%d\n",
+					ec->name, f_ChipImageInfo.ulMaxTailLength);	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller buffer Playout support\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fBufferPlayout == TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller adaptive noise reduction\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fAdaptiveNoiseReduction==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller SOUT noise bleaching\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fSoutNoiseBleaching==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller ROUT noise reduction\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fRoutNoiseReduction==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller ROUT noise reduction level\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fRoutNoiseReductionLevel==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller automatic level control\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fAutoLevelControl==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller acoustic echo cancellation\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fAcousticEcho==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller conferencing\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fConferencing==TRUE)?"TRUE":"FALSE");	
+			PRINT1(ec_api->verbose,
+			"%s: Echo Canceller conferencing noise reduction\t\t%s\n",
+					ec->name, 
+					(f_ChipImageInfo.fConferencingNoiseReduction==TRUE)?"TRUE":"FALSE");
+#endif
 		}
 	}
 	if (f_ChipImageInfo.ulMaxChannels < (unsigned int)ec->max_channels){
@@ -440,7 +496,8 @@ int wanec_ChipOpen(wan_ec_dev_t *ec_dev, int verbose)
 			ec->pChipInstance,	/* API instance memory. */
 			&ec->f_OpenChip );		/* Open chip structure. */
 	if ( ulResult != cOCT6100_ERR_OK ){
-		if (ulResult != cOCT6100_ERR_OPEN_INVALID_FIRMWARE_OR_CAPACITY_PINS){
+		if (ec->imageLast == WANOPT_YES || 
+		    ulResult != cOCT6100_ERR_OPEN_INVALID_FIRMWARE_OR_CAPACITY_PINS){
 			DEBUG_EVENT(
 			"ERROR: %s: Failed to open Echo Canceller Chip (err=0x%X)\n",
 					ec->name, ulResult);
@@ -786,7 +843,7 @@ int wanec_ChannelOpen(wan_ec_dev_t *ec_dev, wan_ec_api_t *ec_api)
 		EchoChannelOpen.ulEchoOperationMode =
 					cOCT6100_ECHO_OP_MODE_POWER_DOWN;
 #endif
-		EchoChannelOpen.fEnableToneDisabler = TRUE;
+		EchoChannelOpen.fEnableToneDisabler = 	TRUE;
 
 		stream = (channel % 2 == 1) ? 4 : 0;
 		timeslot = channel / 2;
@@ -814,6 +871,10 @@ int wanec_ChannelOpen(wan_ec_dev_t *ec_dev, wan_ec_api_t *ec_api)
 		EchoChannelOpen.VqeConfig.fAcousticEcho		= TRUE;
 #endif
 
+
+		/* Breaks faxing 
+		EchoChannelOpen.VqeConfig.fSoutAdaptiveNoiseReduction = TRUE;
+		*/
 		EchoChannelOpen.VqeConfig.ulComfortNoiseMode	= 
 					cOCT6100_COMFORT_NOISE_NORMAL;
 				/*	cOCT6100_COMFORT_NOISE_NORMAL
@@ -999,6 +1060,7 @@ int wanec_TonesEnable(wan_ec_t *ec, int channel, unsigned char type, int verbose
 	PRINT1(verbose, "%s: Enable tone detection on channel %d ...\n",
 					ec->name,
 					channel);
+					
 	if (type & WAN_EC_CHANNEL_PORT_ROUT){
 		for(i = 0; i < WAN_NUM_DTMF_TONES; i++){
 	
@@ -1013,6 +1075,9 @@ int wanec_TonesEnable(wan_ec_t *ec, int channel, unsigned char type, int verbose
 			if ( ulResult == cOCT6100_ERR_OK ){
 				continue;
 			}else if (ulResult == cOCT6100_ERR_TONE_DETECTION_TONE_ACTIVATED){
+				PRINT1(verbose,
+				"%s: Tone detection is already enabled on channel %d for port ROUT!\n",
+					ec->name, channel);
 				continue;	/* already activated */
 			}else{
 				DEBUG_EVENT(
@@ -1040,6 +1105,9 @@ int wanec_TonesEnable(wan_ec_t *ec, int channel, unsigned char type, int verbose
 			if ( ulResult == cOCT6100_ERR_OK ){
 				continue;
 			}else if (ulResult == cOCT6100_ERR_TONE_DETECTION_TONE_ACTIVATED){
+				PRINT1(verbose,
+				"%s: Tone detection is already enabled on channel %d for port SOUT!\n",
+					ec->name, channel);
 				continue;	/* already activated */
 			}else{
 				DEBUG_EVENT(
@@ -1053,6 +1121,7 @@ int wanec_TonesEnable(wan_ec_t *ec, int channel, unsigned char type, int verbose
 			}
 		}
 	}
+
 	return 0;
 }
 

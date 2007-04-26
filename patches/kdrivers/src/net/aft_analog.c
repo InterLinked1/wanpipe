@@ -341,6 +341,12 @@ int aft_analog_global_chip_config(sdla_t *card)
 	wan_set_bit(AFT_CHIPCFG_SFR_IN_BIT,&reg);
 
 	DEBUG_CFG("--- AFT Chip Reset. -- \n");
+	
+        if (card->fe.fe_cfg.cfg.remora.network_sync) {
+		DEBUG_EVENT("%s: Analog Clock set to Network Sync!\n",
+				card->devname);
+		wan_set_bit(AFT_CHIPCFG_ANALOG_CLOCK_SELECT_BIT,&reg);	
+	}     
 
 	card->hw_iface.bus_write_4(card->hw,AFT_CHIP_CFG_REG,reg);
 

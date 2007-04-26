@@ -18,27 +18,12 @@ if [ ! -e /usr/local/ss7box/$ss7boxd ]; then
 	exit 1
 fi
 
-eval "ulimit -n 4096"
+eval "ulimit -n 8096"
 
 sangoma_mgd -term
 
 kill -TERM $(pidof asterisk);
 
-
-make clean
-make
-if [ $? -ne 0 ]; then
-	exit 1;
-fi
-make install
-
-if [ "$1" = "all" ]; then
-	cp -f g711.h /usr/src/asterisk
-	perl /usr/src/asterisk/contrib/scripts/astxs -install chan_woomera.c
-	if [ $? -ne 0 ]; then
-		exit 1;
-	fi
-fi 
 
 cd /usr/local/ss7box
 ./$ss7boost --term
@@ -55,8 +40,6 @@ fi
 
 cd $home
 
-
-./clog.sh
 
 
 if [ 1 -eq 0 ]; then

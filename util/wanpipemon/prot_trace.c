@@ -51,6 +51,8 @@ extern char TRACE_ASCII;
 extern char TRACE_HEX;
 extern int sys_timestamp;
 
+extern wanpipe_hdlc_engine_t *rx_hdlc_eng;  
+
 static char ebcdic[] =
 {
 /*        0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  */
@@ -1846,6 +1848,22 @@ try_trace_again:
 		
 		break;
 
+	case WP_OUT_TRACE_HDLC:
+		
+                trace_banner(trace_iface,&trace_started);
+
+		if (trace_iface->len == 0){
+			printf("the frame data is not available" );
+			return;
+		}
+
+		if (rx_hdlc_eng) {
+			wanpipe_hdlc_decode(rx_hdlc_eng,trace_iface->data,trace_iface->len);
+		}
+
+		break;                                                
+		
+		
 	case WP_OUT_TRACE_RAW:
 	default:
 
@@ -1858,10 +1876,15 @@ try_trace_again:
 
 		print_data_in_hex(trace_iface->data, trace_iface->len);
 
-		break;
+		break;     
 	}
 
 	trace_iface->pkts_written++;
 	trace_iface->status=0;
 }
 
+int trace_hdlc_data(wanpipe_hdlc_engine_t *hdlc_eng, void *data, int len)
+{
+	print_data_in_hex(data, len);			
+	return 0;
+}

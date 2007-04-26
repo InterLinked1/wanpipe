@@ -2,9 +2,10 @@
 %define WANPIPE_VER	  wanpipe
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           7
+%define release           8
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
+%define UTILS_LOCAL_DIR   /usr/local/sbin
 %define PROD_HOME  	  /etc/wanpipe
 %define WANCFG_LIBS_DIR   /etc/wanpipe/lib
 %define API_DIR           /etc/wanpipe/api
@@ -231,12 +232,65 @@ install_init;
 
 %files
 %{UTILS_DIR}
+%{UTILS_LOCAL_DIR}
 %{PROD_HOME}
 %{DOCS_DIR}
 %{MODULES_DIR}
 
 
 %changelog
+
+* Wed Apr 23 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-8
+====================================================================  
+
+- Important: AFT TDMV (ZAPTEL) Fix
+  A race condition existed on wanrouter startup.
+  If echo canceler startup delayed the startup long enough,
+  for T1/E1 line to come up, it was possible that zaptel
+  alarms would not be cleared.
+
+- Important: AFT T1/E1 Front End update.
+  The AFT cards will not disable communications for minor
+  T1/E1 alarms.  This has caused problems in the passed because
+  AFT cards were too strict in interpreting T1/E1 alarms.
+  
+
+- Added AFT/56K Line Loop Test feature in wanpipemon
+  After enabling digital loopback run line test to test
+  the device.:
+  	wanpipemon -i w1g1 -c Tadlb
+	wanpipemon -i w1g1 -c Tlt   
+
+  This option can be used with any T1/E1 AFT card as well as 56K,
+  with any wanpipe configuration.
+  
+- Hardware support for new AFT 301 Card.
+  The new T3 card has been redesigned to use common main board as
+  the rest of the AFT family. However, the driver remains identical.
+  
+- AFT T1/E1 Improved CAS Signaling Support
+
+- Allow original A102 config to work with A102d cards.
+
+- TDM API updated for unlimited number of /dev/wptdm devices.
+
+- Updated the Hardware Echo Canceler with Noise suppression.
+
+- New TDM Zaptel/TDM API installation Makefile to be used by linux power users.
+  Options:
+	make #buils all utilities and kernel modules
+	make install #installs utilities modules etc
+
+- Fixed DCHAN patch for zaptel 1.2.13
+
+
+  KNOWS ISSUES:
+  -------------
+  - All cards with Maxim/Dallas front end chips do not support RBS signalling.
+    These include: A102d/A108d and new A104d with maxim/dallas chips.
+    The fix is in new beta 3.1.0 release.  
+
+
 * Wed Jan 31 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-7
 ====================================================================  
 

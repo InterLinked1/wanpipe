@@ -77,6 +77,7 @@
 */
 
 # define AFT_CHIPCFG_TE1_CFG_BIT	0
+# define AFT_CHIPCFG_ANALOG_CLOCK_SELECT_BIT 0
 # define AFT_CHIPCFG_SFR_EX_BIT		1
 # define AFT_CHIPCFG_SFR_IN_BIT		2
 # define AFT_CHIPCFG_FE_INTR_CFG_BIT	3
@@ -909,6 +910,8 @@ enum {
 #define SW0_VALUE               0x04
 #define SW1_VALUE               0x08
 
+#define CUSTOMER_CPLD_ID_REG	0x0A
+
 /* -------------------------------------- */
 
 #define WRITE_DEF_SECTOR_DSBL   0x01
@@ -1102,7 +1105,8 @@ enum {
 	FLUSH_COMMS_ERROR_STATS,
 	AFT_LINK_STATUS,
 	AFT_MODEM_STATUS,
-	AFT_HWEC_STATUS
+	AFT_HWEC_STATUS,
+	DIGITAL_LOOPTEST
 };
 
 #define UDPMGMT_SIGNATURE		"AFTPIPEA"
@@ -1353,6 +1357,7 @@ typedef struct aft_dma_chain
 	unsigned long	init;
 	sdla_dma_addr_t	dma_addr;
 	u32		dma_len;
+	u32		dma_map_len;
 	netskb_t 	*skb;
 	u32		index;
 

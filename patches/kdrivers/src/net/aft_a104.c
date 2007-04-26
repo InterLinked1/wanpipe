@@ -632,7 +632,7 @@ int a104_chip_config(sdla_t *card)
 	
 	/* On A108 Cards the T1/E1 will be configured per PORT  
 	 * not per CARD */
-	if (card->u.aft.firm_id == AFT_DS_FE_CORE_ID/*card->adptr_type == A108_ADPTR_8TE1*/) {
+	if (card->u.aft.firm_id == AFT_DS_FE_CORE_ID) {
 
 		if (IS_T1_CARD(card)) {
 			wan_clear_bit(AFT_LCFG_A108_FE_TE1_MODE_BIT,&reg);

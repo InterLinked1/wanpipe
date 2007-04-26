@@ -34,6 +34,7 @@
 #include <arpa/inet.h>
 #if defined(__LINUX__)
 # include <linux/version.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 # include <linux/if_wanpipe.h>
 # include <linux/if_ether.h>
@@ -83,6 +84,8 @@ int 		is_508;
 int		gui_interface=0;
 
 
+extern int trace_hdlc_data(wanpipe_hdlc_engine_t *hdlc_eng, void *data, int len);
+
 static sa_family_t		af = AF_INET;
 static struct sockaddr_in	soin;
  char ipaddress[16];
@@ -115,6 +118,8 @@ int pcap_output=0;
 int pcap_prot=0;
 FILE *pcap_output_file;
 unsigned char pcap_output_file_name[50];
+
+wanpipe_hdlc_engine_t *rx_hdlc_eng; 
 
 trace_prot_t trace_prot_opt[]={ 
 	{"FR", FRAME,107},
@@ -831,8 +836,10 @@ static int init(int argc, char *argv[], char* command)
 				return WAN_FALSE;
 			}
 
-			strncpy(command,argv[i+1], MAX_CMD_LENGTH);
-			command[MAX_CMD_LENGTH]='\0';	
+			memset(command, 0, MAX_CMD_LENGTH+1);
+			strncpy(command,argv[i+1], strlen(argv[i+1]));
+			//strncpy(command,argv[i+1], MAX_CMD_LENGTH);
+			//command[MAX_CMD_LENGTH]='\0';	
 			c_cnt=1;
 		}else if (!strcmp(argv[i], "-d")){
 			TRACE_DLCI=dlci_number=16;
@@ -1287,8 +1294,15 @@ void sig_end(int signal)
 		pcap_output_file=NULL;
 	}
 
-	if (sock)
+	if (sock) {
 		close(sock);
+		sock=-1;
+	}
+
+	if (rx_hdlc_eng) {
+         	wanpipe_unreg_hdlc_engine(rx_hdlc_eng);  
+		rx_hdlc_eng=NULL;
+	}
 
 	//printf("\n\nSignal: Terminating wanpipemon\n");
 
@@ -1298,6 +1312,7 @@ void sig_end(int signal)
 int main(int argc, char* argv[])
 {
 	char command[MAX_CMD_LENGTH+1];
+	int err = 0;
 
 	strcpy(wan_udp.wan_udphdr_signature, GLOBAL_UDP_SIGNATURE);
 	sprintf(pcap_output_file_name,"wp_trace_pcap.bin");
@@ -1305,13 +1320,18 @@ int main(int argc, char* argv[])
 	signal(SIGHUP,sig_end);
 	signal(SIGINT,sig_end);
 	signal(SIGTERM,sig_end);
+
+	rx_hdlc_eng = wanpipe_reg_hdlc_engine();
+	if (rx_hdlc_eng) {
+         	rx_hdlc_eng->hdlc_data = trace_hdlc_data;
+	}
 	
   	printf("\n");
    	if (argc >= 2){
-		int err=0;
     
 		if (init(argc, argv, command) == WAN_FALSE){
-			return -EINVAL;		
+			err=-EINVAL;
+			goto main_exit;
 		}
 
 		if (pcap_output){
@@ -1325,21 +1345,24 @@ int main(int argc, char* argv[])
 			if (!pcap_output_file){
 				printf("wanpipemon: Failed to open %s binary file!\n",
 						pcap_output_file_name);
-				return -EINVAL;
+				err=-EINVAL;
+				goto main_exit;
 			}
 		}
 
 #ifdef WANPIPEMON_GUI
 		if (gui_interface && ip_addr==-1){
 			if (wan_main_gui() == WAN_FALSE){
-				return -EINVAL;
+				err=-EINVAL;
+				goto main_exit;
 			}
 		}
 gui_loop:		
 #endif
 		if (MakeConnection() == WAN_FALSE){ 
 			close(sock);
-			return -ENODEV;	
+		       	err=-ENODEV;
+		       	goto main_exit;
 		}
 		
 		//get_hardware_level_interface_name(if_name);
@@ -1365,7 +1388,15 @@ gui_loop:
    	}
   
 	printf("\n");
-   	return 0;
+
+main_exit:
+
+	if (rx_hdlc_eng) {
+         	wanpipe_unreg_hdlc_engine(rx_hdlc_eng);  
+		rx_hdlc_eng=NULL;
+	}
+
+   	return err;
 }
 
 

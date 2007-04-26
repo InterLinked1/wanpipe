@@ -41,8 +41,8 @@
 /******************************************************************************
 			  DEFINES AND MACROS
 ******************************************************************************/
-#define WRITE_REG(reg,val) fe->write_fe_reg(fe->card, (int)(reg),(int)(val))
-#define READ_REG(reg)	   fe->read_fe_reg(fe->card, (int)(reg))
+#define WRITE_REG(reg,val) fe->write_fe_reg(fe->card, 0, (u32)(reg),(u32)(val))
+#define READ_REG(reg)	   fe->read_fe_reg(fe->card, 0, (u32)(reg))
 
 
 /******************************************************************************
@@ -365,6 +365,50 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	}
 }
 
+
+/*
+ ******************************************************************************
+ *                              sdla_te_set_lbmode()
+ *
+ * Description:
+ * Arguments:
+ * Returns:
+ ******************************************************************************
+ */
+
+static int
+sdla_56k_set_lbmode(sdla_fe_t *fe, unsigned char type, unsigned char mode)
+{
+
+        unsigned char loop=BIT_RX_CTRL_DSU_LOOP|BIT_RX_CTRL_CSU_LOOP;
+        //unsigned char loop=BIT_RX_CTRL_DSU_LOOP;
+        //unsigned char loop=BIT_RX_CTRL_CSU_LOOP;
+        //unsigned char loop=0x40;
+
+        WAN_ASSERT(fe->write_fe_reg == NULL);
+        WAN_ASSERT(fe->read_fe_reg == NULL);
+
+        if (mode == WAN_TE1_ACTIVATE_LB){
+                WRITE_REG(REG_RX_CTRL, READ_REG(REG_RX_CTRL) | loop);
+
+                DEBUG_EVENT("%s: %s Diagnostic Line Loopback mode activated (0x%X).\n",
+                        fe->name,
+                        FE_MEDIA_DECODE(fe),
+                        READ_REG(REG_RX_CTRL));
+        }else{
+
+                WRITE_REG(REG_RX_CTRL, READ_REG(REG_RX_CTRL) & ~(loop));
+                DEBUG_EVENT("%s: %s Diagnostic Line Loopback mode deactivated (0x%X).\n",
+                        fe->name,
+                        FE_MEDIA_DECODE(fe),
+                        READ_REG(REG_RX_CTRL));
+        }
+
+        return 0;
+
+}
+
+
 /*
  ******************************************************************************
  *				sdla_56k_udp()	
@@ -377,7 +421,8 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 static int sdla_56k_udp(sdla_fe_t *fe, void* pudp_cmd, unsigned char* data)
 {
 	wan_cmd_t	*udp_cmd = (wan_cmd_t*)pudp_cmd;
-
+	int err=0;
+	
 	switch(udp_cmd->wan_cmd_command){
 	case WAN_GET_MEDIA_TYPE:
 		data[0] = (IS_56K_FEMEDIA(fe) ? WAN_MEDIA_56K : 
@@ -393,8 +438,15 @@ static int sdla_56k_udp(sdla_fe_t *fe, void* pudp_cmd, unsigned char* data)
 		udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
 	    	udp_cmd->wan_cmd_data_len = sizeof(sdla_fe_stats_t);
 		break;
-
+		
 	case WAN_FE_SET_LB_MODE:
+                /* Activate/Deactivate Line Loopback modes */
+                err = sdla_56k_set_lbmode(fe, data[0], data[1]);
+                udp_cmd->wan_cmd_return_code =
+                                (!err) ? WAN_CMD_OK : WAN_UDP_FAILED_CMD;
+                udp_cmd->wan_cmd_data_len = 0x00;
+                break;
+
  	case WAN_FE_FLUSH_PMON:
 	case WAN_FE_GET_CFG:
 	default:

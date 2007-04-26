@@ -592,6 +592,12 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 	if (card->hw == NULL){
 		return -EINVAL;
 	}
+
+	/* Reset the wandev confid, because sdla_register
+         * could have changed our config_id, in order to
+         * support A102 config file for A102-SH */	 
+	wandev->card_type  = conf->card_type;
+	wandev->config_id  = conf->config_id;   
 	
 	/* Check for resource conflicts and setup the
 	 * card for piggibacking if necessary */

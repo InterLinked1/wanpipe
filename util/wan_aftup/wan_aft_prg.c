@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #if defined(__LINUX__)
 # include <linux/if.h>
+# include <linux/types.h>
 # include <linux/if_packet.h>
 # include <linux/wanpipe_defines.h>
 # include <linux/sdlasfm.h>

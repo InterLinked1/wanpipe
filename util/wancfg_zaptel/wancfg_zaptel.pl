@@ -269,41 +269,42 @@ sub write_zapata_conf{
 	close(FH);	
 }
 
+sub copy_config_files{
+	my @wanpipe_files = split / /, $startup_string; 	
+	exec_command("cp -f $current_dir/$cfg_dir/wanrouter.rc /etc/wanpipe");
+	foreach my $wanpipe_file (@wanpipe_files) {
+		exec_command("cp -f $current_dir/$cfg_dir/$wanpipe_file.conf /etc/wanpipe");
+	}
+}
 sub apply_changes{
-#	if ($is_trixbox==$FALSE){
-#		print "\nThe following lines will be used in your $zaptel_conf_file_t\n";
-#		print "\n-----------------------------------------------------------------\n";
-#		print "\n$zaptel_conf";
-#		print "\n-----------------------------------------------------------------\n";
-#		prompt_user("Press any key to continue");
-	
-#		if ($config_zapata==$TRUE){
-#	       		print "\nThe following lines will be used in your $zapata_conf_file_t\n";
-#			print "\n-----------------------------------------------------------------\n";
-#			print "\n$zapata_conf";
-#			print "\n-----------------------------------------------------------------\n";
-#			prompt_user("Press any key to continue");
-#		}
-#	}
 	my $asterisk_command='';
+	my $asterisk_restart=$FALSE;
 	my $res='';
 	system('clear');
 	print "\nZaptel and Wanpipe configuration complete: choose action\n";
-	$res=&prompt_user_list("Save cfg: Restart Asterisk & Wanpipe now","Save cfg: Restart Asterisk & Wanpipe when convenient","Do not save cfg: Exit","");
+	$res=&prompt_user_list("Save cfg: Restart Asterisk & Wanpipe now",
+				"Save cfg: Restart Asterisk & Wanpipe when convenient",
+				"Save cfg: Stop Asterisk & Wanpipe now", 
+				"Save cfg: Stop Asterisk & Wanpipe when convenient",
+				"Do not save cfg: Exit",
+				"");
 	if( $res =~ m/exit/){
 		print "No changes made to your configuration files\n";
 		exit 0;
-	}elsif($res =~ m/Restart/){
+	}
+	if($res =~ m/now/){
 		$asterisk_command='stop now';	
 	}else{
 		$asterisk_command='stop when convenient';
 	}
 
-#	print "Your original configuration files have been saved to:\n";
-#	print "\t1. $zaptel_conf_file_t.bak \n";
-#	if ($config_zapata==$TRUE){
-#       		print "\t2. $zapata_conf_file_t.bak \n\n";
-#	}
+	if( $res =~ m/Restart/){
+		$asterisk_restart=$TRUE;
+	}else{
+		$asterisk_restart=$FALSE;
+	}
+	 
+
 
 	if ($is_trixbox==$TRUE){
 		exec_command("amportal stop");
@@ -324,7 +325,8 @@ sub apply_changes{
        	gen_wanrouter_rc();
 
 	print "\nCopying new Wanpipe configuration files...\n";
-	exec_command("cp -f $current_dir/$cfg_dir/* /etc/wanpipe");
+	copy_config_files();
+#	exec_command("cp -f $current_dir/$cfg_dir/* /etc/wanpipe");
 	
 	print "\nCopying new Zaptel configuration file ($zaptel_conf_file_t)...\n";
 	exec_command("cp -f $zaptel_conf_file $zaptel_conf_file_t");
@@ -333,33 +335,34 @@ sub apply_changes{
 		print "\nCopying new chan_zap configuration files ($zapata_conf_file_t)...\n";
 		exec_command("cp -f $zapata_conf_file $zapata_conf_file_t");
 	}
-        print "\nStarting Wanpipe...\n";
-	exec_command("wanrouter start");
+	if( $asterisk_restart == $TRUE ){
+        	print "\nStarting Wanpipe...\n";
+		exec_command("wanrouter start");
 
-	if ( ! -e "/etc/wanpipe/scripts/start" ){ 
-       		print "Loading Zaptel...\n";	
-		sleep 2;
-		exec_command("ztcfg -v");   
-		print ("\nWould you like to execute \'ztcfg\' each time wanrouter starts?\n");
-		if (&prompt_user_list("YES","NO","") eq 'YES'){
-			exec_command("cp -f /etc/wanpipe/samples/wanpipe_zaptel_start /etc/wanpipe/scripts/start");	
-			
-		}	 
-	}
-	if ($is_trixbox==$TRUE){
-     		print "\nStarting Amportal...\n";
-		exec_command("amportal start");
-		sleep 2;
-	}elsif($config_zapata==$TRUE){
-     		print "\nStarting Asterisk...\n";
-		exec_command("asterisk");
-		sleep 2;
+		if ( ! -e "/etc/wanpipe/scripts/start" & $is_trixbox==$FALSE ){ 
+       			print "Loading Zaptel...\n";	
+			sleep 2;
+			exec_command("ztcfg -v");   
+			print ("\nWould you like to execute \'ztcfg\' each time wanrouter starts?\n");
+			if (&prompt_user_list("YES","NO","") eq 'YES'){
+				exec_command("cp -f /etc/wanpipe/samples/wanpipe_zaptel_start /etc/wanpipe/scripts/start");	
+			}	 
+		}
+		if ($is_trixbox==$TRUE){
+     			print "\nStarting Amportal...\n";
+			exec_command("amportal start");
+			sleep 2;
+		}elsif($config_zapata==$TRUE){
+     			print "\nStarting Asterisk...\n";
+			exec_command("asterisk");
+			sleep 2;
 		
-		print "\nListing Asterisk channels...\n\n";
-		exec_command("asterisk -rx \"zap show channels\"");
-		print "\nType \"asterisk -r\" to connect to Asterisk console\n\n";
-	}else{
-        	print "\nProceed to your Asterisk chan_zap configuration (/etc/asterisk/zapata.conf)\n\n";
+			print "\nListing Asterisk channels...\n\n";
+			exec_command("asterisk -rx \"zap show channels\"");
+			print "\nType \"asterisk -r\" to connect to Asterisk console\n\n";
+		}else{
+        		print "\nProceed to your Asterisk chan_zap configuration (/etc/asterisk/zapata.conf)\n\n";
+		}
 	}
 	exit 0;
 }

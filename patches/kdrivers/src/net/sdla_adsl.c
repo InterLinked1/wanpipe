@@ -670,6 +670,7 @@ static int adsl_open(netdevice_t* ifp)
 	int     status = 0;
 #if defined (__LINUX__)
 	adsl_private_area_t* adsl = wan_netif_priv(ifp);
+	sdla_t *card=adsl->common.card;
 #endif
 
 #if defined (__LINUX__)
@@ -682,7 +683,14 @@ static int adsl_open(netdevice_t* ifp)
 	
 	/* Start Tx queuing */
 	WAN_NETDEVICE_START(ifp);
-	WAN_NETIF_START_QUEUE(ifp);
+
+	if (card->wandev.state == WAN_CONNECTED) {
+		WAN_NETIF_CARRIER_ON(ifp);
+		WAN_NETIF_START_QUEUE(ifp); 
+	} else {
+                WAN_NETIF_CARRIER_OFF(ifp);
+		WAN_NETIF_STOP_QUEUE(ifp); 
+	}
 
 	if (adsl->common.usedby == STACK){
 		/* Force the lip to connect state

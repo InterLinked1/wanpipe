@@ -2,29 +2,38 @@
 <wc-entries
    xmlns="svn:">
 <entry
-   committed-rev="162"
+   committed-rev="190"
    name=""
-   committed-date="2006-12-12T19:06:13.746252Z"
+   committed-date="2007-04-20T01:05:51.130966Z"
    url="svn://sangoma.freeswitch.org/sangoma_mgd/trunk"
    last-author="ncorbic"
    kind="dir"
    uuid="2028fedf-720c-0410-83b8-d54a3e729fb0"
-   revision="162"/>
+   revision="190"/>
 <entry
-   committed-rev="149"
+   committed-rev="175"
    name="sigboost.h"
-   text-time="2006-11-29T22:04:04.000000Z"
-   committed-date="2006-11-30T19:19:35.875996Z"
-   checksum="3f5e39d9b3edcd8df940d467c45b7022"
+   text-time="2007-04-01T17:11:46.000000Z"
+   committed-date="2007-04-01T15:15:12.270191Z"
+   checksum="656a64a10bbca02d27dc8c9cd4eed0ce"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-07-28T16:03:15.000000Z"/>
+   prop-time="2007-04-01T17:11:46.000000Z"/>
 <entry
-   committed-rev="141"
+   committed-rev="179"
+   name="install.sh"
+   text-time="2007-04-19T00:51:10.000000Z"
+   committed-date="2007-04-13T19:52:36.639643Z"
+   checksum="6a197cdac5f25c572e603771d888612f"
+   last-author="ncorbic"
+   kind="file"
+   prop-time="2007-04-19T00:51:10.000000Z"/>
+<entry
+   committed-rev="178"
    name="sangoma_mgd.conf.sample"
-   text-time="2006-11-14T22:46:41.000000Z"
-   committed-date="2006-11-15T19:57:56.846743Z"
-   checksum="10a765636bf80a47aeeccf2bb3703cab"
+   text-time="2007-04-13T19:46:26.000000Z"
+   committed-date="2007-04-13T18:50:03.087811Z"
+   checksum="3332791842dafbc726d1b03b9f769db4"
    last-author="ncorbic"
    kind="file"
    prop-time="2006-11-07T16:21:17.000000Z"/>
@@ -38,14 +47,14 @@
    kind="file"
    prop-time="2006-10-19T20:34:08.000000Z"/>
 <entry
-   committed-rev="162"
+   committed-rev="184"
    name="chan_woomera.c"
-   text-time="2006-12-12T23:11:11.000000Z"
-   committed-date="2006-12-12T19:06:13.746252Z"
-   checksum="f14c7e3136c5a8b291c065dd79c7c2cb"
+   text-time="2007-04-20T20:09:27.000000Z"
+   committed-date="2007-04-20T00:59:49.088496Z"
+   checksum="f97458aed1904a5c889acc130a0b8a25"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-12-12T23:11:11.000000Z"/>
+   prop-time="2007-04-20T20:09:27.000000Z"/>
 <entry
    committed-rev="98"
    name="callgettest.sh"
@@ -71,23 +80,23 @@
    name="scripts"
    kind="dir"/>
 <entry
-   committed-rev="151"
+   committed-rev="189"
    name="re-sync.sh"
-   text-time="2006-11-30T19:22:36.000000Z"
-   committed-date="2006-11-30T19:23:14.218832Z"
-   checksum="adc6cbb2b6d729fbf83bdfffa2aa219c"
+   text-time="2007-04-20T20:09:27.000000Z"
+   committed-date="2007-04-20T01:04:31.254133Z"
+   checksum="04bde43c0fa5cd55e20d1358457ae46d"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-11-06T21:35:53.000000Z"/>
+   prop-time="2007-04-20T20:09:27.000000Z"/>
 <entry
-   committed-rev="152"
+   committed-rev="187"
    name="call_signal.c"
-   text-time="2006-11-30T19:55:41.000000Z"
-   committed-date="2006-12-01T20:20:54.543939Z"
-   checksum="dea820b094f7da080f3ac03abd4f9974"
+   text-time="2007-04-20T20:09:27.000000Z"
+   committed-date="2007-04-20T01:03:25.597142Z"
+   checksum="8abab1d267afd79590044f1a9fd4397b"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-07-28T16:03:15.000000Z"/>
+   prop-time="2007-04-20T20:09:27.000000Z"/>
 <entry
    committed-rev="91"
    name="clog.sh"
@@ -107,14 +116,15 @@
    kind="file"
    prop-time="2006-10-19T20:34:06.000000Z"/>
 <entry
-   committed-rev="162"
+   committed-rev="191"
    name="sangoma_mgd.c"
-   text-time="2006-12-12T23:11:11.000000Z"
-   committed-date="2006-12-12T19:06:13.746252Z"
-   checksum="2cdbd9c187af30931e5db92dd9de0711"
+   text-time="2007-04-24T16:41:12.000000Z"
+   committed-date="2007-04-24T15:43:53.765199Z"
+   checksum="16e07b4a58f49a0d2f14cdf69f6a89ba"
    last-author="ncorbic"
    kind="file"
-   prop-time="2006-12-12T23:11:11.000000Z"/>
+   prop-time="2007-04-20T20:09:27.000000Z"
+   revision="191"/>
 <entry
    committed-rev="90"
    name="call_signal.h"
@@ -145,11 +155,11 @@
    kind="file"
    prop-time="2006-10-19T20:04:19.000000Z"/>
 <entry
-   committed-rev="153"
+   committed-rev="171"
    name="Makefile"
-   text-time="2006-12-01T20:32:31.000000Z"
-   committed-date="2006-12-01T20:39:23.318194Z"
-   checksum="0af6cb131f090b5ab1e95e43962ef6d5"
+   text-time="2007-02-01T01:39:42.000000Z"
+   committed-date="2007-03-23T21:32:51.180292Z"
+   checksum="a060a5b05ca179bd79d41bac1efa5b7c"
    last-author="ncorbic"
    kind="file"
    prop-time="2006-11-07T16:20:01.000000Z"/>

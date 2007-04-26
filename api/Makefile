@@ -27,4 +27,5 @@ clean:
 	make -C bitstrm clean
 	make -C bisync clean
 	make -C tdm_api clean
+	make -C lib/hdlc clean
 #	make -C ss7 clean

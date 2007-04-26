@@ -382,6 +382,8 @@ typedef struct {
 	sdla_fe_stats_t	fe_stats;
 	int		(*write_cpld)(void*, unsigned short, unsigned char);
 	int		(*read_cpld)(void*, unsigned short, unsigned char);
+	int		(*write_fe_cpld)(void*, unsigned short, unsigned char);
+	int		(*read_fe_cpld)(void*, unsigned short, unsigned char);
 	int 		(*write_framer)(void*,unsigned short,unsigned short);
 	unsigned int 	(*read_framer)(void*,unsigned short);
 	WRITE_FRONT_END_REG_T	*write_fe_reg;

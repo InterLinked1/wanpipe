@@ -136,22 +136,13 @@ typedef struct {
 #define CPIPE_DISABLE_TRACING				0x51
 #define CPIPE_GET_TRACE_INFO				0x52
 #define CPIPE_GET_IBA_DATA				0x53
+#define DIGITAL_LOOPTEST				CPIPE_GET_IBA_DATA
 #define CPIPE_FT1_READ_STATUS				0x54
 #define CPIPE_DRIVER_STAT_IFSEND			0x55
 #define CPIPE_DRIVER_STAT_INTR				0x56
 #define CPIPE_DRIVER_STAT_GEN				0x57
 #define CPIPE_FLUSH_DRIVER_STATS			0x58
 #define CPIPE_ROUTER_UP_TIME				0x59
-
-#if 0
-#define CPIPE_MPPP_TRACE_ENABLE				0x60
-#define CPIPE_MPPP_TRACE_DISABLE			0x61
-#define CPIPE_TE1_56K_STAT				0x62	/* TE1_56K */
-#define CPIPE_GET_MEDIA_TYPE				0x63	/* TE1_56K */
-#define CPIPE_FLUSH_TE1_PMON				0x64	/* TE1     */
-#define CPIPE_READ_REGISTER				0x65	/* TE1_56K */
-#define CPIPE_TE1_CFG					0x66	/* TE1     */
-#endif
 
 /* Driver specific commands for API */
 #define	CHDLC_READ_TRACE_DATA		0xE4	/* read trace data */

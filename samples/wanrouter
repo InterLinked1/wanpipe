@@ -20,180 +20,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # wanrouter	WANPIPE WAN Router Initialization Script.
 #
 # copyright	(c) 1999-2002, Sangoma Technologies Inc.
@@ -2078,7 +1904,7 @@ WANPIPE_IS_RUNNING=/var/run/wanpipe_is_running
 RUGGEDCOM=No
 
 if [ $OSYSTEM = "Linux" ]; then
-	ROUTER_VERSION=2.3.4-7
+	ROUTER_VERSION=2.3.4-8
 	IFCONFIG_LIST=ifconfig
 	MODULE_STAT=lsmod
 	WAN_DRIVERS="wanpipe"
@@ -2554,6 +2380,7 @@ case "$1" in
 				echo -e "No devices running, Unloading Modules"
 				cleanup 1
 			}
+			
 
 			if [ "$WAN_DEVICES_REV_STOP_ORDER" = "YES" ]; then
 				tmp_dev_list=
@@ -2609,8 +2436,9 @@ case "$1" in
 				done
 				wanrouter_script stop $dev
 			done
-
+			
 			wanrouter_script stop 
+
 
 		elif [ -z $3 ]; then
 		#WANROUTER STOP WANPIPE
