@@ -1,9 +1,10 @@
 %define WANPIPE_VER	  wanpipe-modules
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           8
+%define release           9
 %define	serial	 	  1
 %define MODULES_DIR	  /lib/modules
+%define USR_INCLUDE_DIR   /usr/include
 
 %define KVERSION          %{?kern_ver}
  
@@ -45,9 +46,21 @@ echo "Wanpipe Modules located in %{MODULES_DIR}/%{KVERSION}"
 
 %files
 %{MODULES_DIR}
+%{USR_INCLUDE_DIR}
 
 
 %changelog
+* Wed May 17 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-9
+====================================================================  
+
+- Updated Zaptel 1.2.17 DCHAN Patch
+
+- Hardware A101D and A101DX Support
+
+- Added Maxim register debug in wanpipemon
+
+- Update to SMG   
+
 
 * Wed Apr 23 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-8
 ====================================================================  

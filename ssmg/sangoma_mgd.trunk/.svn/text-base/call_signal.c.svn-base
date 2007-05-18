@@ -20,6 +20,7 @@ extern void __log_printf(int level, FILE *fp, char *file, const char *func, int 
 
 
 extern unsigned int txseq;
+extern unsigned int rxseq_reset;
 extern unsigned int rxseq;
 
 struct call_signal_map {
@@ -36,6 +37,7 @@ static struct call_signal_map call_signal_table[] = {
 	{SIGBOOST_EVENT_CALL_STOPPED, "CALL_STOPPED"},
 	{SIGBOOST_EVENT_CALL_STOPPED_ACK, "CALL_STOPPED_ACK"},
 	{SIGBOOST_EVENT_SYSTEM_RESTART, "SYSTEM_RESTART"},
+	{SIGBOOST_EVENT_SYSTEM_RESTART_ACK, "SYSTEM_RESTART_ACK"},
 	{SIGBOOST_EVENT_HEARTBEAT, "HEARTBEAT"},
 	{SIGBOOST_EVENT_INSERT_CHECK_LOOP, "LOOP START"},
 	{SIGBOOST_EVENT_REMOVE_CHECK_LOOP, "LOOP STOP"} 
@@ -91,7 +93,7 @@ int call_signal_connection_open(call_signal_connection_t *mcon, char *local_ip, 
 	return mcon->socket;
 }
 
-call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon)
+call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon, int iteration)
 {
 	unsigned int fromlen = sizeof(struct sockaddr_in);
 	int bytes = 0;
@@ -101,25 +103,41 @@ call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon)
 
 	if (bytes == sizeof(mcon->event) || 
             bytes == (sizeof(mcon->event)-sizeof(uint32_t))) {
+
+		if (rxseq_reset) {
+			if (mcon->event.event_id == SIGBOOST_EVENT_SYSTEM_RESTART_ACK) {
+				rxseq++;
+				return &mcon->event;
+			}
+
+			errno=EAGAIN;
+			clog_printf(0,mcon->log,"Waiting for rx sync...\n");
+			return NULL;
+		}
+
 		if (rxseq != mcon->event.seqno) {
-		clog_printf(0, mcon->log, 
-			"------------------------------------------\n");
-		clog_printf(0, mcon->log, 
-			"Critical Error: Invalid Sequence Number Expect=%i Rx=%i\n",
-			rxseq,mcon->event.seqno);
-		clog_printf(0, mcon->log, 
-			"------------------------------------------\n");
+			clog_printf(0, mcon->log, 
+				"------------------------------------------\n");
+			clog_printf(0, mcon->log, 
+				"Critical Error: Invalid Sequence Number Expect=%i Rx=%i\n",
+				rxseq,mcon->event.seqno);
+			clog_printf(0, mcon->log, 
+				"------------------------------------------\n");
 		}
 		rxseq++;
 
+
 		return &mcon->event;
 	} else {
-                clog_printf(0, mcon->log,
-                        "------------------------------------------\n");
-                clog_printf(0, mcon->log,
-                        "Critical Error: Invalid Event lenght from boost\n");
-                clog_printf(0, mcon->log,
-                        "------------------------------------------\n");
+		if (iteration == 0) {
+                	clog_printf(0, mcon->log,
+                        	"------------------------------------------\n");
+                	clog_printf(0, mcon->log,
+                        	"Critical Error: Invalid Event lenght from boost rxlen=%i evsz=%i\n",
+					bytes, sizeof(mcon->event));
+                	clog_printf(0, mcon->log,
+                        	"------------------------------------------\n");
+		}
 	}
 
 	return NULL;

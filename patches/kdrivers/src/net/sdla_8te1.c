@@ -3060,6 +3060,18 @@ static int sdla_ds_te1_udp(sdla_fe_t *fe, void* p_udp_cmd, unsigned char* data)
 	    			udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
 			}
 			break;
+		case WAN_FE_DEBUG_REG:
+			if (fe_debug->read){
+                      		fe_debug->value = READ_REG(fe_debug->reg);
+				DEBUG_EVENT("%s: Read Front-End register %04X = %02X\n",
+						fe->name, fe_debug->reg,fe_debug->value);
+			}else{
+				DEBUG_EVENT("%s: Write Front-End register %04X = %02X\n",
+						fe->name, fe_debug->reg,fe_debug->value);
+                      		WRITE_REG(fe_debug->reg, fe_debug->value);
+			}
+	    	        udp_cmd->wan_cmd_return_code = WAN_CMD_OK;
+			break;
 		case WAN_FE_DEBUG_ALARM:
 		default:
 			udp_cmd->wan_cmd_return_code = WAN_UDP_INVALID_CMD;

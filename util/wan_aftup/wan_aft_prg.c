@@ -566,8 +566,9 @@ int board_reset(wan_aft_cpld_t *cpld, int clear)
 			return -EINVAL;
 		}
 		break;
-	case AFT_4TE1_SHARK_SUBSYS_VENDOR:
+	case AFT_1TE1_SHARK_SUBSYS_VENDOR:
 	case AFT_2TE1_SHARK_SUBSYS_VENDOR:
+	case AFT_4TE1_SHARK_SUBSYS_VENDOR:
 	case AFT_8TE1_SHARK_SUBSYS_VENDOR:
 		switch(cpld->core_info->core_id){
 		case AFT_PMC_FE_CORE_ID:

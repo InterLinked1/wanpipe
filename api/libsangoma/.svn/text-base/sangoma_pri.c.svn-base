@@ -15,6 +15,50 @@
 
 #include <libsangoma.h>
 #include <sangoma_pri.h>
+#ifndef HAVE_GETTIMEOFDAY
+
+#ifdef WIN32
+#include <mmsystem.h>
+
+static __inline int gettimeofday(struct timeval *tp, void *nothing)
+{
+#ifdef WITHOUT_MM_LIB
+  SYSTEMTIME st;
+  time_t tt;
+  struct tm tmtm;
+  /* mktime converts local to UTC */
+  GetLocalTime (&st);
+  tmtm.tm_sec = st.wSecond;
+  tmtm.tm_min = st.wMinute;
+  tmtm.tm_hour = st.wHour;
+  tmtm.tm_mday = st.wDay;
+  tmtm.tm_mon = st.wMonth - 1;
+  tmtm.tm_year = st.wYear - 1900;  tmtm.tm_isdst = -1;
+  tt = mktime (&tmtm);
+  tp->tv_sec = tt;
+  tp->tv_usec = st.wMilliseconds * 1000;
+#else
+  /**
+   ** The earlier time calculations using GetLocalTime
+   ** had a time resolution of 10ms.The timeGetTime, part
+   ** of multimedia apis offer a better time resolution
+   ** of 1ms.Need to link against winmm.lib for this
+   **/
+  unsigned long Ticks = 0;
+  unsigned long Sec =0;
+  unsigned long Usec = 0;
+  Ticks = timeGetTime();
+
+  Sec = Ticks/1000;
+  Usec = (Ticks - (Sec*1000))*1000;
+  tp->tv_sec = Sec;
+  tp->tv_usec = Usec;
+#endif /* WITHOUT_MM_LIB */
+  (void)nothing;
+  return 0;
+}
+#endif /* WIN32 */
+#endif /* HAVE_GETTIMEOFDAY */
 
 static struct sangoma_pri_event_list SANGOMA_PRI_EVENT_LIST[] = {
 	{0, SANGOMA_PRI_EVENT_ANY, "ANY"},
@@ -53,7 +97,7 @@ static int __pri_sangoma_read(struct pri *pri, void *buf, int buflen)
 	 *       A104   receives data + 2byte CRC + 1 byte flag 
 	 *       A101/2 receives data only */ 
 	
-	int res = sangoma_readmsg_socket(pri->fd, 
+	int res = sangoma_readmsg_socket((sng_fd_t)(pri->fd), 
 					 tmpbuf, sizeof(wp_tdm_api_rx_hdr_t), 
 					 buf, buflen, 
 					 0);
@@ -93,9 +137,9 @@ static int __pri_sangoma_write(struct pri *pri, void *buf, int buflen)
 	/* FIXME: This might cause problems with other libraries
 	 * We must remove 2 bytes from buflen because
 	 * libpri sends 2 fake CRC bytes */
-	res=sangoma_sendmsg_socket(pri->fd,
+	res=sangoma_sendmsg_socket((sng_fd_t)(pri->fd),
 				   tmpbuf, sizeof(wp_tdm_api_rx_hdr_t),
-				   buf, buflen-2,
+				   buf, (unsigned short)buflen-2,
 				   0);	
 	if (res > 0){
 		res=buflen;
@@ -106,14 +150,15 @@ static int __pri_sangoma_write(struct pri *pri, void *buf, int buflen)
 
 int sangoma_init_pri(struct sangoma_pri *spri, int span, int dchan, int swtype, int node, int debug)
 {
-	int ret = -1, dfd = 0;
+	int ret = -1;
+	sng_fd_t dfd = 0;
 
 	memset(spri, 0, sizeof(struct sangoma_pri));
 
 	if((dfd = sangoma_open_tdmapi_span_chan(span, dchan)) < 0) {
 		fprintf(stderr, "Unable to open DCHAN %d for span %d (%s)\n", dchan, span, strerror(errno));
 	} else {
-		  if ((spri->pri = pri_new_cb(dfd, node, swtype, __pri_sangoma_read, __pri_sangoma_write, NULL))){
+		  if ((spri->pri = pri_new_cb((int)dfd, node, swtype, __pri_sangoma_read, __pri_sangoma_write, NULL))){
 			spri->span = span;
 			pri_set_debug(spri->pri, debug);
 			ret = 0;
@@ -138,8 +183,19 @@ int sangoma_one_loop(struct sangoma_pri *spri)
 
 	FD_ZERO(&rfds);
 	FD_ZERO(&efds);
+
+#ifdef _MSC_VER
+//Windows macro for FD_SET includes a warning C4127: conditional expression is constant
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
+
 	FD_SET(spri->pri->fd, &rfds);
 	FD_SET(spri->pri->fd, &efds);
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 	if ((next = pri_schedule_next(spri->pri))) {
 		gettimeofday(&now, NULL);
@@ -185,11 +241,12 @@ int sangoma_run_pri(struct sangoma_pri *spri)
 		ret=sangoma_one_loop(spri);
 		if (ret < 0){
 
+#ifndef WIN32 //This needs to be adressed fror WIN32 still
 			if (errno == EINTR){
 				/* Igonore an interrupted system call */
 				continue;
 			}
-	
+#endif	
 			printf("Error = %i\n",ret);
 			perror("Sangoma Run Pri: ");
 			break;		

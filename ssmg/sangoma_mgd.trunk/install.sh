@@ -36,22 +36,21 @@ if [ -e  /etc/syslog.conf ]; then
 eval "grep "local2.*sangoma_mgd" /etc/syslog.conf" > /dev/null 2> /dev/null
 if [ $? -ne 0 ]; then
 	eval "grep "local2" /etc/syslog.conf " > /dev/null 2> /dev/null
-	if [ $? -ne 0 ]; then
-		echo -e "\nlocal2.*                /var/log/sangoma_mgd.log\n" > tmp.$$
-		eval "cat /etc/syslog.conf tmp.$$ > tmp1.$$"
-		\cp -f tmp1.$$ /etc/syslog.conf
-		eval "/etc/init.d/syslog restart"
-		
-	else
-		echo "Error: syslog.conf LOCAL1 is used !\n";		
-		exit 1;
+	if [ $? -eq 0 ]; then
+		echo
+		echo "Warning : local2 is already used in syslog.conf"
+		echo
 	fi
+	echo -e "\nlocal2.*                /var/log/sangoma_mgd.log\n" > tmp.$$
+	eval "cat /etc/syslog.conf tmp.$$ > tmp1.$$"
+	\cp -f tmp1.$$ /etc/syslog.conf
+	eval "/etc/init.d/syslog restart"
 fi
 
 else
-	echo "Error: /etc/syslog.conf not found"
-	exit 1;
+	echo "Warning: /etc/syslog.conf not found"
 fi
+
 if [ -f tmp1.$$ ]; then
 	rm -f  tmp1.$$
 fi

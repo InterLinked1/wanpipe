@@ -1,7 +1,8 @@
+%define KERNEL_VERSION    %{?kern_ver}
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           8
+%define release           9
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define UTILS_LOCAL_DIR   /usr/local/sbin
@@ -15,10 +16,11 @@
 %define WAN_INTR_DIR      %{PROD_HOME}/interfaces
 %define WAN_CONF_DIR      %{PROD_HOME}
 %define PROD_CONF         %{WAN_CONF_DIR}/wanpipe1.conf
-%define START_SCRIPT      S07%{PROD}
-%define OLD_START         S07router
-%define STOP_SCRIPT       K10%{PROD}
-%define OLD_STOP          K10router
+%define LIBSANGOMA_CONF   /etc/ld.so.conf.d/libsangoma.so.conf
+#%define START_SCRIPT      S07%{PROD}
+#%define OLD_START         S07router
+#%define STOP_SCRIPT       K10%{PROD}
+#%define OLD_STOP          K10router
 %define ROUTER_RC         %{META_CONF}
 %define WANROUTER_STARTUP_SMPL    %{PROD_HOME}/samples/wanrouter
 %define WANROUTER_STARTUP         /usr/sbin/wanrouter
@@ -62,6 +64,13 @@ echo "Uninstalling WANPIPE..."
 # ----------------------------------------------------------------------------
 remove_init()
 {
+        chkconfig --del wanrouter
+        rm /etc/init.d/wanrouter
+}
+
+remove_init_old()
+{
+
         # Examine system bootstrap files.
         if [ -d /etc/rc0.d ]
         then RC_DIR=/etc
@@ -168,6 +177,12 @@ ENDOFTEXT
 # ----------------------------------------------------------------------------
 install_init()
 {
+        ln -s /usr/sbin/wanrouter /etc/init.d/wanrouter
+        chkconfig wanrouter on
+}
+
+install_init_old()
+{
 	#Examine system bootstrap files.
         if [ -d /etc/rc0.d ]
         then RC_DIR=/etc
@@ -229,6 +244,17 @@ install_init;
 
 
 %changelog
+* Wed May 17 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-9
+====================================================================  
+
+- Updated Zaptel 1.2.17 DCHAN Patch
+
+- Hardware A101D and A101DX Support
+
+- Added Maxim register debug in wanpipemon
+
+- Update to SMG   
+
 
 * Wed Apr 23 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-8
 ====================================================================  

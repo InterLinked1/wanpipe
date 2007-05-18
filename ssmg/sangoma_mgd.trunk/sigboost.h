@@ -26,9 +26,10 @@ enum	e_sigboost_event_id_values
 	SIGBOOST_EVENT_CALL_STOPPED			= 0x85, /*133*/
 	SIGBOOST_EVENT_CALL_STOPPED_ACK			= 0x86, /*134*/
 	SIGBOOST_EVENT_SYSTEM_RESTART			= 0x87, /*135*/
-	SIGBOOST_EVENT_HEARTBEAT			= 0x88, /*136*/
-	SIGBOOST_EVENT_INSERT_CHECK_LOOP                = 0x89, /*137*/
-        SIGBOOST_EVENT_REMOVE_CHECK_LOOP                = 0x8a, /*138*/  
+        SIGBOOST_EVENT_SYSTEM_RESTART_ACK               = 0x88, /*139*/  
+	SIGBOOST_EVENT_HEARTBEAT			= 0x89, /*136*/
+	SIGBOOST_EVENT_INSERT_CHECK_LOOP                = 0x8a, /*137*/
+        SIGBOOST_EVENT_REMOVE_CHECK_LOOP                = 0x8b, /*138*/  
 };
 
 enum	e_sigboost_release_cause_values

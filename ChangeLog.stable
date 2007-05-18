@@ -7,6 +7,17 @@ Author: Nenad Corbic <ncorbic@sangoma.com>
 Copyright (c) 1995-2007 Sangoma Technologies Inc.
 ------------------------------------------------------------------------------
 
+* Wed May 17 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-9
+====================================================================  
+
+- Updated Zaptel 1.2.17 DCHAN Patch
+
+- Hardware A101D and A101DX Support
+
+- Added Maxim register debug in wanpipemon
+
+- Update to SMG   
+
 
 * Wed Apr 23 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-8
 ====================================================================  

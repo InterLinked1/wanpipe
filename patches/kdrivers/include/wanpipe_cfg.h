@@ -74,6 +74,7 @@
 #define WANOPT_AFT108		8
 #define WANOPT_AFT_X		9
 #define WANOPT_AFT102		10
+#define WANOPT_AFT101		13
 
 /*
  * Configuration options defines.

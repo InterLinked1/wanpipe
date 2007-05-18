@@ -1740,9 +1740,11 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 		goto new_if_error;
 	}
 
-        if (conf->single_tx_buf || 
-	    (card->adptr_type == A101_ADPTR_2TE1 && 
-	     card->u.aft.firm_id == AFT_DS_FE_CORE_ID)){
+	if (conf->single_tx_buf || 
+		((card->adptr_type == A101_ADPTR_2TE1 ||
+		 card->adptr_type == A101_ADPTR_1TE1) && 
+	    	 card->u.aft.firm_id == AFT_DS_FE_CORE_ID)){ 
+			
               	chan->single_dma_chain=1;
 		chan->max_tx_bufs=MAX_AFT_DMA_CHAINS;  
                 dma_per_ch=MAX_AFT_DMA_CHAINS;

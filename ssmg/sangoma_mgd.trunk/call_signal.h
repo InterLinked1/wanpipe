@@ -76,7 +76,7 @@ typedef struct call_signal_connection call_signal_connection_t;
 
 int call_signal_connection_close(call_signal_connection_t *mcon);
 int call_signal_connection_open(call_signal_connection_t *mcon, char *local_ip, int local_port, char *ip, int port);
-call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon);
+call_signal_event_t *call_signal_connection_read(call_signal_connection_t *mcon, int iteration);
 int call_signal_connection_write(call_signal_connection_t *mcon, call_signal_event_t *event);
 void call_signal_event_init(call_signal_event_t *event, call_signal_event_id_t event_id, int chan, int span);
 void call_signal_call_init(call_signal_event_t *event, char *calling, char *called, int setup_id);

@@ -109,6 +109,8 @@ aft_core_info_t aft_core_table[] = {
 	  "A104d_0100_V", "A104d_0100_V*.BIN", AFT_CORE_X1000_SIZE },
 	{ AFT_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_PMC_FE_CORE_ID, 0x20, 0x5B,
 	  "A104d_0040_V", "A104d_0040_V*.BIN", AFT_CORE_X400_SIZE },
+	{ AFT_1TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
+	  "A101dm_0040_V", "A101dm_0040_V*.BIN", AFT_CORE_X400_SIZE },
 	{ AFT_2TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X400, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
 	  "A102dm_0040_V", "A102dm_0040_V*.BIN", AFT_CORE_X400_SIZE },
 	{ AFT_4TE1_SHARK_SUBSYS_VENDOR, AFT_CHIP_X1000, AFT_DS_FE_CORE_ID, 0x20, 0x5B,
@@ -667,6 +669,7 @@ static int wan_aftup_program(struct wan_aftup_head_t *head)
 		case A305_CT3_SUBSYS_VENDOR:
 			aft->cpld.iface	= &aftup_flash_iface;
 			break;
+		case AFT_1TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
 			aft->cpld.iface	= &aftup_shark_flash_iface;
 			break;
@@ -761,6 +764,7 @@ static int wan_aftup_verify_pciexpress(struct wan_aftup_head_t *head)
 	regs_no = sizeof(plxctrl_data)/sizeof(struct wan_aftup_plxctrl_data_);
 	WAN_LIST_FOREACH(aft, head, next){
 		switch(aft->board_id){
+		case AFT_1TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_4TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_8TE1_SHARK_SUBSYS_VENDOR:

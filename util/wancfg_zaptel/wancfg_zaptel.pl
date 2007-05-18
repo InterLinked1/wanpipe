@@ -235,7 +235,7 @@ sub get_pri_switchtype {
 }
 
 sub unload_zap_modules{
-	my @modules_list = ("ztdummy","wctdm","wcfxo","wcte11xp","wct1xxp","wct4xxp","tor2","zaptel");
+	my @modules_list = ("ztdummy","wctdm","wcfxo","wcte11xp","wct1xxp","wct4xxp","tor2","zttranscode","zaptel");
 	foreach my $module (@modules_list) {
 		exec_command("modprobe -r $module");
 	}
@@ -308,7 +308,7 @@ sub apply_changes{
 
 	if ($is_trixbox==$TRUE){
 		exec_command("amportal stop");
-		unload_zap_modules();
+#unload_zap_modules();
 	}else{
 		print "\nStopping Asterisk...\n";	
 		exec_command("asterisk -rx \"$asterisk_command\"");
@@ -349,6 +349,7 @@ sub apply_changes{
 			}	 
 		}
 		if ($is_trixbox==$TRUE){
+			exec_command("ztcfg -v");   
      			print "\nStarting Amportal...\n";
 			exec_command("amportal start");
 			sleep 2;

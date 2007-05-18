@@ -131,7 +131,7 @@ CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
 CXXFLAGS = -g -O2
 CYGPATH_W = echo
-DEFS = -DPACKAGE_NAME=\"libsangoma\" -DPACKAGE_TARNAME=\"libsangoma\" -DPACKAGE_VERSION=\"1.0.0\" -DPACKAGE_STRING=\"libsangoma\ 1.0.0\" -DPACKAGE_BUGREPORT=\"anthmct@yahoo.com\" -DPACKAGE=\"libsangoma\" -DVERSION=\"1.0.0\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DHAVE_FCNTL_H=1 -DHAVE_NETINET_IN_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_SOCKET_H=1 -DHAVE_SYS_TIME_H=1 -DHAVE_UNISTD_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_SYS_SELECT_H=1 -DHAVE_SYS_SOCKET_H=1 -DSELECT_TYPE_ARG1=int -DSELECT_TYPE_ARG234=\(fd_set\ \*\) -DSELECT_TYPE_ARG5=\(struct\ timeval\ \*\) -DHAVE_GETTIMEOFDAY=1 -DHAVE_MEMSET=1 -DHAVE_SELECT=1 -DHAVE_SOCKET=1 
+DEFS = -DPACKAGE_NAME=\"libsangoma\" -DPACKAGE_TARNAME=\"libsangoma\" -DPACKAGE_VERSION=\"1.0.0\" -DPACKAGE_STRING=\"libsangoma\ 1.0.0\" -DPACKAGE_BUGREPORT=\"anthmct@yahoo.com\" -DPACKAGE=\"libsangoma\" -DVERSION=\"1.0.0\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DHAVE_FCNTL_H=1 -DHAVE_NETINET_IN_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_SOCKET_H=1 -DHAVE_SYS_TIME_H=1 -DHAVE_UNISTD_H=1 -DHAVE_MATH_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_SYS_SELECT_H=1 -DHAVE_SYS_SOCKET_H=1 -DSELECT_TYPE_ARG1=int -DSELECT_TYPE_ARG234=\(fd_set\ \*\) -DSELECT_TYPE_ARG5=\(struct\ timeval\ \*\) -DHAVE_GETTIMEOFDAY=1 -DHAVE_MEMSET=1 -DHAVE_SELECT=1 -DHAVE_SOCKET=1 
 DEPDIR = .deps
 ECHO = echo
 ECHO_C = 
@@ -205,14 +205,15 @@ localstatedir = ${prefix}/var
 mandir = ${prefix}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
-prefix = /usr/include
+prefix = /root/2.3.4/wanpipe/rpmbuild/usr/include
 program_transform_name = s,x,x,
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 sysconfdir = ${prefix}/etc
 target_alias = 
-AM_CFLAGS = -fPIC -Wall -Wstrict-prototypes -Wmissing-prototypes -g -I/usr/src/linux/include -I. \
-	-D__LINUX__ -D_REENTRANT -D_GNU_SOURCE -O2 -D_DEBUG_=2 -D_GNUC_ -I../lib -I/usr/src/linux/include
+KINC = /lib/modules/$(shell uname -r)/build
+AM_CFLAGS = -fPIC -Wall -Wstrict-prototypes -Wmissing-prototypes -g -I$(KINC)/include -I. \
+	-D__LINUX__ -D_REENTRANT -D_GNU_SOURCE -O2 -D_DEBUG_=2 -D_GNUC_ -I../lib -I$(KINC)/include
 
 LIB_SOURCES = libsangoma.c libsangoma.h $(am__append_1)
 library_includedir = $(includedir)

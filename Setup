@@ -4767,7 +4767,7 @@ search_and_replace()
 	eval "grep '$search_str' $input_file_name > /dev/null 2> /dev/null"
 
 	if [ $? -ne 0 ]; then
-		echo "Did NOT find the seached str:$search_str"
+		#echo "Warning: Did NOT find the seached str:$search_str"
 		return 1
 	else
 		#echo "Found the seached str"
@@ -4854,16 +4854,22 @@ function tdmv_apply_zaptel_dchan_patch ()
 
 	# patch $ZAPTEL_C_FILE
 	eval "search_and_replace $ZAPTEL_C_FILE $ZAPTEL_C_FILE \"$ZAPTEL_C_SEARCH_STR\" \"$ZAPTEL_C_PATCH\""
-
-	if [ $? -ne 0 ]; then
-		echo "search_and_replace($ZAPTEL_C_FILE) failed"
-		cd $lhome
-		return 2
-	else
-		#echo "search_and_replace($ZAPTEL_C_FILE) succeeded"
+	if [ $? -eq 0 ]; then
 		cd $lhome
 		zaptel_modified=1
 		return 0
+	else
+		#for Zaptel-1.2.17.1 and later
+		eval "search_and_replace $ZAPTEL_C_FILE $ZAPTEL_C_FILE \"$ZAPTEL_C_SEARCH_STR_2\" \"$ZAPTEL_C_PATCH_2\""
+		if [ $? -eq 0 ]; then
+			cd $lhome
+			zaptel_modified=1
+			return 0
+		else
+			echo "search_and_replace($ZAPTEL_C_FILE) failed"
+			cd $lhome
+			return 2
+		fi
 	fi
 }
 
@@ -6092,7 +6098,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-8
+PROD_VER=2.3.4-9
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6190,6 +6196,16 @@ ZAPTEL_C_PATCH="if ((chan->flags \& ZT_FLAG_HDLC) \&\& chan->span->ioctl != NULL
 				}\n\
 			}\n\
 			chan->writen[chan->inwritebuf] = amnt;"
+
+
+#New search string for Zaptel-1.2.17.1
+ZAPTEL_C_SEARCH_STR_2="chan->writen\[res\] = amnt;"
+ZAPTEL_C_PATCH_2="if ((chan->flags \& ZT_FLAG_HDLC) \&\& chan->span->ioctl != NULL){\n\
+				if (chan->span->ioctl(chan, ZT_DCHAN_TX_V2, amnt)==0){\n\
+					return amnt;\n\
+				}\n\
+			}\n\
+			chan->writen[res] = amnt;"
 
 #NOTE1: the 'sed' command does NOT work on more than one line, so the
 #closing '*/' will be pushed AFTER the inserted strings.
@@ -6665,7 +6681,7 @@ you know what you are doing :)
 		fi
 
 
-		$PROD_HOME/Setup install --silent --builddir=$PROD_HOME/$build_dir --with-linux=$SOURCEDIR --arch=$ARCH --protocol=$PROTS --ss7_user_id=$SS7_USER_ID --zaptel-path=$ZAPTEL_INSTALL_DIR
+		eval "$PROD_HOME/Setup install --silent --builddir=$PROD_HOME/$build_dir --with-linux=$SOURCEDIR --arch=$ARCH --protocol=$PROTS --ss7_user_id=$SS7_USER_ID --noautostart --no-zaptel-compile --zaptel-path=$ZAPTEL_INSTALL_DIR --no-zaptel-compile"
 
 		if [ $? -ne 0 ]; then
 			echo "Error: WANPIPE Installation Failed!"

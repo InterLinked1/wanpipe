@@ -3,8 +3,8 @@
  *
  * Woomera Channel Driver
  * 
- * Copyright (C) 05-06 Anthony Minessale II
- *                     Nenad Corbic 
+ * Copyright (C) 05-07 Nenad Corbic 
+ * 		       Anthony Minessale II 
  *
  * Anthony Minessale II <anthmct@yahoo.com>
  * Nenad Corbic <ncorbic@sangoma.com>
@@ -12,6 +12,18 @@
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  * =============================================
+ * v1.10 Nenad Corbic <ncorbic@sangoma.com>
+ *       Bug fix in incoming hangup 
+ * 
+ * v1.9 Nenad Corbic <ncorbic@sangoma.com>
+ *	Fixed remote asterisk/woomera
+ *      setup.
+ *
+ * v1.8 Nenad Corbic <ncorbic@sangoma.com>
+ *	Added Woomera OPAL dialect.
+ *      Code cleanup.
+ *	Added cli call_status
+ *
  * v1.7 Nenad Corbic <ncorbic@sangoma.com>
  *	Added smgdebug to enable smg debugging
  *	Added rdnis
@@ -61,17 +73,17 @@
 #include <g711.h>
 #include <errno.h>
 
-#define MEDIA_ANSWER "MEDIA"
+//#define MEDIA_ANSWER "MEDIA"
 // THE ONE ABOVE OR THE 2 BELOW BUT NOT BOTH
-//#define MEDIA_ANSWER "ANSWER"
+#define MEDIA_ANSWER "ACCEPT"
 #define USE_ANSWER 1
 
 #include "asterisk.h"
 extern int option_verbose;
 
-#define WOOMERA_VERSION "v1.7"
+#define WOOMERA_VERSION "v1.10"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 static int tech_count = 0;
 
 static const char desc[] = "Woomera Channel Driver";
@@ -234,6 +246,11 @@ struct woomera_profile {
 	float txgain_val;
 	unsigned char rxgain[256];
 	unsigned char txgain[256];
+	int call_out;
+	int call_in;
+	int call_ok;
+	int call_end;
+	int call_abort;
 };
 
 
@@ -250,7 +267,8 @@ struct private_object {
 	short fdata[FRAME_LEN + AST_FRIENDLY_OFFSET];
 	struct woomera_message call_info;
 	struct woomera_profile *profile;
-	char dest[WOOMERA_STRLEN];
+	char dest[WOOMERA_STRLEN]; 
+	char proto[WOOMERA_STRLEN];
 	int port;
 	struct timeval started;
 	int timeout;
@@ -388,6 +406,9 @@ static int tech_transfer(struct ast_channel *self, const char *newdest);
 static int tech_write_video(struct ast_channel *self, struct ast_frame *frame);
 //static struct ast_channel *tech_bridged_channel(struct ast_channel *self, struct ast_channel *bridge);
 
+static int woomera_event_incoming (private_object *tech_pvt);
+static int woomera_event_media (private_object *tech_pvt, woomera_message *wmsg);
+
 /********************************************************************************
  * Constant structure for mapping local methods to the core interface.
  * This structure only needs to contain the methods the channel requires to operate
@@ -429,6 +450,16 @@ static void woomera_close_socket(int *socket)
 	}
 	*socket = -1;
 }
+
+static int woomera_message_reply_ok(woomera_message *wmsg) 
+{
+       if (!(wmsg->mval >= 200 && wmsg->mval <= 299)) {
+               return -1;
+       }
+
+       return 0;
+}
+
 
 static void global_set_flag(int flags)
 {
@@ -860,7 +891,6 @@ retry_udp:
 	}
 	tech_pvt->port = globals.next_woomera_port;
 	ast_mutex_unlock(&globals.woomera_port_lock);
-
 	
 	if ((tech_pvt->udp_socket = create_udp_socket(tech_pvt->profile->audio_ip, tech_pvt->port, &tech_pvt->udpread, 0)) > -1) {
 		struct ast_channel *owner = tech_get_owner(tech_pvt);
@@ -916,14 +946,21 @@ static int tech_activate(private_object *tech_pvt)
 {
 	int retry_activate_call=0;
 	woomera_message wmsg;
+	char *callid;
 	memset(&wmsg,0,sizeof(wmsg));
 
 retry_activate_again:
+	
+	if (!tech_pvt) {
+               ast_log(LOG_ERROR, "Critical Error: Where's my tech_pvt?\n");
+	       return -1;
+        }
 
-	if (tech_pvt) {
-		if((connect_woomera(&tech_pvt->command_channel, tech_pvt->profile, 0)) > -1) {
-			if (globals.debug > 2) {
-			ast_log(LOG_NOTICE, "Connected to woomera! chfd=%i port=%i dir=%s callid=%s Count=%i tpvt=%p\n",
+	
+	if((connect_woomera(&tech_pvt->command_channel, tech_pvt->profile, 0)) > -1) {
+		if (globals.debug > 2) {
+			ast_log(LOG_NOTICE, 
+			"Connected to woomera! chfd=%i port=%i dir=%s callid=%s Count=%i tpvt=%p\n",
 				tech_pvt->command_channel,
 				tech_pvt->port,
 				ast_test_flag(tech_pvt, TFLAG_OUTBOUND)?"OUT":"IN",
@@ -931,51 +968,36 @@ retry_activate_again:
 					tech_pvt->callid,
 					tech_pvt->call_count,
 				tech_pvt);
-			}
-		} else {
-			if (retry_activate_call <= 3) {
-                                 retry_activate_call++;
-                        	goto retry_activate_again;
-                       	}
+		}
+	} else {
+		if (retry_activate_call <= 3) {
+			retry_activate_call++;
+			goto retry_activate_again;
+		}
 		
 				
-			if (globals.debug > 1 && option_verbose > 1) {
-				ast_log(LOG_ERROR, "Error: %s call connect to TCP/Woomera Server! tpvt=%p: %s\n",
-						ast_test_flag(tech_pvt, TFLAG_OUTBOUND)?"Out":"In",
-						tech_pvt,strerror(errno));
-			}
-			goto tech_activate_failed;
+		if (globals.debug > 1 && option_verbose > 1) {
+			ast_log(LOG_ERROR, "Error: %s call connect to TCP/Woomera Server! tpvt=%p: %s\n",
+					ast_test_flag(tech_pvt, TFLAG_OUTBOUND)?"Out":"In",
+					tech_pvt,strerror(errno));
 		}
+		goto tech_activate_failed;
+	}
 
-		retry_activate_call=0;
+	retry_activate_call=0;
 
-
-		if (ast_test_flag(tech_pvt, TFLAG_OUTBOUND)) {
-
-		  struct ast_channel *owner = tech_get_owner(tech_pvt);
-		  if (owner) {
-#if 0
-/* This code can break cid passing because
-   askterisk looses cid info after tech_call 
-   Only read this info in tech_call */
-		  	if (owner->cid.cid_name) {
-		    		strncpy(tech_pvt->cid_name, owner->cid.cid_name, 
-					sizeof(tech_pvt->cid_name)-1);
-		  	}
-		  
-		  	if (owner->cid.cid_num) {
-		    		strncpy(tech_pvt->cid_num, owner->cid.cid_num,
-			 		sizeof(tech_pvt->cid_num)-1);
-		  	}
-
-			tech_pvt->cid_pres = owner->cid.cid_pres;
-#endif
-		 }
-
-		  
-		  woomera_printf(tech_pvt->profile,
+	if (ast_test_flag(tech_pvt, TFLAG_OUTBOUND)) {
+	
+		if (strlen(tech_pvt->proto) > 1) {
+			woomera_printf(tech_pvt->profile,
 				 tech_pvt->command_channel, 
-				 "CALL %s%sRaw-Audio: %s/%d%sLocal-Name: %s!%s%sLocal-Number:%s%sPresentation:%d%sRDNIS:%s%s", 
+				 "CALL %s:%s%s"
+				 "Raw-Audio: %s/%d%s"
+				 "Local-Name: %s!%s%s"
+				 "Local-Number:%s%s"
+				 "Presentation:%d%s"
+				 "RDNIS:%s%s",
+				 tech_pvt->proto,
 				 tech_pvt->dest, 
 				 WOOMERA_LINE_SEPARATOR,
 				 tech_pvt->profile->audio_ip,
@@ -992,47 +1014,52 @@ retry_activate_again:
 				 WOOMERA_RECORD_SEPARATOR
 				 );
 
-			 woomera_message_parse_wait(tech_pvt,&wmsg);
-		} else {
-			ast_set_flag(tech_pvt, TFLAG_PARSE_INCOMING);
-			if (globals.debug > 2) {
-				ast_log(LOG_NOTICE, "%s:%d Incoming Call %s tpvt=%p\n",
-					__FUNCTION__,__LINE__,
-					tech_pvt->callid,tech_pvt);
-			}
-			woomera_printf(tech_pvt->profile, 
-					tech_pvt->command_channel, "LISTEN %s%s", 
-					tech_pvt->callid,
-					WOOMERA_RECORD_SEPARATOR);
-#if 1			
-			if (woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
-				/* Its possible for a socket to break, just hangup */
-#if 1
-				if (!ast_test_flag(tech_pvt, TFLAG_ABORT)) {
+		 } else {
+			woomera_printf(tech_pvt->profile,
+				 tech_pvt->command_channel, 
+				 "CALL %s%s"
+				 "Raw-Audio: %s/%d%s"
+				 "Local-Name: %s!%s%s"
+				 "Local-Number:%s%s"
+				 "Presentation:%d%s"
+				 "RDNIS:%s%s",
+				 tech_pvt->dest, 
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->profile->audio_ip,
+				 tech_pvt->port,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_name,
+				 tech_pvt->cid_num,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_num,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_pres,
+				 WOOMERA_LINE_SEPARATOR,
+				 tech_pvt->cid_rdnis?tech_pvt->cid_rdnis:"",
+				 WOOMERA_RECORD_SEPARATOR
+				 );
+		 }
 
-					ast_log(LOG_ERROR, 
-					  "{%s} %s:%d HELP! Woomera is broken! %s tpvt=%p\n", 
-					  tech_pvt->profile->name,__FUNCTION__,__LINE__,
-					  tech_pvt->profile->name,tech_pvt);
-
-					woomera_close_socket(&tech_pvt->command_channel);
-
-					if (retry_activate_call <= 3) {
-						retry_activate_call++;
-						goto retry_activate_again;
-					}else{
-						goto tech_activate_failed;
-					}
-				}
-#endif
-				ast_set_flag(tech_pvt, TFLAG_ABORT);
-			}
-#endif
-		}
+		 woomera_message_parse_wait(tech_pvt,&wmsg);
+		 
+		 if (woomera_message_reply_ok(&wmsg) != 0) {
+			ast_set_flag(tech_pvt, TFLAG_ABORT);
+		 }
+		
+		 callid = woomera_message_header(&wmsg, "Unique-Call-Id");
+		 if (callid) {
+			ast_copy_string(tech_pvt->callid,callid,sizeof(wmsg.callid));
+		 }
+		 
 	} else {
-		ast_log(LOG_ERROR, "Where's my tech_pvt?\n");
-		goto tech_activate_failed;
+		ast_set_flag(tech_pvt, TFLAG_PARSE_INCOMING);
+		if (globals.debug > 2) {
+			ast_log(LOG_NOTICE, "%s:%d Incoming Call %s tpvt=%p\n",
+				__FUNCTION__,__LINE__,
+				tech_pvt->callid,tech_pvt);
+		}
 	}
+	
 
 	if (globals.debug > 2) {
 		ast_log(LOG_NOTICE, "TECH ACTIVATE OK tech_pvt=%p\n",tech_pvt);
@@ -1059,12 +1086,19 @@ tech_activate_failed:
 				tech_pvt->callid,tech_pvt);
 	}
 
+	/* On incoming failed call we failed to estabilsh the
+	 * TCP connection to server.  Try to send a hangup via MAIN
+	 * socket using the unique callid */
 	if (!ast_test_flag(tech_pvt, TFLAG_OUTBOUND)) {
         	woomera_printf(tech_pvt->profile, tech_pvt->profile->woomera_socket,
-                	"hangupmain %s%scause: %s%s",
+                	"hangupmain %s%s"
+			"cause: %s%s"
+			"Unique-Call-Id: %s%s",
                 	tech_pvt->callid,
                 	WOOMERA_LINE_SEPARATOR,
                 	"Error",
+                	WOOMERA_LINE_SEPARATOR,
+			tech_pvt->callid,
         		WOOMERA_RECORD_SEPARATOR); 
 	}
 
@@ -1129,6 +1163,14 @@ static int tech_init(private_object *tech_pvt, woomera_profile *profile, int fla
 			ast_set_flag(tech_pvt, TFLAG_ABORT);
 			return -1;
 		} 
+		ast_mutex_lock(&default_profile.call_count_lock);
+		if (ast_test_flag(tech_pvt, TFLAG_OUTBOUND)) {
+			default_profile.call_out++;
+		} else {
+			default_profile.call_in++;
+		}
+		ast_mutex_unlock(&default_profile.call_count_lock);
+		
 	} else {
 		if (ast_test_flag(tech_pvt, TFLAG_OUTBOUND)) {
 			ast_set_flag(tech_pvt, TFLAG_ACTIVATE);
@@ -1177,12 +1219,20 @@ static void tech_destroy(private_object *tech_pvt, struct ast_channel *owner)
 			ast_log(LOG_NOTICE, "+++DESTROY sent HANGUP %s\n",
 				tech_pvt->callid);
 		}
-		woomera_printf(tech_pvt->profile, tech_pvt->command_channel, "hangup %s%scause: %s%s", 
+		woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+					   "hangup %s%scause: %s%sUnique-Call-Id: %s%s", 
 					   tech_pvt->callid,
 					   WOOMERA_LINE_SEPARATOR, 
 					   tech_pvt->ds, 
+					   WOOMERA_LINE_SEPARATOR,
+					   tech_pvt->callid,
 					   WOOMERA_RECORD_SEPARATOR);
-		woomera_printf(tech_pvt->profile, tech_pvt->command_channel, "bye%s", WOOMERA_RECORD_SEPARATOR);
+		woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+						"bye%s" 
+						"Unique-Call-Id: %s%s",
+						WOOMERA_LINE_SEPARATOR,
+						tech_pvt->callid,
+						WOOMERA_RECORD_SEPARATOR);
 		woomera_close_socket(&tech_pvt->command_channel);
 	}
 
@@ -1383,13 +1433,19 @@ static void *tech_monitor_thread(void *obj)
 				}
 				aborted|=2;
 		                woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
-							"hangup %s%scause: %s%s",
+							"hangup %s%scause: %s%sUnique-Call-Id: %s%s",
 							tech_pvt->callid,
 							WOOMERA_LINE_SEPARATOR, 
 							tech_pvt->ds, 
+							WOOMERA_LINE_SEPARATOR, 
+							tech_pvt->callid,
 							WOOMERA_RECORD_SEPARATOR);
 		                woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
-							"bye%s", WOOMERA_RECORD_SEPARATOR);
+							"bye%s" 
+							"Unique-Call-Id: %s%s",
+							WOOMERA_LINE_SEPARATOR,
+							tech_pvt->callid,
+							WOOMERA_RECORD_SEPARATOR);
 				woomera_close_socket(&tech_pvt->command_channel);
 			}
 
@@ -1403,54 +1459,27 @@ static void *tech_monitor_thread(void *obj)
 				struct ast_channel *owner = tech_get_owner(tech_pvt);
 
 				if (owner) {
-				aborted|=4;
-				/* Do realy hangup here because we must wait for
-                                 * asterisk to call our tech_hangup where the DESTROY
-				 * flag will get set */
-				//if (!ast_test_flag(chan, AST_FLAG_BLOCKING)) { 
-				//	ast_softhangup(tech_pvt->owner, AST_SOFTHANGUP_EXPLICIT);
-				//} else {
-				//	ast_log(LOG_ERROR, 
-				//		"%s: Abort calling my_ast_softhangup chan BLOCKED!\n",
-				//		tech_pvt->callid);
-				if (globals.debug > 2) {
-	                        ast_log(LOG_NOTICE, "ABORT calling hangup on %s t=%p c=%p UP=%d\n",
+					aborted|=4;
+				
+					if (globals.debug > 2) {
+	                        	ast_log(LOG_NOTICE, "ABORT calling hangup on %s t=%p c=%p UP=%d\n",
                                                        tech_pvt->callid,
                                                                 tech_pvt,
 								owner,
 								ast_test_flag(tech_pvt, TFLAG_UP));
-                                }
+                                	}
 
-
-#if 1
-				while(tech_pvt->owner && ast_mutex_trylock(&tech_pvt->owner->lock)) {
-                                        usleep(1);
-                                }
-                                if ((owner=tech_pvt->owner)) {
-					tech_pvt->owner=NULL;
-                                       /* Issue a softhangup */
-                                       ast_softhangup(owner, AST_SOFTHANGUP_DEV);
-                                       ast_mutex_unlock(&owner->lock);
-                                }
-
-#endif				//ast_set_flag(tech_pvt, TFLAG_TECHHANGUP);
-#if 0
-				//ast_queue_hangup(owner);
-				
-				if (ast_test_flag(tech_pvt, TFLAG_UP)) {
-					ast_mutex_lock(&owner->lock);
-					owner->_softhangup |= AST_SOFTHANGUP_EXPLICIT;
-					ast_mutex_unlock(&owner->lock);
-				} else {
-					my_ast_softhangup(owner, tech_pvt,
-					 		AST_SOFTHANGUP_EXPLICIT);
-				}
-#endif
-
-#if 0
-				my_ast_softhangup(owner, tech_pvt,
-					 		AST_SOFTHANGUP_EXPLICIT);
-#endif
+					while(tech_pvt->owner && 
+					      ast_mutex_trylock(&tech_pvt->owner->lock)) {
+                                   	     usleep(1);
+                                	}
+						
+        	                        if ((owner=tech_pvt->owner)) {
+						tech_pvt->owner=NULL;
+						/* Issue a softhangup */
+						ast_softhangup(owner, AST_SOFTHANGUP_DEV);
+						ast_mutex_unlock(&owner->lock);
+					}
 				}
 			}
 
@@ -1472,9 +1501,18 @@ static void *tech_monitor_thread(void *obj)
 					usleep(5000);
 					sched_yield();
 				}
+				ast_mutex_lock(&default_profile.call_count_lock);
+				default_profile.call_end++;
+				ast_mutex_unlock(&default_profile.call_count_lock);
 			} else {
+				ast_mutex_lock(&default_profile.call_count_lock);
+				default_profile.call_abort++;
+				ast_mutex_unlock(&default_profile.call_count_lock);
+		
+				if (globals.debug > 2) {
 				ast_log(LOG_NOTICE, "NOTE: Skipping Wait on destroy timedout! %s tech_pvt=%p\n",
                                                         tech_pvt->callid, tech_pvt);
+				}
 				ast_set_flag(tech_pvt, TFLAG_DESTROY);
 			}
 
@@ -1496,185 +1534,109 @@ static void *tech_monitor_thread(void *obj)
 		}
 
 		if (ast_test_flag(tech_pvt, TFLAG_ACTIVATE)) {
+		
+			struct ast_channel *owner;
+			int err;
+		
 			if (globals.debug > 2) {
 			ast_log(LOG_NOTICE, "ACTIVATE %s tpvt=%p\n",
 					tech_pvt->callid,tech_pvt);
 			}
 			ast_clear_flag(tech_pvt, TFLAG_ACTIVATE);
-			tech_activate(tech_pvt);
-
-			if (ast_test_flag(tech_pvt, TFLAG_ABORT)) {
+			err=tech_activate(tech_pvt);
+			if (err < 0 || ast_test_flag(tech_pvt, TFLAG_ABORT)) {
 				if (globals.debug > 2) {
 					ast_log(LOG_NOTICE, "ACTIVATE ABORT Ch=%d\n",
 						tech_pvt->command_channel);
 				}
+				ast_set_flag(tech_pvt, TFLAG_ABORT);
 				goto tech_thread_continue;
-				continue;
 			} 
 
-			{
-			struct ast_channel *owner = tech_get_owner(tech_pvt);
+			
+			owner = tech_get_owner(tech_pvt);
 			if (owner) {
-					owner->hangupcause = AST_CAUSE_NORMAL_CLEARING;
-			}
+				owner->hangupcause = AST_CAUSE_NORMAL_CLEARING;
 			}
 
 			if (globals.debug > 2) {
-			ast_log(LOG_NOTICE, "ACTIVATE DONE %s tpvt=%p\n",
+				ast_log(LOG_NOTICE, "ACTIVATE DONE %s tpvt=%p\n",
 					tech_pvt->callid,tech_pvt);
 			}
 		}
 
 		if (ast_test_flag(tech_pvt, TFLAG_PARSE_INCOMING)) {
-			char *exten;
-			char *cid_name;
-			char *cid_rdnis;
-			char *cid_num;
-			char *tg_string="1";
-			char *pres_string;
-			int validext;
-			int presentation=0;
+			int err;
 
 			ast_clear_flag(tech_pvt, TFLAG_PARSE_INCOMING);
 			ast_set_flag(tech_pvt, TFLAG_INCOMING);
-			wmsg = tech_pvt->call_info;
-			
-			if (globals.debug > 2) {
-			ast_log(LOG_NOTICE, "WOOMERA EVENT %s : callid=%s tech_callid=%s tpvt=%p\n",
-					wmsg.command,wmsg.callid,tech_pvt->callid,tech_pvt);
-			}
-			
-			if (ast_strlen_zero(tech_pvt->profile->context)) {
-				if (globals.debug > 2) {
-				ast_log(LOG_NOTICE, "No Context Found %s tpvt=%p\n",
-					tech_pvt->callid,tech_pvt);
-				}
-				ast_log(LOG_WARNING, "No context configured for inbound calls aborting call!\n");
-				ast_set_flag(tech_pvt, TFLAG_ABORT);
-				goto tech_thread_continue;
-				continue;
-			}
-			
-			exten = woomera_message_header(&wmsg, "Local-Number");
-			if (! exten || ast_strlen_zero(exten)) {
-				exten = "s";
-			}
-			
-			tg_string = woomera_message_header(&wmsg, "Trunk-Group");
-			if (!tg_string || ast_strlen_zero(tg_string)) {
-				tg_string="1";	
-			}
 
-			pres_string = woomera_message_header(&wmsg, "Presentation");
-			if (!pres_string || ast_strlen_zero(pres_string)) {
-				presentation=0;
-			} else {
-				presentation = atoi(pres_string);
-			}
+			err=woomera_event_incoming (tech_pvt);
 
-
-			cid_name = ast_strdupa(woomera_message_header(&wmsg, "Remote-Name"));
-
-			if ((cid_num = strchr(cid_name, '!'))) {
-				*cid_num = '\0';
-				cid_num++;
-			} else {
-				cid_num = woomera_message_header(&wmsg, "Remote-Number");
-			}
-			
-			cid_rdnis = woomera_message_header(&wmsg, "RDNIS");
-		
-
-			{
-			struct ast_channel *owner = tech_get_owner(tech_pvt);
-
-			if (owner) {	
-				snprintf(owner->context, sizeof(owner->context) - 1,
-					        "%s%s", 
-					        tech_pvt->profile->context,
-						tg_string);	
-					
-				strncpy(owner->exten, exten, sizeof(owner->exten) - 1);
-				ast_set_callerid(owner, cid_num, cid_name, cid_num);
-				owner->cid.cid_pres=presentation;
-
-				if (cid_rdnis) {
-					owner->cid.cid_rdnis=strdup(cid_rdnis);
-				}
-
-				validext = ast_exists_extension(owner,
-							owner->context,
-							owner->exten,
-							1,
-							owner->cid.cid_num);
-							
-				if (globals.debug > 3){			
-				ast_log(LOG_NOTICE, "Incoming Call exten %s@%s called %s pres = %d!\n", 
-							exten, 
-							owner->context,
-							tech_pvt->callid,
-							presentation);
-				}
-			
-			} else {
-				validext=0;
-
-			}			
-			}
-
-
-			if (!validext) {
-				
-				if (globals.debug > 1){	
-				ast_log(LOG_ERROR, "Error: Invalid exten %s@%s%s called %s!\n", 
-						exten, 
-						tech_pvt->profile->context,
-						tg_string,
-						tech_pvt->callid);
-				}
+			if (err != 0) {
 				
 				woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
-						"hangup %s%scause: INVALID%s", wmsg.callid, 
-						WOOMERA_LINE_SEPARATOR, WOOMERA_RECORD_SEPARATOR);
-				
-				if (woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
-					ast_set_flag(tech_pvt, TFLAG_ABORT);
-					if (globals.debug > 2) {	
-						ast_log(LOG_NOTICE, "NO EXT ABORT Ch=%d\n",
-						tech_pvt->command_channel);
-					}
-					goto tech_thread_continue;
-					continue;
-				}
-				if (!(wmsg.mval >= 200 && wmsg.mval <= 299)) {
-					ast_set_flag(tech_pvt, TFLAG_ABORT);
-				}
+						"hangup %s%s"
+						"cause: INVALID%s" 
+						"Unique-Call-Id: %s%s",
+						tech_pvt->callid, 
+						WOOMERA_LINE_SEPARATOR, 
+						WOOMERA_LINE_SEPARATOR, 
+						tech_pvt->callid,
+						WOOMERA_RECORD_SEPARATOR);
+
+				/* Wait for Ack */
+				woomera_message_parse_wait(tech_pvt,&wmsg);
+
+				ast_set_flag(tech_pvt, TFLAG_ABORT);
 				goto tech_thread_continue;
-				continue;
-			}
+		
+			} else {
 
-
-			woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+				woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
 							"%s %s%s"
-							"Raw-Audio: %s/%d%s",
+							"Raw-Audio: %s/%d%s"
+							"Request-Audio: Raw%s"
+							"Unique-Call-Id: %s%s",
 							MEDIA_ANSWER,
-							wmsg.callid,
+							tech_pvt->callid,
 							WOOMERA_LINE_SEPARATOR,
 							tech_pvt->profile->audio_ip,
 							tech_pvt->port,
+							WOOMERA_LINE_SEPARATOR,
+							WOOMERA_LINE_SEPARATOR,
+							tech_pvt->callid,
 							WOOMERA_RECORD_SEPARATOR);
 
-			if(woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
+			}
+
+			/* Wait for Ack */
+			if (woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
 				ast_set_flag(tech_pvt, TFLAG_ABORT);
 				ast_log(LOG_NOTICE, "MEDIA ANSWER ABORT Ch=%d\n",
 					tech_pvt->command_channel);
 				goto tech_thread_continue;
-				continue;
+			} 
+
+ 			/* Confirm that the Ack is OK otherwise
+			 * hangup */
+			if (woomera_message_reply_ok(&wmsg) != 0) {
+				ast_set_flag(tech_pvt, TFLAG_ABORT);
+				goto tech_thread_continue;
+			}
+
+			/* It is possible for ACCEPT to have media info
+			 * This is how Early Media is started */
+			err=woomera_event_media (tech_pvt, &wmsg);
+			if (err < 0) {
+				ast_set_flag(tech_pvt, TFLAG_ABORT);
+				goto tech_thread_continue;
 			} 
 		}
 
 
 		if (ast_test_flag(tech_pvt, TFLAG_ANSWER)) {
+			
 			if (globals.debug > 2) {
 			ast_log(LOG_NOTICE, "ANSWER %s tpvt=%p\n",
 					tech_pvt->callid,tech_pvt);
@@ -1686,7 +1648,13 @@ static void *tech_monitor_thread(void *obj)
 						tech_pvt->callid);
 			} else {	
 #ifdef USE_ANSWER
-				woomera_printf(tech_pvt->profile, tech_pvt->command_channel, "ANSWER %s%s",tech_pvt->callid, WOOMERA_RECORD_SEPARATOR);
+				woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+						"ANSWER %s%s"
+						"Unique-Call-Id: %s%s",
+						tech_pvt->callid, 
+						WOOMERA_LINE_SEPARATOR,
+						tech_pvt->callid,
+						WOOMERA_RECORD_SEPARATOR);
 				
 				if(woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
 					ast_set_flag(tech_pvt, TFLAG_ABORT);
@@ -1695,6 +1663,10 @@ static void *tech_monitor_thread(void *obj)
 					goto tech_thread_continue;
 					continue;
 				}
+				
+				ast_mutex_lock(&default_profile.call_count_lock);
+				default_profile.call_ok++;
+				ast_mutex_unlock(&default_profile.call_count_lock);
 #endif
 			}
 		}
@@ -1704,8 +1676,28 @@ static void *tech_monitor_thread(void *obj)
 			ast_log(LOG_NOTICE, "DTMF %s tpvt=%p\n",
 					tech_pvt->callid,tech_pvt);
 			}
-			woomera_printf(tech_pvt->profile, tech_pvt->command_channel, "DTMF %s %s%s",tech_pvt->callid, tech_pvt->dtmfbuf, WOOMERA_RECORD_SEPARATOR);
-			if(woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
+
+			//DIALECT
+#if 1
+			woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+						"DTMF %s %s%s",
+						tech_pvt->callid, 
+						tech_pvt->dtmfbuf, 
+						WOOMERA_LINE_SEPARATOR);
+#else
+			woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
+						"DTMF %sUnique-Call-Id:%s%sContent-Length:%d%s%s%s%s",
+						WOOMERA_LINE_SEPARATOR,
+						tech_pvt->callid,
+						WOOMERA_LINE_SEPARATOR,
+						strlen(tech_pvt->dtmfbuf),
+						WOOMERA_LINE_SEPARATOR,
+						WOOMERA_LINE_SEPARATOR,
+						tech_pvt->dtmfbuf,
+						WOOMERA_RECORD_SEPARATOR);
+#endif
+			
+			if (woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
 				ast_set_flag(tech_pvt, TFLAG_ABORT);
 				ast_log(LOG_NOTICE, "DTMF ABORT Ch=%d\n",
 						tech_pvt->command_channel);
@@ -1757,11 +1749,11 @@ static void *tech_monitor_thread(void *obj)
 		/* Check for events */
 		if((res = woomera_dequeue_event(&tech_pvt->event_queue, &wmsg)) ||
 		   (res = woomera_message_parse(tech_pvt->command_channel,
-										&wmsg,
-										100,
-										tech_pvt->profile,
-										NULL
-										))) {
+						&wmsg,
+						100,
+						tech_pvt->profile,
+						NULL
+						))) {
 
 			if (globals.debug > 2) {
 				 
@@ -1838,130 +1830,19 @@ static void *tech_monitor_thread(void *obj)
 			} else if (!strcasecmp(wmsg.command, "PROCEED")) {
 				/* This packet has lots of info so well keep it */
 				tech_pvt->call_info = wmsg;
-				memcpy(tech_pvt->callid,wmsg.callid,sizeof(wmsg.callid));
+				
 
 			} else if (ast_test_flag(tech_pvt, TFLAG_PARSE_INCOMING) && 
 				  !strcasecmp(wmsg.command, "INCOMING")) {
 				  
-				  ast_log(LOG_ERROR, "INVALID WOOMERA EVENT %s : callid=%s tech_callid=%s tpvt=%p\n",
-						wmsg.command,wmsg.callid,tech_pvt->callid,tech_pvt);
-#if 0				  
-				char *exten;
-				char *cid_name;
-				char *cid_num;
-				char *tg_string="1";
-				int validext;
-				ast_clear_flag(tech_pvt, TFLAG_PARSE_INCOMING);
-				ast_set_flag(tech_pvt, TFLAG_INCOMING);
-				tech_pvt->call_info = wmsg;
-				
-				ast_log(LOG_ERROR, "INVALID WOOMERA EVENT %s : callid=%s tech_callid=%s tpvt=%p\n",
-						wmsg.command,wmsg.callid,tech_pvt->callid,tech_pvt);
-
-				if (ast_strlen_zero(tech_pvt->profile->context)) {
-					if (globals.debug > 2) {
-					ast_log(LOG_NOTICE, "No Context Found %s tpvt=%p\n",
+				 /* The INCOMING EVENT should never come here becuase
+				 * there should be only a single LISTEN via main thread */
+				  
+				  ast_log(LOG_ERROR, "INVALID WOOMERA EVENT %s :"
+						     "callid=%s tech_callid=%s tpvt=%p\n",
+						wmsg.command,wmsg.callid,
 						tech_pvt->callid,tech_pvt);
-					}
-					ast_log(LOG_WARNING, "No context configured for inbound calls aborting call!\n");
-					ast_set_flag(tech_pvt, TFLAG_ABORT);
-					goto tech_thread_continue;
-					continue;
-				}
-
-				exten = woomera_message_header(&wmsg, "Local-Number");
-				if (! exten || ast_strlen_zero(exten)) {
-					exten = "s";
-				}
-				
-				tg_string = woomera_message_header(&wmsg, "Trunk-Group");
-				if (!tg_string || ast_strlen_zero(tg_string)) {
-					tg_string="1";	
-				}
-
-				cid_name = ast_strdupa(woomera_message_header(&wmsg, "Remote-Name"));
-				if ((cid_num = strchr(cid_name, '!'))) {
-					*cid_num = '\0';
-					cid_num++;
-				} else {
-					cid_num = woomera_message_header(&wmsg, "Remote-Number");
-				}
-				
-				
-				{
-				struct ast_channel *owner = tech_get_owner(tech_pvt);
-				if (owner) {
-					snprintf(owner->context, sizeof(owner->context) - 1,
-					        "%s%s", 
-					        tech_pvt->profile->context,
-						tg_string);
-					strncpy(owner->exten, exten, sizeof(owner->exten) - 1);
-					ast_set_callerid(owner, cid_num, cid_name, cid_num);
-
-					validext = ast_exists_extension(owner,
-							  owner->context,
-							  owner->exten,
-							  1,
-							  owner->cid.cid_num);
-							  
-					ast_log(LOG_NOTICE, "Incoming Call exten %s@%s%s called %s!\n", 
-							exten, 
-							owner->context,
-							tg_string,
-							tech_pvt->callid);
-				}else {
-					validext=0;
-				}
-				}
-				
-
-				if (!validext) {
-					
-					if (globals.debug > 1){	
-					ast_log(LOG_ERROR, "Error: Invalid exten %s@%s%s called %s!\n", 
-							exten, 
-							tech_pvt->profile->context,
-							tg_string,
-							tech_pvt->callid);
-					}
-					
-					woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
-							"hangup %s%scause: INVALID%s", wmsg.callid, 
-							WOOMERA_LINE_SEPARATOR, WOOMERA_RECORD_SEPARATOR);
-					
-					if (woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
-						ast_set_flag(tech_pvt, TFLAG_ABORT);
-						ast_log(LOG_NOTICE, "NO EXT ABORT Ch=%d\n",
-						tech_pvt->command_channel);
-						goto tech_thread_continue;
-						continue;
-					}
-					if (!(wmsg.mval >= 200 && wmsg.mval <= 299)) {
-						ast_set_flag(tech_pvt, TFLAG_ABORT);
-					}
-					goto tech_thread_continue;
-					continue;
-				}
-
-
-				woomera_printf(tech_pvt->profile, tech_pvt->command_channel, 
-							   "%s %s%s"
-							   "Raw-Audio: %s/%d%s",
-							   MEDIA_ANSWER,
-							   wmsg.callid,
-							   WOOMERA_LINE_SEPARATOR,
-							   tech_pvt->profile->audio_ip,
-							   tech_pvt->port,
-							   WOOMERA_RECORD_SEPARATOR);
-
-				if(woomera_message_parse_wait(tech_pvt,&wmsg) < 0) {
-					ast_set_flag(tech_pvt, TFLAG_ABORT);
-					ast_log(LOG_NOTICE, "MEDIA ANSWER ABORT Ch=%d\n",
-						tech_pvt->command_channel);
-					goto tech_thread_continue;
-					continue;
-				} 
-#endif			
+		
 			} else if (!strcasecmp(wmsg.command, "CONNECT")) {
 				struct ast_frame answer_frame = {AST_FRAME_CONTROL, AST_CONTROL_ANSWER};
 				struct ast_channel *owner = tech_get_owner(tech_pvt);
@@ -1970,71 +1851,24 @@ static void *tech_monitor_thread(void *obj)
 					ast_setstate(owner, AST_STATE_UP);
 					ast_queue_frame(owner, &answer_frame);
 					ast_set_flag(tech_pvt, TFLAG_UP);
+					
+					ast_mutex_lock(&default_profile.call_count_lock);
+					default_profile.call_ok++;
+					ast_mutex_unlock(&default_profile.call_count_lock);
+			
 				}else{
 					ast_set_flag(tech_pvt, TFLAG_ABORT);
 				}
 
 
 			} else if (!strcasecmp(wmsg.command, "MEDIA")) {
-				char *raw_audio_header;
-				
-				if ((raw_audio_header = woomera_message_header(&wmsg, "Raw-Audio"))) {
-					char ip[25];
-					char *ptr;
-					int port = 0;
-					struct hostent *hp;
-					struct ast_hostent ahp;   
-
-					strncpy(ip, raw_audio_header, sizeof(ip) - 1);
-					if ((ptr=strchr(ip, '/'))) {
-						*ptr = '\0';
-						ptr++;
-						port = atoi(ptr);
-					}
-					
-					if (!ast_strlen_zero(ip) && (hp = ast_gethostbyname(ip, &ahp))) {
-						tech_pvt->udpwrite.sin_family = hp->h_addrtype;
-						memcpy((char *) &tech_pvt->udpwrite.sin_addr.s_addr, hp->h_addr_list[0], hp->h_length);
-						tech_pvt->udpwrite.sin_port = htons(port);
-						ast_set_flag(tech_pvt, TFLAG_MEDIA);
-						tech_pvt->timeout = 0;
-
-
-						{
-						struct ast_channel *owner = tech_get_owner(tech_pvt);
-
-						if (owner) {
-
-						ast_setstate(owner, AST_STATE_RINGING);
-
-						if (ast_test_flag(tech_pvt, TFLAG_INBOUND)) {
-							if (ast_pbx_start(owner)) {
-								ast_log(LOG_ERROR, "Unable to start PBX on %s \n", 
-										tech_pvt->callid);
-								ast_set_flag(tech_pvt, TFLAG_ABORT);
-								ast_clear_flag(tech_pvt, TFLAG_PBX);
-								//ast_hangup();
-								/* Let destroy hangup */
-							} else {
-								ast_set_flag(tech_pvt, TFLAG_PBX);
-								owner->hangupcause = AST_CAUSE_NORMAL_CLEARING;
-								woomera_send_progress(tech_pvt);
-							}
-						} else { 
-							/* Do nothing for the outbound call
-								* The PBX flag was already set! */
-						}
-						} 
-						} 
-
-						
-					} else {
-						if (globals.debug) {
-							ast_log(LOG_ERROR, "{%s} Cannot resolve %s\n", tech_pvt->profile->name, ip);
-						}
-						ast_set_flag(tech_pvt, TFLAG_ABORT);
-					}
+			
+				int err;
+				err=woomera_event_media (tech_pvt, &wmsg);
+				if (err != 0) {
+					ast_set_flag(tech_pvt, TFLAG_ABORT);
 				}
+
 			} else {
 				if (!strcasecmp(wmsg.command, "INCOMING") ) {
 					/* Do not print it here */
@@ -2098,14 +1932,16 @@ static int woomera_locate_socket(woomera_profile *profile, int *woomera_socket)
 			if (globals.panic > 2) {
 				break;
 			}
-			ast_log(LOG_WARNING, "{%s} Cannot Reconnect to Woomera! retry in 5 seconds\n", profile->name);
+			ast_log(LOG_WARNING, 
+				"Woomera {%s} Cannot Reconnect! retry in 5 seconds...\n", 
+				profile->name);
 			sleep(5);
 		}
 
 		if (*woomera_socket > -1) {
 			if (ast_test_flag(profile, PFLAG_INBOUND)) {
 				if (globals.debug > 2) {
-				ast_log(LOG_NOTICE, "%s:%d Incoming Call \n",__FUNCTION__,__LINE__);
+				ast_log(LOG_NOTICE, "Woomera Master Socket \n");
 				}
 				woomera_printf(profile, *woomera_socket, "LISTEN MASTER%s", WOOMERA_RECORD_SEPARATOR);
 				if (woomera_message_parse(*woomera_socket,
@@ -2271,10 +2107,19 @@ static void *woomera_thread_run(void *obj)
 
 				if ((inchan = woomera_new(type, WFORMAT, name, &cause))) {
 					private_object *tech_pvt;
+					char *callid;
 					tech_pvt = inchan->tech_pvt;
+					
 					/* Save the call id */
 					tech_pvt->call_info = wmsg;
 					memcpy(tech_pvt->callid,wmsg.callid,sizeof(tech_pvt->callid));
+					
+					callid = woomera_message_header(&wmsg, "Unique-Call-Id");
+					if (callid) {
+						ast_copy_string(tech_pvt->callid,
+							callid,sizeof(wmsg.callid));
+					}
+					
 					err=tech_init(tech_pvt, profile, TFLAG_INBOUND);
 					if (err) {
 						if(globals.debug > 2) {
@@ -2575,24 +2420,42 @@ static int config_woomera(void)
 static int create_udp_socket(char *ip, int port, struct sockaddr_in *sockaddr, int client)
 {
 	int rc, sd = -1;
-	struct hostent *hp;
-    	struct ast_hostent ahp;
 	struct sockaddr_in servAddr, *addr, cliAddr;
+	struct hostent hps, *hp;
+	struct hostent *result;
+	char buf[512];
+	int err=0;
+
+	memset(&hps,0,sizeof(hps));
+	hp=&hps;
+
 	
 	if(sockaddr) {
 		addr = sockaddr;
 	} else {
 		addr = &servAddr;
 	}
+
 	
 	if ((sd = socket(AF_INET, SOCK_DGRAM, 0)) > -1) {
 	
-		if ((hp = ast_gethostbyname(ip, &ahp))) {
+		gethostbyname_r(ip, hp, buf, sizeof(buf), &result, &err);
+		if (result) {
 			
 			addr->sin_family = hp->h_addrtype;
-			memcpy((char *) &addr->sin_addr.s_addr, 
-				hp->h_addr_list[0], hp->h_length);
+			memcpy((char *) &addr->sin_addr.s_addr, hp->h_addr_list[0], hp->h_length);
 			addr->sin_port = htons(port);
+
+			if (globals.debug > 4) {	
+			ast_log(LOG_NOTICE,"MEDIA UdpRead IP=%s/%d len=%i %d.%d.%d.%d\n",
+						ip,port, 
+						hp->h_length,
+						hp->h_addr_list[0][0],
+						hp->h_addr_list[0][1],
+						hp->h_addr_list[0][2],
+						hp->h_addr_list[0][3]);
+			}
+
 			if (client) {
 				cliAddr.sin_family = AF_INET;
 				cliAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -2751,8 +2614,10 @@ static int connect_woomera(int *new_socket, woomera_profile *profile, int flags)
 
 	} else {
 		if (globals.debug > 2) {
-			ast_log(LOG_ERROR, "woomera connection failed connect to {%s} %s/%d\n", 
+			ast_log(LOG_ERROR, "Woomera {%s} connection failed: %s/%d\n", 
 				profile->name, profile->woomera_host, profile->woomera_port);
+			ast_log(LOG_ERROR, "Woomera {%s} connection failed: %s\n", 
+				profile->name, strerror(errno));
 		}
 		woomera_close_socket(new_socket);
 	}
@@ -3004,16 +2869,20 @@ static int tech_call(struct ast_channel *self, char *dest, int timeout)
 	}
 
 	if ((workspace = ast_strdupa(dest))) {
-		char *addr, *profile_name, *proto;
+		char *addr, *profile_name, *proto=NULL;
 		woomera_profile *profile;
 		int isprofile = 0, err;
 
 		if ((addr = strchr(workspace, ':'))) {
+			char *tst;
 			proto = workspace;
+			if ((tst = strchr(proto, '/'))){
+				proto=tst+1;
+			}
 			*addr = '\0';
 			addr++;
 		} else {
-			proto = "H323";
+			proto = NULL;
 			addr = workspace;
 		}
 		
@@ -3024,6 +2893,7 @@ static int tech_call(struct ast_channel *self, char *dest, int timeout)
 		} else {
 			profile_name = "default";
 		}
+		
 		if (! (profile = ASTOBJ_CONTAINER_FIND(&woomera_profile_list, profile_name))) {
 			profile = ASTOBJ_CONTAINER_FIND(&woomera_profile_list, "default");
 		}
@@ -3052,6 +2922,7 @@ static int tech_call(struct ast_channel *self, char *dest, int timeout)
 		}
 
 		snprintf(tech_pvt->dest, sizeof(tech_pvt->dest), "%s", addr ? addr : "");
+		snprintf(tech_pvt->proto, sizeof(tech_pvt->proto), "%s", proto ? proto : "");
 
 		tech_pvt->timeout = timeout;
 		err=tech_init(tech_pvt, profile, TFLAG_OUTBOUND);
@@ -3284,10 +3155,15 @@ static struct ast_frame  *tech_read(struct ast_channel *self)
 		return NULL;
 	}
 
-	res = waitfor_socket(tech_pvt->udp_socket, 100);
+tech_read_again:
+
+	res = waitfor_socket(tech_pvt->udp_socket, 1000);
 
 	if (res < 1) {
 		return NULL;
+
+	}else if (res == 0) {
+		goto tech_read_again;
 	}
 
 	res = read(tech_pvt->udp_socket, tech_pvt->fdata + AST_FRIENDLY_OFFSET, FRAME_LEN);
@@ -3350,8 +3226,9 @@ static int tech_write(struct ast_channel *self, struct ast_frame *frame)
 					data[i]=default_profile.txgain[data[i]];
 				}
 			} 
-		
-			i = sendto(tech_pvt->udp_socket, frame->data, frame->datalen, 0, (struct sockaddr *) &tech_pvt->udpwrite, sizeof(tech_pvt->udpwrite));
+	
+			i = sendto(tech_pvt->udp_socket, frame->data, frame->datalen, 0, 
+				   (struct sockaddr *) &tech_pvt->udpwrite, sizeof(tech_pvt->udpwrite));
 			if (i < 0) {
 				return -1;
 			}
@@ -3534,7 +3411,18 @@ static int woomera_cli(int fd, int argc, char *argv[])
 			if (argc > 2) {
 				globals.debug = atoi(argv[2]);
 			}
-			ast_cli(fd, "Woomera debug=%d           \n", globals.debug);
+			ast_cli(fd, "Woomera debug=%d\n", globals.debug);
+			
+		} else if (!strcmp(argv[1], "call_status")) {
+			
+			ast_cli(fd, "Woomera calls=%d tcalls=%d (out=%d in=%d ok=%d end=%d abort=%d)\n", 
+					default_profile.call_count,
+					default_profile.call_out+default_profile.call_in,
+					default_profile.call_out,
+					default_profile.call_in,
+					default_profile.call_ok,
+					default_profile.call_end,
+					default_profile.call_abort);
 
 		} else if (!strcmp(argv[1], "version")) { 
 
@@ -3738,6 +3626,216 @@ static struct ast_channel * tech_get_owner( private_object *tech_pvt)
         ast_mutex_unlock(&tech_pvt->iolock);
 
 	return owner;
+}
+
+
+static int woomera_event_media (private_object *tech_pvt, woomera_message *wmsg)
+{
+
+	char *raw_audio_header;
+	char ip[25];
+	char *ptr;
+	int port = 0;
+	struct hostent hps, *hp;
+	struct hostent *result;
+	struct ast_channel *owner;
+	char buf[512];
+	int err=0;
+
+	memset(&hps,0,sizeof(hps));
+	hp=&hps;
+	
+	raw_audio_header = woomera_message_header(wmsg, "Raw-Audio");
+	if (raw_audio_header == NULL) {
+		return 1;
+	}
+
+	strncpy(ip, raw_audio_header, sizeof(ip) - 1);
+	if ((ptr=strchr(ip, '/'))) {
+		*ptr = '\0';
+		ptr++;
+		port = atoi(ptr);
+	}
+
+	/* Sanity Check */
+	owner = tech_get_owner(tech_pvt);
+	if (!owner) {
+		return -1;
+	}
+	
+	/* If we are already in MEDIA mode then
+	 * ignore this message */
+	if (ast_test_flag(tech_pvt, TFLAG_MEDIA)) {
+		return 0;
+	}
+
+	gethostbyname_r(ip, hp, buf, sizeof(buf), &result, &err);
+	if (result) {
+		
+		tech_pvt->udpwrite.sin_family = hp->h_addrtype;
+		memcpy((char *) &tech_pvt->udpwrite.sin_addr.s_addr, hp->h_addr_list[0], hp->h_length);
+		tech_pvt->udpwrite.sin_port = htons(port);
+
+		if (globals.debug > 4) {	
+	 		ast_log(LOG_NOTICE,"MEDIA EVENT UdpWrite IP=%s/%d len=%i %d.%d.%d.%d\n",
+                                                ip,port, 
+                                                hp->h_length,
+                                                hp->h_addr_list[0][0],
+                                                hp->h_addr_list[0][1],
+                                                hp->h_addr_list[0][2],
+                                                hp->h_addr_list[0][3]);
+		}
+		
+		ast_set_flag(tech_pvt, TFLAG_MEDIA);
+		tech_pvt->timeout = 0;
+
+		owner = tech_get_owner(tech_pvt);
+		if (!owner) {
+			return -1;
+		}
+
+		if (ast_test_flag(tech_pvt, TFLAG_INBOUND)) {
+			if (ast_pbx_start(owner)) {
+				ast_log(LOG_ERROR, "Unable to start PBX on %s \n", 
+						tech_pvt->callid);
+				ast_set_flag(tech_pvt, TFLAG_ABORT);
+				ast_clear_flag(tech_pvt, TFLAG_PBX);
+				//ast_hangup();
+				/* Let destroy hangup */
+				return -1;
+			} else {
+				ast_setstate(owner, AST_STATE_RINGING);
+				ast_set_flag(tech_pvt, TFLAG_PBX);
+				owner->hangupcause = AST_CAUSE_NORMAL_CLEARING;
+				woomera_send_progress(tech_pvt);
+				return 0;
+			}
+		} else { 
+			/* Do nothing for the outbound call
+			 * The PBX flag was already set! */
+			return 0;
+		}
+		
+	} else {
+		if (globals.debug) {
+			ast_log(LOG_ERROR, "{%s} Cannot resolve %s\n", tech_pvt->profile->name, ip);
+		}
+		return -1;
+	}
+
+	return -1;
+}
+
+static int woomera_event_incoming (private_object *tech_pvt)
+{
+	char *exten;
+	char *cid_name;
+	char *cid_num;
+	char *cid_rdnis;
+	char *tg_string="1";
+	char *pres_string;
+	int validext;
+	int presentation=0;
+	woomera_message wmsg;
+	struct ast_channel *owner;
+
+
+	wmsg = tech_pvt->call_info;
+	
+	if (globals.debug > 2) {
+	ast_log(LOG_NOTICE, "WOOMERA EVENT %s : callid=%s tech_callid=%s tpvt=%p\n",
+			wmsg.command,wmsg.callid,tech_pvt->callid,tech_pvt);
+	}
+	
+	if (ast_strlen_zero(tech_pvt->profile->context)) {
+		if (globals.debug > 2) {
+		ast_log(LOG_NOTICE, "No Context Found %s tpvt=%p\n",
+			tech_pvt->callid,tech_pvt);
+		}
+		ast_log(LOG_WARNING, "No context configured for inbound calls aborting call!\n");
+		ast_set_flag(tech_pvt, TFLAG_ABORT);
+		return -1;
+	}
+	
+	exten = woomera_message_header(&wmsg, "Local-Number");
+	if (! exten || ast_strlen_zero(exten)) {
+		exten = "s";
+	}
+	
+	tg_string = woomera_message_header(&wmsg, "Trunk-Group");
+	if (!tg_string || ast_strlen_zero(tg_string)) {
+		tg_string="1";	
+	}
+
+	pres_string = woomera_message_header(&wmsg, "Presentation");
+	if (!pres_string || ast_strlen_zero(pres_string)) {
+		presentation=0;
+	} else {
+		presentation = atoi(pres_string);
+	}
+
+	cid_name = ast_strdupa(woomera_message_header(&wmsg, "Remote-Name"));
+
+	if ((cid_num = strchr(cid_name, '!'))) {
+		*cid_num = '\0';
+		cid_num++;
+	} else {
+		cid_num = woomera_message_header(&wmsg, "Remote-Number");
+	}
+
+	cid_rdnis = woomera_message_header(&wmsg, "RDNIS");
+
+	owner = tech_get_owner(tech_pvt);
+	if (owner) {
+		
+		snprintf(owner->context, sizeof(owner->context) - 1,
+				"%s%s", 
+				tech_pvt->profile->context,
+				tg_string);	
+			
+		strncpy(owner->exten, exten, sizeof(owner->exten) - 1);
+		ast_set_callerid(owner, cid_num, cid_name, cid_num);
+		owner->cid.cid_pres=presentation;
+		
+		if (cid_rdnis) {
+			owner->cid.cid_rdnis=strdup(cid_rdnis);
+		}
+
+		validext = ast_exists_extension(owner,
+					owner->context,
+					owner->exten,
+					1,
+					owner->cid.cid_num);
+					
+		if (globals.debug > 3){			
+		ast_log(LOG_NOTICE, "Incoming Call exten %s@%s called %s pres = %d!\n", 
+					exten, 
+					owner->context,
+					tech_pvt->callid,
+					presentation);
+		}
+	
+	} else {
+		
+		validext=0;
+		
+	}			
+
+
+	if (validext == 0) {
+		
+		if (globals.debug > 1){	
+		ast_log(LOG_ERROR, "Error: Invalid exten %s@%s%s called %s!\n", 
+				exten, 
+				tech_pvt->profile->context,
+				tg_string,
+				tech_pvt->callid);
+		}
+		
+		return -1;	
+	}
+
+	return 0;
 }
 
 ;

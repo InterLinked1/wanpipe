@@ -319,17 +319,17 @@ typedef struct fr_channel
 #define TMR_INT_ENABLED_UPDATE_DLCI	0x40
 #define TMR_INT_ENABLED_TE		0x80
 
-
+#pragma pack(1)
 typedef struct dlci_status
 {
-	unsigned short dlci	PACKED;
-	unsigned char state	PACKED;
+	unsigned short dlci	;
+	unsigned char state	;
 } dlci_status_t;
 
 typedef struct dlci_IB_mapping
 {
-	unsigned short dlci		PACKED;
-	unsigned long  addr_value	PACKED;
+	unsigned short dlci		;
+	unsigned long  addr_value	;
 } dlci_IB_mapping_t;
 
 /* This structure is used for DLCI list Tx interrupt mode.  It is used to
@@ -337,10 +337,11 @@ typedef struct dlci_IB_mapping
  */
 typedef struct fr_dlci_interface 
 {
-	unsigned char gen_interrupt	PACKED;
-	unsigned short packet_length	PACKED;
-	unsigned char reserved		PACKED;
+	unsigned char gen_interrupt	;
+	unsigned short packet_length	;
+	unsigned char reserved		;
 } fr_dlci_interface_t; 
+#pragma pack()
 
 extern void disable_irq(unsigned int);
 extern void enable_irq(unsigned int);

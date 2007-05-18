@@ -1219,6 +1219,32 @@ int AFTMain(char *command,int argc, char* argv[])
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_READ);
 			}else if (!strcmp(opt,"pr")){
 				set_debug_mode(WAN_FE_DEBUG_RBS, WAN_FE_DEBUG_RBS_PRINT);
+			}else if (!strcmp(opt,"reg")){
+				int	value;
+				if (argc < 6){
+					printf("ERROR: Invalid command argument!\n");
+					break;				
+				}
+				value = strtol(argv[5],(char**)NULL, 16);
+				if (value == LONG_MIN || value == LONG_MAX){
+					printf("ERROR: Invalid argument 5: %s!\n",
+							argv[5]);
+					break;				
+				}
+				fe_debug.reg  = value;
+				fe_debug.read = 1;
+				if (argc > 6){
+					value = strtol(argv[6],(char**)NULL, 16);
+					if (value == LONG_MIN || value == LONG_MAX){
+						printf("ERROR: Invalid argument 6: %s!\n",
+								argv[6]);
+						break;
+					}
+					fe_debug.read = 0;
+					fe_debug.value = value;
+				}
+				fe_debug.type = WAN_FE_DEBUG_REG;
+				set_fe_debug_mode(&fe_debug);
 			}else if (!strcmp(opt,"sr")){
 				int		i=0;
 				if (argc < 6){

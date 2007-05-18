@@ -2,7 +2,7 @@
 %define WANPIPE_VER	  wanpipe
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           8
+%define release           9
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define UTILS_LOCAL_DIR   /usr/local/sbin
@@ -10,6 +10,8 @@
 %define WANCFG_LIBS_DIR   /etc/wanpipe/lib
 %define API_DIR           /etc/wanpipe/api
 %define DOCS_DIR	  /usr/share/doc/wanpipe
+%define USR_INCLUDE_DIR	  /usr/include
+%define LIBSANGOMA_CONF   /etc/ld.so.conf.d/libsangoma.so.conf
 %define PROD		  wanrouter
 %define MODULES_DIR	  /lib/modules
 %define META_CONF         %{PROD_HOME}/%{PROD}.rc
@@ -59,6 +61,11 @@ echo "Uninstalling WANPIPE..."
 # Remove initialization scripts.
 # ----------------------------------------------------------------------------
 remove_init()
+{
+	chkconfig --del wanrouter
+	rm /etc/init.d/wanrouter
+}
+remove_init_old()
 {
         # Examine system bootstrap files.
         if [ -d /etc/rc0.d ]
@@ -165,7 +172,11 @@ ENDOFTEXT
 # ----------------------------------------------------------------------------
 # Install initialization scripts.
 # ----------------------------------------------------------------------------
-install_init()
+{
+	ln -s /usr/sbin/wanrouter /etc/init.d/wanrouter
+	chkconfig wanrouter on
+}
+install_init_old()
 {
 	#Examine system bootstrap files.
         if [ -d /etc/rc0.d ]
@@ -236,9 +247,22 @@ install_init;
 %{PROD_HOME}
 %{DOCS_DIR}
 %{MODULES_DIR}
+%{USR_INCLUDE_DIR}
+%{LIBSANGOMA_CONF}
 
 
 %changelog
+* Wed May 17 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-9
+====================================================================  
+
+- Updated Zaptel 1.2.17 DCHAN Patch
+
+- Hardware A101D and A101DX Support
+
+- Added Maxim register debug in wanpipemon
+
+- Update to SMG   
+
 
 * Wed Apr 23 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-8
 ====================================================================  

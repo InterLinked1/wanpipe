@@ -919,7 +919,7 @@ static int sdla_get_cpld_info(sdlahw_t* hw)
 			break;
 		case AFT_DS_FE_CORE_ID:
 			switch(hw->hwcard->adptr_type){
-//			case A101_ADPTR_1TE1:
+			case A101_ADPTR_1TE1:
 			case A101_ADPTR_2TE1:
 			case A104_ADPTR_4TE1:
 			case A108_ADPTR_8TE1:
@@ -1298,6 +1298,12 @@ static int sdla_aft_hw_select (sdlahw_card_t* hwcard, int cpu_no, int irq, void*
 		sdla_get_adptr_name(hw);
 		sdla_save_hw_probe(hw, 0);
 		number_of_cards += 1;
+                if (hwcard->adptr_subtype == AFT_SUBTYPE_NORMAL){
+			hwcard->cfg_type = WANOPT_AFT;
+		}else if (hwcard->adptr_subtype == AFT_SUBTYPE_SHARK){
+			hwcard->cfg_type = WANOPT_AFT101;
+		}
+		
 		DEBUG_EVENT(
 		"%s: %s T1/E1 card found (%s rev.%X), cpu(s) 1, bus #%d, slot #%d, irq #%d\n",
 			wan_drvname,
@@ -1672,7 +1678,10 @@ static int sdla_pci_probe(sdlahw_t *hw)
 		}
 
 		/* Detect PCI Express cards (only valid for production test) */
-		switch(PCI_subsys_vendor){	
+		switch(PCI_subsys_vendor){
+		case A200_REMORA_SHARK_SUBSYS_VENDOR:
+		case A400_REMORA_SHARK_SUBSYS_VENDOR:	
+		case AFT_1TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_4TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_8TE1_SHARK_SUBSYS_VENDOR:
@@ -2606,6 +2615,7 @@ void* sdla_register(sdlahw_iface_t* hw_iface, wandev_conf_t* conf, char* devname
 		break;
 		
 	case WANOPT_AFT:
+	case WANOPT_AFT101:
 	case WANOPT_AFT102:
 	case WANOPT_AFT104:
 	case WANOPT_AFT108:
@@ -2628,6 +2638,7 @@ void* sdla_register(sdlahw_iface_t* hw_iface, wandev_conf_t* conf, char* devname
 		hw_iface->write_cpld		= sdla_hw_write_cpld;
 
 		switch(hw->hwcard->adptr_type){
+		case A101_ADPTR_1TE1:
 		case A101_ADPTR_2TE1:
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
@@ -2926,6 +2937,7 @@ static int sdla_setup (void* phw, wandev_conf_t* conf)
 	case SDLA_AFT:
 
 		switch(hw->hwcard->adptr_type){
+		case A101_ADPTR_1TE1:
 		case A101_ADPTR_2TE1:
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
@@ -3575,6 +3587,7 @@ static int sdla_down (void* phw)
 	case SDLA_AFT:
 
 		switch(hw->hwcard->adptr_type){
+		case A101_ADPTR_1TE1:
 		case A101_ADPTR_2TE1:
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
@@ -5242,6 +5255,7 @@ static int sdla_memory_map(sdlahw_t* hw, int cpu_no)
 	case SDLA_AFT:
 		sprintf(reserve_name,"WANPIPE AFT");
 		switch(hw->hwcard->adptr_type){
+		case A101_ADPTR_1TE1:
 		case A101_ADPTR_2TE1:
 			if (hw->hwcard->adptr_subtype == AFT_SUBTYPE_NORMAL){
 				hw->memory = AFT_PCI_MEM_SIZE; 
@@ -5492,14 +5506,15 @@ static sdlahw_t* sdla_find_adapter(wandev_conf_t* conf, char* devname)
 					}
 				}else{
 
-					/* Allow old A102 config for A102 SHARK */
+					/* Allow old A101 & A102 config for A101d/2d */
 					if (conf->card_type == WANOPT_AFT &&
 					    hw->hwcard->slot_no == conf->PCI_slot_no && 
 				    	    hw->hwcard->bus_no == conf->pci_bus_no &&
-					    hw->hwcard->cfg_type == WANOPT_AFT102) {
+					    (hw->hwcard->cfg_type == WANOPT_AFT102 ||
+					     hw->hwcard->cfg_type == WANOPT_AFT101)) {
 						/* Remap the card type to standard
 						   A104 Shark style.  We are allowing
-						   and old config file for A102-SH */
+						   and old config file for A101/2-SH */
 						conf->card_type = WANOPT_AFT104;
 						conf->config_id = WANCONFIG_AFT_TE1;
 						if (cpu_no == SDLA_CPU_A) {
@@ -5520,12 +5535,14 @@ static sdlahw_t* sdla_find_adapter(wandev_conf_t* conf, char* devname)
 				}
 				break;
 			
+			case WANOPT_AFT101:
 			case WANOPT_AFT102:
 			case WANOPT_AFT104:
 			case WANOPT_AFT108:
 				if (conf->auto_pci_cfg){
 					
 				    	switch (hw->hwcard->cfg_type){ 
+					case WANOPT_AFT101:
 					case WANOPT_AFT102:
 					case WANOPT_AFT104:
 					case WANOPT_AFT108:   
@@ -5540,6 +5557,7 @@ static sdlahw_t* sdla_find_adapter(wandev_conf_t* conf, char* devname)
 				    	    (hw->hwcard->bus_no == conf->pci_bus_no)){
 					    
 					        switch (hw->hwcard->cfg_type){ 
+						case WANOPT_AFT101:
 						case WANOPT_AFT102:
 						case WANOPT_AFT104:
 						case WANOPT_AFT108:   
@@ -5619,12 +5637,14 @@ adapter_found:
 		case WANOPT_S51X:
 		case WANOPT_ADSL:
 		case WANOPT_AFT:
+		case WANOPT_AFT101:
 		case WANOPT_AFT102:
 		case WANOPT_AFT104:
 		case WANOPT_AFT108:
 		case WANOPT_AFT300:
 		case WANOPT_AFT_ANALOG:
 			switch(hw->hwcard->adptr_type){
+			case A101_ADPTR_1TE1:
 			case A101_ADPTR_2TE1:
 				if (hw->hwcard->adptr_subtype == AFT_SUBTYPE_NORMAL){
 					DEBUG_EVENT(
@@ -5709,6 +5729,7 @@ adapter_found:
 					conf->PCI_slot_no); 
 			break;
 		case WANOPT_AFT:
+		case WANOPT_AFT101:
 		case WANOPT_AFT102:
 		case WANOPT_AFT104:
 		case WANOPT_AFT108:
@@ -6735,6 +6756,7 @@ static int sdla_hw_read_cpld(void *phw, u16 off, u8 *data)
 			break;
 		case AFT_DS_FE_CORE_ID:
 			switch(hw->hwcard->adptr_type){
+			case A101_ADPTR_1TE1:
 			case A101_ADPTR_2TE1:
 			case A104_ADPTR_4TE1:
 			case A108_ADPTR_8TE1:
@@ -6908,6 +6930,7 @@ static int sdla_hw_write_cpld(void *phw, u16 off, u8 data)
 			break;
 		case AFT_DS_FE_CORE_ID:
 			switch(hw->hwcard->adptr_type){
+			case A101_ADPTR_1TE1:
 			case A101_ADPTR_2TE1:
 		        case A104_ADPTR_4TE1:
 			case A108_ADPTR_8TE1:

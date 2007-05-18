@@ -36,26 +36,4 @@ done
 
 eval "../wan_aftup/scripts/unload.sh"
 
-if [ $cfg -eq 1 ]; then
-
-echo
-echo "PLX Updated Successfuly"
-echo "-----------------------"
-echo "The machine must be SHUTDOWN/POWER OFF before"
-echo "effects take place. A soft restart is not sufficent."
-echo
-
-else
-
-echo
-echo "PLX Update Failed"
-echo "-----------------------"
-echo "Please confirm you have a Sangoma PCI-Express card"
-echo "installed. If the PCI-Express card IS installed please contact"
-echo "Sangoma Tech Support, and send us the output of: lspci -v"
-echo
-
-fi
-
-
 

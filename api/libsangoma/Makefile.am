@@ -1,5 +1,9 @@
-AM_CFLAGS		= -fPIC -Wall -Wstrict-prototypes -Wmissing-prototypes -g -I/usr/src/linux/include -I. \
-	-D__LINUX__ -D_REENTRANT -D_GNU_SOURCE -O2 -D_DEBUG_=2 -D_GNUC_ -I../lib -I/usr/src/linux/include
+
+KINC=/lib/modules/$(shell uname -r)/build
+
+AM_CFLAGS		= -fPIC -Wall -Wstrict-prototypes -Wmissing-prototypes -g -I$(KINC)/include -I. \
+	-D__LINUX__ -D_REENTRANT -D_GNU_SOURCE -O2 -D_DEBUG_=2 -D_GNUC_ -I../lib -I$(KINC)/include
+
 LIB_SOURCES		= libsangoma.c  libsangoma.h
 
 if LIBPRI

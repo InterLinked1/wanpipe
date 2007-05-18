@@ -51,6 +51,7 @@
 #define WAN_FE_DEBUG_RBS	0x01
 #define WAN_FE_DEBUG_ALARM	0x02
 #define WAN_FE_DEBUG_VOLTAGE	0x03
+#define WAN_FE_DEBUG_REG	0x05
 
 /* Front-End DEBUG sub-flags */
 /* Sub-flags for RBS debugging */
@@ -203,6 +204,9 @@ typedef struct {
 	unsigned char	mode;
 	int		channel;
 	unsigned char	abcd;
+	int		read;
+	int		reg;
+	unsigned char	value;
 } sdla_fe_debug_t;
 
 

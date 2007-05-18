@@ -3,31 +3,96 @@
  *
  * Author(s):	Anthony Minessale II <anthmct@yahoo.com>
  *              Nenad Corbic <ncorbic@sangoma.com>
+ *              David Rokhvarg <davidr@sangoma.com>
+ *              Michael Jerris <mike@jerris.com>
  *
- * Copyright:	(c) 2006 Nenad Corbic <ncorbic@sangoma.com>
- * 		         Anthony Minessale II
+ * Copyright:	(c) 2005 Anthony Minessale II
  *
  *		This program is free software; you can redistribute it and/or
  *		modify it under the terms of the GNU General Public License
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  * ============================================================================
+ *
+ * Aug 15, 2006  David Rokhvarg <davidr@sangoma.com>	Ported to MS Windows 2000/XP
+ * Sep 24, 2006  Michael Jerris <mike@jerris.com>		Windows port, standardize api, cleanup
+ * 
  */
 
 #include "libsangoma.h"
-#include "g711.h"
 #define DFT_CARD "wanpipe1"
 
-void sangoma_socket_close(int *sp) 
+
+#ifndef WP_TDM_EVENT_FE_ALARM
+#warning "Warning: TDM FE ALARM not supported by driver"
+#endif
+
+
+#if defined(WIN32)
+//extern int	verbose;
+
+#define DEV_NAME_LEN	100
+char device_name[DEV_NAME_LEN];
+
+/* IOCTL management structures and variables*/
+wan_udp_hdr_t	wan_udp;
+
+#include "win_api_common.h"
+
+static wan_cmd_api_t api_cmd;
+static api_tx_hdr_t *tx_hdr = (api_tx_hdr_t *)api_cmd.data;
+
+/* keeps the LAST (and single) event received */
+static wp_tdm_api_rx_hdr_t last_tdm_api_event_buffer;
+
+#endif	/* WIN32 */
+
+void sangoma_socket_close(sng_fd_t *sp) 
 {
+#if defined(WIN32)
+	if(	*sp != INVALID_HANDLE_VALUE){
+		CloseHandle(*sp);
+		*sp = INVALID_HANDLE_VALUE;
+	}
+#else
     if (*sp > -1) {
 	close(*sp);
 	*sp = -1;
     }
+#endif
 }
 
-int sangoma_socket_waitfor(int fd, int timeout, int flags)
+int sangoma_socket_waitfor(sng_fd_t fd, int timeout, int flags)
 {
+#if defined(WIN32)
+	API_POLL_STRUCT	api_poll;
+
+	memset(&api_poll, 0x00, sizeof(API_POLL_STRUCT));
+	
+	api_poll.user_flags_bitmap = flags;
+
+	if(DoApiPollCommand(fd, &api_poll)){
+		//failed
+		return 0;
+	}
+
+	switch(api_poll.operation_status)
+	{
+		case SANG_STATUS_RX_DATA_AVAILABLE:
+			break;
+
+		default:
+			prn(1, "Error: sangoma_socket_waitfor(): Unknown Operation Status: %d\n", 
+				api_poll.operation_status);
+			return 0;
+	}//switch()
+
+	if(api_poll.poll_events_bitmap == 0){
+		prn(1, "Error: invalid Poll Events bitmap: 0x%X\n",
+			api_poll.poll_events_bitmap);
+	}
+	return api_poll.poll_events_bitmap;
+#else
     struct pollfd pfds[1];
     int res;
 
@@ -44,21 +109,24 @@ int sangoma_socket_waitfor(int fd, int timeout, int flags)
     }
 
     return res;
+#endif
 }
 
 
-int sangoma_span_chan_toif(int span, int chan, char *interface)
+int sangoma_span_chan_toif(int span, int chan, char *interface_name)
 {
- 	sprintf(interface,"s%ic%i",span,chan);
+ 	sprintf(interface_name,"s%ic%i",span,chan);
 	return 0;
 }
 
-int sangoma_interface_toi(char *interface, int *span, int *chan)
+int sangoma_interface_toi(char *interface_name, int *span, int *chan)
 {
-	char *data, *p, *sp = NULL, *ch = NULL;
+	char *p=NULL, *sp = NULL, *ch = NULL;
 	int ret = 0;
-	
-	if ((data = strdupa(interface))) {
+	char data[FNAME_LEN];
+
+	strncpy(data, interface_name, FNAME_LEN);
+	if ((data[0])) {
 		for (p = data; *p; p++) {
 			if (sp && *p == 'g') {
 				*p = '\0';
@@ -82,12 +150,14 @@ int sangoma_interface_toi(char *interface, int *span, int *chan)
 	return ret;
 }
 
-int sangoma_span_chan_fromif(char *interface, int *span, int *chan)
+int sangoma_span_chan_fromif(char *interface_name, int *span, int *chan)
 {
-	char *data, *p, *sp = NULL, *ch = NULL;
+	char *p = NULL, *sp = NULL, *ch = NULL;
 	int ret = 0;
-	
-	if ((data = strdupa(interface))) {
+	char data[FNAME_LEN];
+
+	strncpy(data, interface_name, FNAME_LEN);
+	if ((data[0])) {
 		for (p = data; *p; p++) {
 			if (sp && *p == 'c') {
 				*p = '\0';
@@ -111,20 +181,37 @@ int sangoma_span_chan_fromif(char *interface, int *span, int *chan)
 	return ret;
 }
 
-int sangoma_open_tdmapi_span_chan(int span, int chan) 
+sng_fd_t sangoma_open_tdmapi_span_chan(int span, int chan) 
 {
+   	char fname[FNAME_LEN];
+#if defined(WIN32)
 
-    	int fd=-1;
-    	unsigned char fname[50];
+	//NOTE: under Windows Interfaces are zero based but 'chan' is 1 based.
+	//		Subtract 1 from 'chan'.
+	_snprintf(fname , FNAME_LEN, "\\\\.\\WANPIPE%d_IF%d", span, chan - 1);
+
+	//prn(verbose, "Opening device: %s...\n", fname);
+
+	return CreateFile(	fname, 
+						GENERIC_READ | GENERIC_WRITE, 
+						FILE_SHARE_READ | FILE_SHARE_WRITE,
+						(LPSECURITY_ATTRIBUTES)NULL, 
+						OPEN_EXISTING,
+						FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH,
+						(HANDLE)NULL
+						);
+#else
+  	int fd=-1;
 
 	sprintf(fname,"/dev/wptdm_s%dc%d",span,chan);
-	
+
 	fd = open(fname, O_RDWR);
 
 	return fd;  
+#endif
 }            
 
-int sangoma_create_socket_by_name(char *device, char *card) 
+sng_fd_t sangoma_create_socket_by_name(char *device, char *card) 
 {
 	int span,chan;
 	sangoma_interface_toi(device,&span,&chan);
@@ -133,13 +220,45 @@ int sangoma_create_socket_by_name(char *device, char *card)
 }
 
           
-int sangoma_open_tdmapi_span(int span) 
+sng_fd_t sangoma_open_tdmapi_span(int span) 
 {
+    int i=0;
+#if defined(WIN32)
+	sng_fd_t fd = INVALID_HANDLE_VALUE;
 
-    int fd;
-    unsigned char fname[50];
-    int i;
+	for(i = 1; i < 32; i++){
+		if((fd = sangoma_open_tdmapi_span_chan(span, i)) == INVALID_HANDLE_VALUE){
+			//prn(verbose, "Span: %d, chan: %d: is not running, consider 'busy'\n",
+			//	span, i);
+			continue;
+		}
 
+		//get the open handle counter
+		wan_udp.wan_udphdr_command = GET_OPEN_HANDLES_COUNTER; 
+		wan_udp.wan_udphdr_data_len = 0;
+
+		DoManagementCommand(fd, &wan_udp);
+		if(wan_udp.wan_udphdr_return_code){
+			prn(1, "Error: command GET_OPEN_HANDLES_COUNTER failed! Span: %d, chan: %d\n",
+				span, i);
+			//don't forget to close!! otherwize counter will stay incremented.
+			sangoma_socket_close(&fd);
+			continue;
+		}
+
+		//prn(verbose, "open handles counter: %d\n", *(int*)&wan_udp.wan_udphdr_data[0]);
+		if(*(int*)&wan_udp.wan_udphdr_data[0] == 1){
+			//this is the only process using this chan/span, so it is 'free'
+			//prn(verbose, "Found 'free' Span: %d, chan: %d\n",span, i);
+			break;
+		}
+		//don't forget to close!! otherwize counter will stay incremented.
+		sangoma_socket_close(&fd);
+	}//for()
+
+#else
+    unsigned char fname[FNAME_LEN];
+	int fd=0;
 	for (i=1;i<32;i++){
 		sprintf(fname,"/dev/wptdm_s%dc%d",span,i);
 		fd = open(fname, O_RDWR);
@@ -148,13 +267,94 @@ int sangoma_open_tdmapi_span(int span)
 		}
 		break;
 	}
-	
+#endif	
     return fd;  
 }      
 
-int sangoma_readmsg_tdm(int fd, void *hdrbuf, int hdrlen, void *databuf, int datalen, int flag)
+int sangoma_readmsg_tdm(sng_fd_t fd, void *hdrbuf, int hdrlen, void *databuf, int datalen, int flag)
 {
-	int rx_len;
+	int rx_len=0;
+
+#if defined(WIN32)
+	static RX_DATA_STRUCT	rx_data;
+	api_header_t			*pri;
+	wp_tdm_api_rx_hdr_t		*tdm_api_rx_hdr;
+	wp_tdm_api_rx_hdr_t		*user_buf = (wp_tdm_api_rx_hdr_t*)hdrbuf;
+
+	if(hdrlen != sizeof(wp_tdm_api_rx_hdr_t)){
+		//error
+		prn(1, "Error: sangoma_readmsg_tdm(): invalid size of user's 'header buffer'.\
+Should be 'sizeof(wp_tdm_api_rx_hdr_t)'.\n");
+		return -1;
+	}
+
+	if(DoReadCommand(fd, &rx_data) ){
+		//error
+		prn(1, "Error: DoReadCommand() failed! Check messages log.\n");
+		return -1;
+	}
+
+	//use our special buffer at rxdata to hold received data
+	pri = &rx_data.api_header;
+	tdm_api_rx_hdr = (wp_tdm_api_rx_hdr_t*)rx_data.data;
+
+	user_buf->wp_tdm_api_event_type = pri->operation_status;
+
+	switch(pri->operation_status)
+	{
+	case SANG_STATUS_RX_DATA_AVAILABLE:
+		//prn(verbose, "SANG_STATUS_RX_DATA_AVAILABLE\n");
+
+		if(pri->data_length > datalen){
+			rx_len=0;
+			break;
+		}
+		memcpy(databuf, rx_data.data, pri->data_length);
+		rx_len = pri->data_length;
+		break;
+
+	case SANG_STATUS_TDM_EVENT_AVAILABLE:
+		//prn(verbose, "SANG_STATUS_TDM_EVENT_AVAILABLE\n");
+
+		//make event is accessable for the caller directly:
+		memcpy(databuf, rx_data.data, pri->data_length);
+		rx_len = pri->data_length;
+
+		//make copy for use with sangoma_tdm_read_event() - indirect access.
+		memcpy(	&last_tdm_api_event_buffer,	tdm_api_rx_hdr, sizeof(wp_tdm_api_rx_hdr_t));
+		break;
+
+	default:
+		switch(pri->operation_status)
+		{
+		case SANG_STATUS_RX_DATA_TIMEOUT:
+			//no data in READ_CMD_TIMEOUT, try again.
+			prn(1, "Error: Timeout on read.\n");
+			break;
+
+		case SANG_STATUS_BUFFER_TOO_SMALL:
+			//Recieved data longer than the pre-configured maximum.
+			//Maximum length is set in 'Interface Properties',
+			//in the 'Device Manager'.
+			prn(1, "Error: Received data longer than buffer passed to API.\n");
+			break;
+
+		case SANG_STATUS_LINE_DISCONNECTED:
+			//Front end monitoring is enabled and Line is
+			//in disconnected state.
+			//Check the T1/E1 line is in "Connected" state,
+			//alse check the Alarms and the message log.
+			prn(1, "Error: Line disconnected.\n");
+			break;
+
+		default:
+			prn(1, "Rx:Unknown Operation Status: %d\n", pri->operation_status);
+			break;
+		}//switch()
+		return 0;
+	}//switch()
+
+#else
 	struct msghdr msg;
 	struct iovec iov[2];
 
@@ -176,13 +376,71 @@ int sangoma_readmsg_tdm(int fd, void *hdrbuf, int hdrlen, void *databuf, int dat
 	}
 
 	rx_len-=sizeof(wp_tdm_api_rx_hdr_t);
-
+#endif
     return rx_len;
 }                    
 
-int sangoma_writemsg_tdm(int fd, void *hdrbuf, int hdrlen, void *databuf, int datalen, int flag)
+int sangoma_writemsg_tdm(sng_fd_t fd, void *hdrbuf, int hdrlen, void *databuf, unsigned short datalen, int flag)
 {
 	int bsent;
+
+#if defined(WIN32)
+	static TX_DATA_STRUCT	local_tx_data;
+	api_header_t			*pri;
+
+	pri = &local_tx_data.api_header;
+
+	pri->data_length = datalen;
+	memcpy(local_tx_data.data, databuf, pri->data_length);
+
+	//queue data for transmission
+	if(	DoWriteCommand(fd, &local_tx_data)){
+		//error
+		prn(1, "Error: DoWriteCommand() failed!! Check messages log.\n");
+		return -1;
+	}
+
+	bsent=0;
+	//check that frame was transmitted
+	switch(local_tx_data.api_header.operation_status)
+	{
+	case SANG_STATUS_SUCCESS:
+		bsent = datalen;
+		break;
+				
+	case SANG_STATUS_TX_TIMEOUT:
+		//error
+		prn(1, "****** Error: SANG_STATUS_TX_TIMEOUT ******\n");
+		//Check messages log or look at statistics.
+		break;
+				
+	case SANG_STATUS_TX_DATA_TOO_LONG:
+		//Attempt to transmit data longer than the pre-configured maximum.
+		//Maximum length is set in 'Interface Properties',
+		//in the 'Device Manager'.
+		prn(1, "****** SANG_STATUS_TX_DATA_TOO_LONG ******\n");
+		break;
+				
+	case SANG_STATUS_TX_DATA_TOO_SHORT:
+		//Minimum is 1 byte  for Primary   port,
+		//			 2 bytes for Secondary port
+		prn(1, "****** SANG_STATUS_TX_DATA_TOO_SHORT ******\n");
+		break;
+
+	case SANG_STATUS_LINE_DISCONNECTED:
+		//Front end monitoring is enabled and Line is
+		//in disconnected state.
+		//Check the T1/E1 line is in "Connected" state,
+		//alse check the Alarms and the message log.
+		prn(1, "****** SANG_STATUS_LINE_DISCONNECTED ******\n");
+		break;
+
+	default:
+		prn(1, "Unknown return code (0x%X) on transmission!\n",
+			local_tx_data.api_header.operation_status);
+		break;
+	}//switch()
+#else
 	struct msghdr msg;
 	struct iovec iov[2];
 
@@ -201,7 +459,7 @@ int sangoma_writemsg_tdm(int fd, void *hdrbuf, int hdrlen, void *databuf, int da
 	if (bsent > 0){
 		bsent-=sizeof(wp_tdm_api_tx_hdr_t);
 	}
-
+#endif
 	return bsent;
 }
 
@@ -212,20 +470,21 @@ int sangoma_writemsg_tdm(int fd, void *hdrbuf, int hdrlen, void *databuf, int da
  * Execute TDM command
  *
  */
-static int sangoma_tdm_cmd_exec(int fd, wanpipe_tdm_api_t *tdm_api)
+static int sangoma_tdm_cmd_exec(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
+#if defined(WIN32)
+	err = tdmv_api_ioctl(fd, &tdm_api->wp_tdm_cmd);
+#else
 	err = ioctl(fd,SIOC_WANPIPE_TDM_API,&tdm_api->wp_tdm_cmd);
 	if (err < 0){
-#if 0
 		char tmp[50];
 		sprintf(tmp,"TDM API: CMD: %i\n",tdm_api->wp_tdm_cmd.cmd);
 		perror(tmp);
-#endif
 		return -1;
 	}
-
+#endif
 	return err;
 }
 
@@ -233,7 +492,7 @@ static int sangoma_tdm_cmd_exec(int fd, wanpipe_tdm_api_t *tdm_api)
  * Get Full TDM API configuration per channel
  *
  */
-int sangoma_get_full_cfg(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_get_full_cfg(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
@@ -254,16 +513,21 @@ int sangoma_get_full_cfg(int fd, wanpipe_tdm_api_t *tdm_api)
 	printf("\ttx_disable:\t%d\n",tdm_api->wp_tdm_cmd.tx_disable);
 	printf("\tusr_mtu_mru:\t%d\n",tdm_api->wp_tdm_cmd.usr_mtu_mru);
 	printf("\tidle flag:\t0x%02X\n",tdm_api->wp_tdm_cmd.idle_flag);
+
+#ifdef WP_TDM_EVENT_FE_ALARM
+	printf("\tfe alarms:\t0x%02X\n",tdm_api->wp_tdm_cmd.fe_alarms);
+#endif
 	
-	printf("\trx pkt\t%d\ttx pkt\t\%d\n",tdm_api->wp_tdm_cmd.stats.rx_packets,
+	printf("\trx pkt\t%d\ttx pkt\t%d\n",tdm_api->wp_tdm_cmd.stats.rx_packets,
 				tdm_api->wp_tdm_cmd.stats.tx_packets);
 	printf("\trx err\t%d\ttx err\t%d\n",
 				tdm_api->wp_tdm_cmd.stats.rx_errors,
 				tdm_api->wp_tdm_cmd.stats.tx_errors);
+#ifndef __WINDOWS__
 	printf("\trx ovr\t%d\ttx idl\t%d\n",
 				tdm_api->wp_tdm_cmd.stats.rx_fifo_errors,
 				tdm_api->wp_tdm_cmd.stats.tx_carrier_errors);
-				
+#endif				
 	
 	return 0;
 }
@@ -280,7 +544,7 @@ int sangoma_get_full_cfg(int fd, wanpipe_tdm_api_t *tdm_api)
  * }
  *
  */
-int sangoma_tdm_set_codec(int fd, wanpipe_tdm_api_t *tdm_api, int codec)
+int sangoma_tdm_set_codec(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api, int codec)
 {
 	int err;
 
@@ -304,7 +568,7 @@ int sangoma_tdm_set_codec(int fd, wanpipe_tdm_api_t *tdm_api, int codec)
  * }
  *
  */
-int sangoma_tdm_get_codec(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_tdm_get_codec(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
@@ -326,7 +590,7 @@ int sangoma_tdm_get_codec(int fd, wanpipe_tdm_api_t *tdm_api)
  *  10,20,30,40,50 ms      
  *
  */
-int sangoma_tdm_set_usr_period(int fd, wanpipe_tdm_api_t *tdm_api, int period)
+int sangoma_tdm_set_usr_period(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api, int period)
 {
 	int err;
 
@@ -345,7 +609,7 @@ int sangoma_tdm_set_usr_period(int fd, wanpipe_tdm_api_t *tdm_api, int period)
  *  10,20,30,40,50 ms      
  *
  */
-int sangoma_tdm_get_usr_period(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_tdm_get_usr_period(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
@@ -360,12 +624,30 @@ int sangoma_tdm_get_usr_period(int fd, wanpipe_tdm_api_t *tdm_api)
 }
 
 /*========================================================
+ * GET Current User Hardware Coding Format
+ *
+ * Coding Format will be ULAW/ALAW based on T1/E1 
+ */
+
+int sangoma_tdm_get_hw_coding(int fd, wanpipe_tdm_api_t *tdm_api)
+{
+        int err;
+        tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_GET_HW_CODING;
+        err=sangoma_tdm_cmd_exec(fd,tdm_api);
+        if (err){
+                return err;
+        }
+        return tdm_api->wp_tdm_cmd.hw_tdm_coding;
+}
+
+
+/*========================================================
  * GET Current User MTU/MRU values in bytes.
  * 
  * The USER MTU/MRU values will change each time a PERIOD
  * or CODEC is adjusted.
  */
-int sangoma_tdm_get_usr_mtu_mru(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_tdm_get_usr_mtu_mru(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
@@ -385,7 +667,7 @@ int sangoma_tdm_get_usr_mtu_mru(int fd, wanpipe_tdm_api_t *tdm_api)
  * This option is not implemented yet
  *
  */
-int sangoma_tdm_set_power_level(int fd, wanpipe_tdm_api_t *tdm_api, int power)
+int sangoma_tdm_set_power_level(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api, int power)
 {
 	int err;
 
@@ -403,7 +685,7 @@ int sangoma_tdm_set_power_level(int fd, wanpipe_tdm_api_t *tdm_api, int power)
  * This option is not implemented yet
  *
  */
-int sangoma_tdm_get_power_level(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_tdm_get_power_level(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
 	int err;
 
@@ -417,10 +699,8 @@ int sangoma_tdm_get_power_level(int fd, wanpipe_tdm_api_t *tdm_api)
 	return tdm_api->wp_tdm_cmd.power_level;
 }
 
-int sangoma_tdm_flush_bufs(int fd, wanpipe_tdm_api_t *tdm_api)
+int sangoma_tdm_flush_bufs(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
 {
-	return 0;
-	
 #if 0
 	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_FLUSH_BUFFERS;
 
@@ -432,7 +712,7 @@ int sangoma_tdm_flush_bufs(int fd, wanpipe_tdm_api_t *tdm_api)
 	return 0;
 }
 
-int sangoma_tdm_enable_rbs_events(int fd, wanpipe_tdm_api_t *tdm_api, int poll_in_sec) {
+int sangoma_tdm_enable_rbs_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api, int poll_in_sec) {
 	
 	int err;
 	
@@ -448,7 +728,7 @@ int sangoma_tdm_enable_rbs_events(int fd, wanpipe_tdm_api_t *tdm_api, int poll_i
 }
 
 
-int sangoma_tdm_disable_rbs_events(int fd, wanpipe_tdm_api_t *tdm_api) {
+int sangoma_tdm_disable_rbs_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) {
 
 	int err;
 	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_DISABLE_RBS_EVENTS;
@@ -461,7 +741,7 @@ int sangoma_tdm_disable_rbs_events(int fd, wanpipe_tdm_api_t *tdm_api) {
 	return 0;
 }
 
-int sangoma_tdm_write_rbs(int fd, wanpipe_tdm_api_t *tdm_api, unsigned char rbs) 
+int sangoma_tdm_write_rbs(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api, unsigned char rbs) 
 {
 	
 	int err;
@@ -476,129 +756,15 @@ int sangoma_tdm_write_rbs(int fd, wanpipe_tdm_api_t *tdm_api, unsigned char rbs)
 	return 0;
 }        
 
-static int __sangoma_tdm_set_gain(unsigned char *gain_array, int ulaw, int gain)
+int sangoma_tdm_read_event(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
 {
-        int j;
-	int k;
-	float linear_gain = pow(10.0, gain / 20.0);
-
-	if (ulaw == WP_MULAW) {
-                for (j = 0; j < 256; j++) {
-			if (gain) {
-				k = (int) (((float) ulaw_to_linear(j)) * linear_gain);
-				if (k > 32767) k = 32767;
-				if (k < -32767) k = -32767;
-				gain_array[j] = linear_to_ulaw(k);
-			} else {
-				gain_array[j] = j;
-			}
-		} 
-	} else {
-		for (j = 0; j < 256; j++) {
-			if (gain) {
-				k = (int) (((float) alaw_to_linear(j)) * linear_gain);
-				if (k > 32767) k = 32767;
-				if (k < -32767) k = -32767;
-				gain_array[j] = linear_to_alaw(k);
-			} else {
-				gain_array[j] = j;
-			}
-		}
-	} 
-	return 0;
-}
-
-int sangoma_tdm_set_rx_gain(int fd, wanpipe_tdm_api_t *tdm_api, int gain)
-{ 
-	int len=256;
-	int err=0;
-
-	if (gain == 0) {
-        	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_CLEAR_RX_GAINS;
-		err=sangoma_tdm_cmd_exec(fd,tdm_api);
-		return err;
-	}
-	
-	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_GET_HW_CODING;
-	err=sangoma_tdm_cmd_exec(fd,tdm_api);
-	if (err){
-		return err;
-	}
-	
-        tdm_api->wp_tdm_cmd.data=malloc(len);
-	if (!tdm_api->wp_tdm_cmd.data) {
-         	return -1;
-	}
-
-	tdm_api->wp_tdm_cmd.data_len=len;
-	__sangoma_tdm_set_gain(tdm_api->wp_tdm_cmd.data,tdm_api->wp_tdm_cmd.hw_tdm_coding,gain);
-	
-	
-	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_SET_RX_GAINS;
-	err=sangoma_tdm_cmd_exec(fd,tdm_api);
-
-	free(tdm_api->wp_tdm_cmd.data);
-	tdm_api->wp_tdm_cmd.data=NULL;
-
-	if (err){
-		return err;
-	} 
-
-	return 0;        
-				
-}
-
-int sangoma_tdm_get_hw_coding(int fd, wanpipe_tdm_api_t *tdm_api)
-{
-	int err;
-	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_GET_HW_CODING;
-        err=sangoma_tdm_cmd_exec(fd,tdm_api);
-        if (err){
-                return err;
-        }
-	return tdm_api->wp_tdm_cmd.hw_tdm_coding;
-}
-
-int sangoma_tdm_set_tx_gain(int fd, wanpipe_tdm_api_t *tdm_api, int gain)
-{ 
-	int len=256;
-        int err=0;
-	
-        if (gain == 0) {
-        	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_CLEAR_TX_GAINS;
-		err=sangoma_tdm_cmd_exec(fd,tdm_api);
-		return err;
-	}
-
-	
-	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_GET_HW_CODING;
-	err=sangoma_tdm_cmd_exec(fd,tdm_api);
-	if (err){
-		return err;
-	}
-	
-        tdm_api->wp_tdm_cmd.data=malloc(len);
-	if (!tdm_api->wp_tdm_cmd.data) {
-         	return -1;
-	}
-
-	tdm_api->wp_tdm_cmd.data_len=len;
-	__sangoma_tdm_set_gain(tdm_api->wp_tdm_cmd.data,tdm_api->wp_tdm_cmd.hw_tdm_coding,gain);
-	
-	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_SET_TX_GAINS;
-	err=sangoma_tdm_cmd_exec(fd,tdm_api);
-	
-	free(tdm_api->wp_tdm_cmd.data);
-	tdm_api->wp_tdm_cmd.data=NULL;
-	
-       	return err;
-} 
-
-int sangoma_tdm_read_event(int fd, wanpipe_tdm_api_t *tdm_api) 
-{
-	int err;
 	wp_tdm_api_rx_hdr_t *rx_event;
-	
+
+#if defined(WIN32)	
+	rx_event = &last_tdm_api_event_buffer;
+#else
+	int err;
+
 	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_READ_EVENT;
 	
 	err=sangoma_tdm_cmd_exec(fd,tdm_api);
@@ -607,11 +773,12 @@ int sangoma_tdm_read_event(int fd, wanpipe_tdm_api_t *tdm_api)
 	}
 
 	rx_event = &tdm_api->wp_tdm_cmd.event;
-	
+#endif
+
 	switch (rx_event->wp_tdm_api_event_type){
 	
 	case WP_TDM_EVENT_RBS:
-		//printf("%d: GOT RBS EVENT %p\n",fd,tdm_api->wp_tdm_event.wp_rbs_event);
+		printf("%d: GOT RBS EVENT %p\n",(int)fd,tdm_api->wp_tdm_event.wp_rbs_event);
 		if (tdm_api->wp_tdm_event.wp_rbs_event) {
 			tdm_api->wp_tdm_event.wp_rbs_event(fd,rx_event->wp_tdm_api_event_rbs_rx_bits);
 		}
@@ -619,16 +786,153 @@ int sangoma_tdm_read_event(int fd, wanpipe_tdm_api_t *tdm_api)
 		break;
 		
 	case WP_TDM_EVENT_DTMF:
-		printf("%d: GOT DTMF EVENT\n",fd);
-		//if (tdm_api->wp_tdm_event.wp_dtmf_event) {
-		//	//tdm_api->wp_tdm_event.wp_dtmf_event(fd,NULL);
-		//}
-		
+		printf("%d: GOT DTMF EVENT\n",(int)fd);
+		if (tdm_api->wp_tdm_event.wp_dtmf_event) {
+			tdm_api->wp_tdm_event.wp_dtmf_event(fd,
+						rx_event->wp_tdm_api_event_dtmf_digit,
+						rx_event->wp_tdm_api_event_dtmf_type,
+						rx_event->wp_tdm_api_event_dtmf_port);
+		}
 		break;
 		
+	case WP_TDM_EVENT_RXHOOK:
+		printf("%d: GOT RXHOOK EVENT\n",(int)fd);
+		if (tdm_api->wp_tdm_event.wp_rxhook_event) {
+			tdm_api->wp_tdm_event.wp_rxhook_event(fd,
+						rx_event->wp_tdm_api_event_rxhook_state);
+		}
+		break;
+
+	case WP_TDM_EVENT_RING_DETECT:
+		printf("%d: GOT RXRING EVENT\n",(int)fd);
+		if (tdm_api->wp_tdm_event.wp_rxring_event) {
+			tdm_api->wp_tdm_event.wp_rxring_event(fd,
+						rx_event->wp_tdm_api_event_ring_state);
+		}
+		break;
+
+	case WP_TDM_EVENT_RING_TRIP:
+		printf("%d: GOT RING TRIP EVENT\n",(int)fd);
+		if (tdm_api->wp_tdm_event.wp_ringtrip_event) {
+			tdm_api->wp_tdm_event.wp_ringtrip_event(fd,
+						rx_event->wp_tdm_api_event_ring_state);
+		}
+		break;
+
+#ifdef WP_TDM_EVENT_FE_ALARM
+	case WP_TDM_EVENT_FE_ALARM:
+		printf("%d: GOT FE ALARMS EVENT %i\n",(int)fd,
+				rx_event->wp_tdm_api_event_fe_alarm);
+		if (tdm_api->wp_tdm_event.wp_fe_alarm_event) {
+			tdm_api->wp_tdm_event.wp_fe_alarm_event(fd,
+						rx_event->wp_tdm_api_event_fe_alarm);
+		}    
+#endif
+		
+	default:
+		printf("%d: Unknown TDM event!", (int)fd);
+		break;
 	}
 	
 	return 0;
 }        
+
+int sangoma_tdm_enable_dtmf_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
+{
+	int err;
+	
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_ENABLE_DTMF_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+int sangoma_tdm_disable_dtmf_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
+{
+	int err;
+
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_DISABLE_DTMF_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+int sangoma_tdm_enable_rm_dtmf_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
+{
+	int err;
+	
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_ENABLE_RM_DTMF_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+int sangoma_tdm_disable_rm_dtmf_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
+{
+	int err;
+
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_DISABLE_RM_DTMF_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+int sangoma_tdm_enable_rxhook_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
+{
+	int err;
+
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_ENABLE_RXHOOK_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+int sangoma_tdm_disable_rxhook_events(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api) 
+{
+	int err;
+
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_DISABLE_RXHOOK_EVENTS;
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return 0;
+}
+
+/*========================================================
+ * GET Front End Alarms
+ * 
+ */                  
+#ifdef WP_TDM_EVENT_FE_ALARM
+int sangoma_tdm_get_fe_alarms(sng_fd_t fd, wanpipe_tdm_api_t *tdm_api)
+{
+	int err;
+
+	tdm_api->wp_tdm_cmd.cmd = SIOC_WP_TDM_GET_FE_ALARMS;
+
+	err=sangoma_tdm_cmd_exec(fd,tdm_api);
+	if (err){
+		return err;
+	}
+
+	return tdm_api->wp_tdm_cmd.fe_alarms;
+}         
+#endif
 
 #endif /* WANPIPE_TDM_API */

@@ -1,3 +1,36 @@
+
+sangoma_mgd.c
+======================================
+May 2 2007
+
+v1.10 Nenad Corbic <ncorbic@sangoma.com>
+	Added Woomera OPAL dialect.
+	Start montor thread in priority
+
+v1.9 Nenad Corbic <ncorbic@sangoma.com>
+	Added Loop mode for ccr
+	Added remote debug enable
+	Fixed syslog logging.
+
+v1.8 Nenad Corbic <ncorbic@sangoma.com>
+	Added a ccr loop mode for each channel.
+	Boost can set any channel in loop mode  
+
+
+chan_woomera.c
+=====================================
+May 2 2007
+
+v1.8 Nenad Corbic <ncorbic@sangoma.com>
+      Added Woomera OPAL dialect.
+      Code cleanup.
+      Added cli call_status
+
+v1.7 Nenad Corbic <ncorbic@sangoma.com>
+      Added smgdebug to enable smg debugging
+      Added rdnis
+
+
 sangoma_mgd.c
 =====================================
 v1.7 Dec 11 2006

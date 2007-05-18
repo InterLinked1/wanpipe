@@ -702,6 +702,9 @@ int a104_chip_config(sdla_t *card)
 				case A101_ADPTR_2TE1:
 					max_port=2;
 					break;
+				case A101_ADPTR_1TE1:
+					max_port=1;
+					break;
 				}
 			}
 
@@ -1164,7 +1167,9 @@ int __a104_write_fe (void *pcard, ...)
 		if (off & 0x800)  off |= 0x2000;
 		if (off & 0x1000) off |= 0x4000;
 		off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
-		if (card->adptr_type == A101_ADPTR_2TE1 && port_no == 1){
+		if ((card->adptr_type == A101_ADPTR_2TE1 ||
+		     card->adptr_type == A101_ADPTR_1TE1) && 
+		     port_no == 1){
 			off |= AFT8_BIT_DEV_MAXIM_ADDR_CPLD;
 		}
 	}
@@ -1253,7 +1258,9 @@ unsigned char __a104_read_fe (void *pcard, ...)
 		if (off & 0x0800) off |= 0x2000;
 		if (off & 0x1000) off |= 0x4000;
 		off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
-		if (card->adptr_type == A101_ADPTR_2TE1 && port_no == 1){
+		if ((card->adptr_type == A101_ADPTR_2TE1 || 
+		     card->adptr_type == A101_ADPTR_1TE1) && 
+		     port_no == 1){
 			off |= AFT8_BIT_DEV_MAXIM_ADDR_CPLD;
 		}
 	}
@@ -1456,8 +1463,8 @@ static int aft_hwec_reset(void *pcard, int reset)
 		DEBUG_EVENT("%s: Clear Echo Canceller chip reset.\n",
 					card->devname);
 
-		if (card->u.aft.firm_id == AFT_DS_FE_CORE_ID/*card->adptr_type == A108_ADPTR_8TE1*/) {
-			aft_te1_write_cpld(card,0x00,0x07);
+		if (card->u.aft.firm_id == AFT_DS_FE_CORE_ID) {
+			aft_te1_write_cpld(card,0x00,0x0F);
 		}else{
 
 			if (IS_T1_CARD(card)){
