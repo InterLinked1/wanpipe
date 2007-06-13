@@ -419,6 +419,22 @@ static void xilinx_delay(int sec)
  *
  ******************************************************************/
 
+
+static void wanpipe_wake_stack(private_area_t* chan)
+{
+       WAN_NETIF_WAKE_QUEUE(chan->common.dev);
+#if !defined(CONFIG_PRODUCT_WANPIPE_GENERIC)
+        if (chan->common.usedby == API){
+# if defined(__LINUX__)
+                 wan_wakeup_api(chan);
+# endif
+        }else if (chan->common.usedby == STACK){
+                 wanpipe_lip_kick(chan,0);
+        }
+#endif
+}
+
+
 int wp_xilinx_default_devcfg(sdla_t* card, wandev_conf_t* conf)
 {
 	conf->config_id			= WANCONFIG_AFT;
@@ -1996,11 +2012,7 @@ static int wanpipe_xilinx_open (netdevice_t* dev)
                 set_chan_state(card, dev, WAN_CONNECTED);
 		WAN_NETIF_WAKE_QUEUE(dev);
 		WAN_NETIF_CARRIER_ON(dev);
-		if (chan->common.usedby == API){
-			wan_wakeup_api(chan);
-		}else if (chan->common.usedby == STACK){
-			wanpipe_lip_kick(chan,0);
-		}        
+		wanpipe_wake_stack(chan);
         }   
 	
 	wan_spin_unlock_irq(&card->wandev.lock,&flags);
@@ -2168,14 +2180,7 @@ static void wanpipe_xilinx_tx_timeout (netdevice_t* dev)
 	wan_netif_set_ticks(dev, SYSTEM_TICKS);
 
 	WAN_NETIF_WAKE_QUEUE(dev);	/*netif_wake_queue (dev);*/
-
-	if (chan->common.usedby == API){
-# if defined(__LINUX__)
-		wan_wakeup_api(chan);
-# endif
-	}else if (chan->common.usedby == STACK){
-		wanpipe_lip_kick(chan,0);
-	}                 
+	wanpipe_wake_stack(chan);
 }
 
 
@@ -3929,16 +3934,7 @@ tx_post_ok:
 tx_post_exit:
 
 	if (WAN_NETIF_QUEUE_STOPPED(chan->common.dev)){
-		WAN_NETIF_WAKE_QUEUE(chan->common.dev);
-#if !defined(CONFIG_PRODUCT_WANPIPE_GENERIC)
-		if (chan->common.usedby == API){
-# if defined(__LINUX__)
-			wan_wakeup_api(chan);
-# endif
-		}else if (chan->common.usedby == STACK){
-			wanpipe_lip_kick(chan,0);
-		}
-#endif
+		wanpipe_wake_stack(chan);
 	}
 	
 #ifdef AFT_TDM_API_SUPPORT 
@@ -6169,6 +6165,8 @@ static void xilinx_tx_fifo_under_recover (sdla_t *card, private_area_t *chan)
 	wan_clear_bit(TX_BUSY,&chan->dma_status);
 
         xilinx_dma_tx(card,chan);
+
+	wanpipe_wake_stack(chan);
 }
 
 static int xilinx_write_ctrl_hdlc(sdla_t *card, u32 timeslot, u8 reg_off, u32 data)

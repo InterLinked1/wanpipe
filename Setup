@@ -2405,6 +2405,26 @@ function build_wanec_module ()
 	
 }
 
+function sangoma_64bit_4g_check()
+{
+	eval "uname -a | grep x86_64" > /dev/null 2> /dev/null	
+        if [ $? -ne 0 ] ; then
+		val=`cat /proc/meminfo | grep MemTotal | cut -d':' -f2`
+		tmp=${val// /}
+		b=`expr match "$tmp" '\([0-9]*\)'`
+		morethan4bg=`expr $b \> 4000000`
+		if [ $morethan4bg -eq 1 ]; then
+			#More than 4G of memory
+			return 0;
+		else
+			return 1;
+		fi      
+	fi                                                            
+
+	#not 64bit 4G mode
+        return 1;
+}
+
 
 function create_kernel_mod_file()
 {
@@ -2508,7 +2528,7 @@ function select_compilation_mode()
 5. SMG (SS7) + TDM Voice (Zaptel)   
 
 6. TDM API (FreeSwitch Default) 
-       Protocols: TDM API on AFT adapters.
+       Protocols: TDM API, Q921 on AFT adapters.
 
 7. Custom Compilation Mode
        Specify protocols to be added into the WANPIPE
@@ -2550,6 +2570,7 @@ if test -z $NONINTERACTIVE; then
 
 	elif [ "$response"  -eq 6 ]; then
                 enable_protocols "AFT_TE1"
+                enable_protocols "LIPAPI"
 
 	elif [ "$response"  -eq 7 ]; then
 		enable_custom_protocols 
@@ -3258,8 +3279,31 @@ CFLAGS="$CC -Wp,-MD,.wanpipe.o.d -nostdinc -iwithprefix include -D__LINUX__ -Dli
 			echo -e "Enabled.\n"
 			REGPARM_OPT=".regparm"
 		else
-			echo -e "Disabled.\n"
+
+			#Taken from kernel Makefile
+			SUBARCH=$( uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
+                                  -e s/arm.*/arm/ -e s/sa110/arm/ \
+                                  -e s/s390x/s390/ -e s/parisc64/parisc/ \
+                                  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ )
+
+
+			#New way of checking REGPARM because its enabled
+			#by default on 2.6.20 kernel and up
+			if [ $SUBARCH != "" ]; then
+				eval "grep \"CFLAGS.*=.*-pipe.*regparm\" $SOURCEDIR/arch/$SUBARCH/Makefile" > /dev/null 2> /dev/null
+				if [ $? -eq 0 ]; then
+					echo -e "Enabled.\n"
+		                        REGPARM_OPT=".regparm"
+				else
+					 echo -e "Disabled.\n"
+				fi
+			else
+				 echo -e "Disabled.\n"
+			fi
 		fi
+
+		
+
 
 
 		echo -n "Compiling General ${DISTR_NAME} Driver for 2.6.X Kernel ."
@@ -3712,26 +3756,23 @@ WANPIPE_OBJS=
 		\cp -f $DRIVER_UPDATE_DIR/src/lip/*.c  .
 		\cp -f $DRIVER_UPDATE_DIR/src/lip/bin/*.o .
 
-		if [ -e $DRIVER_UPDATE_DIR/src/lip/lip_katm ]; then
-			\cp -f $DRIVER_UPDATE_DIR/src/lip/lip_katm/*.c .
-			\cp -f $DRIVER_UPDATE_DIR/src/lip/lip_katm/*.h .
-		fi
-
 		LIP_LINKED_PROTOCOLS=
+
+                TMP_CFLAGS="-I/$WANPIPE_INCLUDE_DIR -I/ -I$SOURCEDIR/include  -I$SOURCEDIR/include/linux -I../include/common -I../include "
+		if [ "$REGPARM_OPT" = ".regparm" ]; then
+                	TMP_CFLAGS=$TMP_CFLAGS" -mregparm=3 "
+                fi
 
 		if [ $FR_PROT = "YES" ]; then
                 	 if [ -e $DRIVER_UPDATE_DIR/fr ]; then
-                                TMP_CFLAGS="-I/$WANPIPE_INCLUDE_DIR -I/ -I$SOURCEDIR/include -I../include/common -I../include "
-                                if [ "$REGPARM_OPT" = ".regparm" ]; then
-                                        TMP_CFLAGS=$TMP_CFLAGS"-mregparm=3 "
-                                fi
 
                                 echo  -n "Compiling Frame Relay sources..."
                                 lhome=`pwd`
                                 cd $DRIVER_UPDATE_DIR/fr
 
                                 eval "rm -f *.o" >/dev/null 2>/dev/null
-                                eval "make all EXTRA_CFLAGS=\" $TMP_CFLAGS \" ARCH=$ARCH " >/dev/null 2>>$CMP_LOG
+				eval "make clean"
+                                eval "make all EXTRA_CFLAGS=\" $TMP_CFLAGS \" ARCH=$ARCH " >>$CMP_LOG 2>>$CMP_LOG
                                 if [ $? -eq 0 ]; then
                                         echo -e "Done"
                                         echo " "
@@ -3762,7 +3803,8 @@ WANPIPE_OBJS=
                                 lhome=`pwd`
                                 cd $DRIVER_UPDATE_DIR/sppp
                                 eval "rm -f *.o" >/dev/null 2>/dev/null
-                                eval  "make all EXTRA_CFLAGS=\" $TMP_CFLAGS -Iinclude \" ARCH=$ARCH " >/dev/null 2>>$CMP_LOG
+				eval "make clean"
+                                eval  "make all EXTRA_CFLAGS=\" $TMP_CFLAGS -Iinclude \" ARCH=$ARCH " >>$CMP_LOG 2>>$CMP_LOG
                                 if [ $? -eq 0 ]; then
                                         echo -e "Done"
                                         echo " "
@@ -4767,7 +4809,7 @@ search_and_replace()
 	eval "grep '$search_str' $input_file_name > /dev/null 2> /dev/null"
 
 	if [ $? -ne 0 ]; then
-		#echo "Warning: Did NOT find the seached str:$search_str"
+		echo "Did NOT find the seached str:$search_str"
 		return 1
 	else
 		#echo "Found the seached str"
@@ -4814,63 +4856,6 @@ function tdmv_get_zaptel_path ()
                 ZAPTEL_C_FILE="zaptel-base.c";
         fi
         return 0;
-}
-
-function tdmv_apply_zaptel_dchan_patch ()
-{
-	lhome=`pwd`
-
-	cd $ZAPTEL_INSTALL_DIR
-
-	eval "grep \"DCHAN_TX\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
-	if [ $? -eq 0 ]; then
-
-		eval "grep \"ZT_DCHAN_TX_V2\" $ZAPTEL_C_FILE > /dev/null 2> /dev/null"
-		if [ $? -eq 0 ]; then
-			echo "   Zaptel DCHAN patch V.02 already installed"
-			cd $lhome
-			return 1
-		else
-			echo "   ERROR: Old Zaptel DCHAN patch detected in $ZAPTEL_INSTALL_DIR"
-			echo
-			echo "       Please install a fresh version of Zaptel source and"
-			echo "       run ./Setup again."
-			echo 
-			cd $lhome
-			exit 1
-		fi
-	fi
-
-	# patch zaptel.h
-	eval "search_and_replace zaptel.h zaptel.h \"$ZAPTEL_H_SEARCH_STR\" \"$ZAPTEL_H_PATCH\""
-
-	if [ $? -ne 0 ]; then
-		echo "search_and_replace(zaptel.h) failed"
-		cd $lhome
-		return 2
-	#else
-	#	echo "search_and_replace($ZAPTEL_C_FILE) succeeded"
-	fi
-
-	# patch $ZAPTEL_C_FILE
-	eval "search_and_replace $ZAPTEL_C_FILE $ZAPTEL_C_FILE \"$ZAPTEL_C_SEARCH_STR\" \"$ZAPTEL_C_PATCH\""
-	if [ $? -eq 0 ]; then
-		cd $lhome
-		zaptel_modified=1
-		return 0
-	else
-		#for Zaptel-1.2.17.1 and later
-		eval "search_and_replace $ZAPTEL_C_FILE $ZAPTEL_C_FILE \"$ZAPTEL_C_SEARCH_STR_2\" \"$ZAPTEL_C_PATCH_2\""
-		if [ $? -eq 0 ]; then
-			cd $lhome
-			zaptel_modified=1
-			return 0
-		else
-			echo "search_and_replace($ZAPTEL_C_FILE) failed"
-			cd $lhome
-			return 2
-		fi
-	fi
 }
 
 function tdmv_apply_zaptel_dchan_patch_old ()
@@ -5208,8 +5193,22 @@ function tdmv_compile_zaptel()
                 fi
         else
                 echo "OK"
+		if [ -e menuselect/mxml ]; then
+			cd menuselect/mxml			
+		               eval "grep \" $ZAPTEL_MENUSELECT_SEARCH_STR\"  Makefile.in > /dev/null 2> /dev/null"
+			       if [ $? -eq 0 ]; then
+				     eval "search_and_replace Makefile.in Makefile.in \"$ZAPTEL_MENUSELECT_SEARCH_STR\" \"$ZAPTEL_MENUSELECT_REMOVE\""
+                               fi 
+			       if [ -e Makefile ]; then
+                                    eval "grep \" $ZAPTEL_MENUSELECT_SEARCH_STR\"  Makefile > /dev/null 2> /dev/null"
+			       	    if [ $? -eq 0 ]; then
+				         eval "search_and_replace Makefile Makefile \"$ZAPTEL_MENUSELECT_SEARCH_STR\" \"$ZAPTEL_MENUSELECT_REMOVE\""
+                                    fi
+			       fi	
+		fi
         fi
 
+	cd $ZAPTEL_INSTALL_DIR
         echo -n "   Recompiling/reinstalling Zaptel(make install)..."
         eval "make >> $PROD_HOME/zaptel_compilation_log 2>> $PROD_HOME/zaptel_compilation_log"
         if [ ! $? -eq 0 ]; then
@@ -5616,7 +5615,7 @@ ENDOFTEXT
 		fi
 		if [ $LAPB_PROT != YES ]; then
 			echo "Enabling the LAPB Support"
-			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_LAPB "
+			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_LIP_LAPB -DCONFIG_PRODUCT_WANPIPE_LIP_LAPD "
 		fi
 		XDLC_PROT=YES
 		LAPB_PROT=YES
@@ -5682,13 +5681,15 @@ ENDOFTEXT
 
 				PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DCONFIG_PRODUCT_WANPIPE_TDM_VOICE_DCHAN"
 				echo
-				tdmv_apply_zaptel_dchan_patch
-				if [ $? -eq 0 ]; then
+			#	tdmv_apply_zaptel_dchan_patch
+				eval "$PROD_HOME/patches/sangoma-zaptel-patch.sh $ZAPTEL_INSTALL_DIR"
+				result=$?
+				if [ $result -eq 0 ]; then
                                         TDM_DCHAN="(DCHAN)"
                                         echo "   Zaptel DCHAN Patch successful"
                               #          getyn "Confirm Zaptel Patching: yes/no to continue!"
                                         echo
-                                elif [ $? -eq 1 ]; then
+                                elif [ $result -eq 1 ]; then
                                         TDM_DCHAN="(DCHAN)"
                                         echo
                                 else
@@ -6098,7 +6099,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=2.3.4-9
+PROD_VER=2.3.4-10
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -6196,16 +6197,17 @@ ZAPTEL_C_PATCH="if ((chan->flags \& ZT_FLAG_HDLC) \&\& chan->span->ioctl != NULL
 				}\n\
 			}\n\
 			chan->writen[chan->inwritebuf] = amnt;"
-
-
-#New search string for Zaptel-1.2.17.1
-ZAPTEL_C_SEARCH_STR_2="chan->writen\[res\] = amnt;"
-ZAPTEL_C_PATCH_2="if ((chan->flags \& ZT_FLAG_HDLC) \&\& chan->span->ioctl != NULL){\n\
-				if (chan->span->ioctl(chan, ZT_DCHAN_TX_V2, amnt)==0){\n\
-					return amnt;\n\
-				}\n\
-			}\n\
-			chan->writen[res] = amnt;"
+# D channel patching for zaptel version 1.2.17.1/1.4.2.1 or above
+ZAPTEL_C_SEARCH_STR_NEW="chan->writen\[res\] = amnt;"
+ZAPTEL_C_PATCH_NEW="if ((chan->flags \& ZT_FLAG_HDLC) \&\& chan->span->ioctl != NULL){\n\
+                                if (chan->span->ioctl(chan, ZT_DCHAN_TX_V2, amnt)==0){\n\
+                                        return amnt;\n\
+                                }\n\
+                        }\n\
+                        chan->writen[res] = amnt;"
+# Zaptel 1.4.2.1 "Menuselect" issue
+ZAPTEL_MENUSELECT_SEARCH_STR="autoconf"
+ZAPTEL_MENUSELECT_REMOVE=" "
 
 #NOTE1: the 'sed' command does NOT work on more than one line, so the
 #closing '*/' will be pushed AFTER the inserted strings.
@@ -6367,6 +6369,7 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 		--no-gcc-debug*)
 			DISABLE_GCC_DEBUG=1;
 			;;
+			
 		--usr-cc*)
 			USR_CC=`echo $arg | cut -d'=' -f2`;
 			eval "type $USR_CC";
@@ -6397,6 +6400,15 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 		--noautostart*)
 			NO_AUTO_START=1
 			;;
+		
+		--ignore-t1-yellow*)
+			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DWANPIPE_IGNORE_T1_YELLOW " 
+			;;
+
+		--64bit_4G*)
+			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DWANPIPE_64BIT_4G_DMA "
+			;;
+
 		--with-linux*)
 			SOURCEDIR=`echo $arg | cut -d'=' -f2`;
 			if [ "$SOURCEDIR" = "" ]; then
@@ -6681,7 +6693,7 @@ you know what you are doing :)
 		fi
 
 
-		eval "$PROD_HOME/Setup install --silent --builddir=$PROD_HOME/$build_dir --with-linux=$SOURCEDIR --arch=$ARCH --protocol=$PROTS --ss7_user_id=$SS7_USER_ID --noautostart --no-zaptel-compile --zaptel-path=$ZAPTEL_INSTALL_DIR --no-zaptel-compile"
+		$PROD_HOME/Setup install --silent --builddir=$PROD_HOME/$build_dir --with-linux=$SOURCEDIR --arch=$ARCH --protocol=$PROTS --ss7_user_id=$SS7_USER_ID --noautostart --no-zaptel-compile --zaptel-path=$ZAPTEL_INSTALL_DIR
 
 		if [ $? -ne 0 ]; then
 			echo "Error: WANPIPE Installation Failed!"

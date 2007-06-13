@@ -456,7 +456,7 @@ int wp_hdlc_fr_init (sdla_t* card, wandev_conf_t* conf)
 
 #ifdef TE1_56_CARD_SUPPORT
 		memcpy(&card->fe.fe_cfg, &conf->fe_cfg, sizeof(sdla_fe_cfg_t));
-		sdla_56k_iface_init(&card->wandev.fe_iface);
+		sdla_56k_iface_init(&card->fe, &card->wandev.fe_iface);
 		card->fe.name		= card->devname;
 		card->fe.card		= card;
 		card->fe.write_fe_reg	= write_front_end_reg;

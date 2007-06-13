@@ -9,6 +9,7 @@
 #               as published by the Free Software Foundation; either version
 #               2 of the License, or (at your option) any later version.
 # ----------------------------------------------------------------------------
+# Jun 07,  2007  David Yat Sin  support for TE_REF_CLOCK and RM_NETWORK_SYNC 
 # Jan 15,  2007  David Yat Sin  support for non-trixbox installations. Major 
 #				changes to script.
 # Jan 8,   2007  David Yat Sin  script renamed to config-zaptel.pl
@@ -22,7 +23,7 @@
 system('clear');
 print "\n###################################################################";
 print "\n#         Sangoma Wanpipe/Zaptel Configuration Script             #";
-print "\n#                           v2.2                                  #";
+print "\n#                           v2.3                                  #";
 print "\n#                  Sangoma Technologies Inc.                      #";
 print "\n#                     Copyright(c) 2006.                          #";
 print "\n###################################################################\n\n";
@@ -53,6 +54,10 @@ my $num_analog_devices_total=0;
 my $num_digital_devices=0;
 my $num_digital_devices_total=0;
 
+my $device_has_hwec=$FALSE;
+my $device_has_normal_clock=$FALSE;
+my @device_normal_clocks=("0");
+
 my $def_femedia='';
 my $def_feframe='';
 my $def_feclock='';
@@ -60,6 +65,7 @@ my $def_signalling='';
 my $def_switchtype='';
 my $def_zapata_context='';
 my $def_zapata_group='';
+my $def_te_ref_clock='';
 
 my $is_trixbox = $FALSE;
 my $config_zapata = $TRUE;
@@ -96,6 +102,8 @@ if ($is_trixbox==$FALSE){
 prepare_files();
 config_digital();
 config_analog();
+
+
 
 if($devnum==1){
 	system('clear');
@@ -303,14 +311,11 @@ sub apply_changes{
 	}else{
 		$asterisk_restart=$FALSE;
 	}
-	 
-
 
 	if ($is_trixbox==$TRUE){
 		exec_command("amportal stop");
-#unload_zap_modules();
 	}else{
-		print "\nStopping Asterisk...\n";	
+		print "\nTrying to stop Asterisk...\n";	
 		exec_command("asterisk -rx \"$asterisk_command\"");
 	} 
 	print "\n\nStopping Wanpipe...\n";
@@ -326,7 +331,6 @@ sub apply_changes{
 
 	print "\nCopying new Wanpipe configuration files...\n";
 	copy_config_files();
-#	exec_command("cp -f $current_dir/$cfg_dir/* /etc/wanpipe");
 	
 	print "\nCopying new Zaptel configuration file ($zaptel_conf_file_t)...\n";
 	exec_command("cp -f $zaptel_conf_file $zaptel_conf_file_t");
@@ -423,13 +427,7 @@ sub save_debug_info{
        	close (FH);	
 			
 	
-#	print "\n\nGenerating debug tarball $debug_tarball \n";
 	exec_command("tar cvfz $debug_tarball $cfg_dir/* >/dev/null 2>/dev/null");
-
-#	print "\nEmail $debug_tarball to techdesk\@sangoma.com";
-#	print "\nwhen requesting support.\n";	
-#	prompt_user("Press any key to continue");
-	
 }
 
 sub config_analog{
@@ -438,7 +436,6 @@ sub config_analog{
 	print "------------------------------------\n";
 	print "Configuring analog cards [A200/A400]\n";
 	print "------------------------------------\n";
-#	prompt_user("Press any key to continue");
 	my $skip_card=$FALSE;
 	$zaptel_conf.="\n";
 	$zapata_conf.="\n";
@@ -473,17 +470,30 @@ sub config_analog{
 			       		} 
 				}
 				if ($skip_card==$FALSE){
+               				$a20x = eval {new A20x(); } or die ($@);
+					$a20x->card($card);
+					$card->first_chan($current_zap_channel);
+       					$current_zap_channel+=24;
+
+					if ( $device_has_hwec==$TRUE){
+						print "Will this A$1 to synchronize with an existing Sangoma T1/E1 card?\n";
+						print "\n WARNING: for hardware and firmware requirements, check:\n";
+						print "          http://wiki.sangoma.com/t1e1analogfaxing\n";
+						
+						if (&prompt_user_list(("YES","NO","")) eq 'NO'){
+							$a20x->rm_network_sync('NO');
+						} else {
+							$a20x->rm_network_sync('YES');
+						}
+					} 
+
 					print "A$1 configured on slot:$3 bus:$4 span:$devnum\n";
 					prompt_user("Press any key to continue");
 			 		$zaptel_conf.="#Sangoma A$1 [slot:$3 bus:$4 span:$devnum]\n";
 					$zapata_conf.=";Sangoma A$1 [slot:$3 bus:$4 span:$devnum]\n";
 					$startup_string.="wanpipe$devnum ";
 			
-               				$a20x = eval {new A20x(); } or die ($@);
-					$a20x->card($card);
-					$card->first_chan($current_zap_channel);
-       					$current_zap_channel+=24;
-					my $i;
+	#				my $i;
 					$a20x->gen_wanpipe_conf();
 					$devnum++;
 					$num_analog_devices++;
@@ -519,7 +529,6 @@ sub config_digital{
 	print "---------------------------------------------\n";
 	print "Configuring T1/E1 cards [A101/A102/A104/A108]\n";
 	print "---------------------------------------------\n";
-#	prompt_user("Press any key to continue");
 	
 	foreach my $dev (@hwprobe) {
 		if ( $dev =~ /A(\d+)(.*):.*SLOT=(\d+).*BUS=(\d+).*CPU=(\w+).*PORT=(\w+).*/){
@@ -564,21 +573,14 @@ sub config_digital{
 				system('clear');
 				if (($6 eq '1' || $6 eq 'PRI') && $5 eq 'A'){
                                		print "A$1 detected on slot:$3 bus:$4\n";
-			#		prompt_user("Press any key to continue");
-			#		$def_femedia='';
-		#			$def_feframe='';
-		#			$def_feclock='';
-	#				$def_signalling='';
-#					$def_switchtype='';
-#					$def_zapata_context='';
-#					$def_zapata_group='';
+					$device_has_normal_clock=$FALSE;
+					@device_normal_clocks = ("0");
 				}
 				system('clear');
 				my $msg ="Configuring port ".$port." on A".$card->card_model." slot:".$card->pci_slot." bus:".$card->pci_bus.".\n";
 				print "\n-----------------------------------------------------------\n";
 				print "$msg";
 				print "-----------------------------------------------------------\n";
-		#		prompt_user("Press any key to continue");
 					
 				printf ("\nSelect media type for A%s on port %s [slot:%s bus:%s span:$devnum]\n", $card->card_model, $port, $card->pci_slot, $card->pci_bus);
 				my @options = ("T1", "E1", "Unused","Exit");
@@ -591,12 +593,15 @@ sub config_digital{
 					}
 				}elsif ( $fe_media eq 'Unused'){
 					$def_femedia=$fe_media;	
-			#		system('clear');
 					my $msg= "A$1 on slot:$3 bus:$4 port:$port not configured\n";
 					print "$msg";
 					prompt_user("Press any key to continue");
 				}else{
-			       		$def_femedia=$fe_media; 
+					if ($card->hwec_mode eq 'YES' && $device_has_hwec==$FALSE){
+						$device_has_hwec=$TRUE;
+					} 
+			       		
+					$def_femedia=$fe_media; 
 					$startup_string.="wanpipe$devnum ";
 					my $a10x;
 		       	
@@ -630,16 +635,33 @@ sub config_digital{
 			      			$current_zap_channel+=31;
 					}
 					my @options = ("NORMAL", "MASTER");
-					printf ("Select clock for A%s on port %s \n", $card->card_model, $port);
+					printf ("Select clock for A%s on port %s [slot:%s bus:%s span:$devnum]\n", $card->card_model, $port, $card->pci_slot, $card->pci_bus);
 					$def_feclock=&prompt_user_list(@options, $def_feclock);
 					$a10x->fe_clock($def_feclock);
+
+					if ( $def_feclock eq 'NORMAL') {
+						$device_has_normal_clock=$TRUE;
+						 push(@device_normal_clocks, $a10x->fe_line);
+					} elsif ( $def_feclock eq 'MASTER' && $device_has_normal_clock == $TRUE ){
+						printf("Clock synchronisation options for %s on port %s [slot:%s bus:%s span:$devnum] \n", 
+								$card->card_model, 
+								$port, 
+								$card->pci_slot, 
+								$card->pci_bus);
+						printf(" Free run: Use internal oscillator on card [default] \n");
+        					printf(" Port N: Sync with clock from port N \n\n");
+						
+						printf("Select clock source %s on port %s [slot:%s bus:%s span:$devnum]\n", $card->card_model, $port, $card->pci_slot, $card->pci_bus);
+						$def_te_ref_clock=&get_te_ref_clock(@device_normal_clocks);
+						$a10x->te_ref_clock($def_te_ref_clock);
+					}
 			
 		     	   		@options = ("PRI CPE", "PRI NET", "E & M", "E & M Wink", "FXS - Loop Start", "FXS - Ground Start", "FXS - Kewl Start", "FX0 - Loop Start", "FX0 - Ground Start", "FX0 - Kewl Start");
 					printf ("Select signalling type for %s on port %s [slot:%s bus:%s span:$devnum]\n", $card->card_model, $port, $card->pci_slot, $card->pci_bus);
 				       	$def_signalling=&prompt_user_list(@options,$def_signalling); 
 					$a10x->signalling($def_signalling);
 
-					if ( $a10x->signalling eq 'PRI CPE' | $a10x->signalling eq 'PRI NET' ){
+					if ( $a10x->signalling eq 'PRI CPE' || $a10x->signalling eq 'PRI NET' ){
 						if ( $config_zapata==$TRUE){
 							printf ("Select switchtype for %s on port %s \n", $card->card_model, $port);
 							$a10x->pri_switchtype(get_pri_switchtype());
@@ -654,7 +676,6 @@ sub config_digital{
 					}
 					$devnum++;
 					$num_digital_devices++;
-			#		system('clear');
 					my $msg ="Port ".$port." on A".$card->card_model." configuration complete...\n";
 					print "$msg";
 					prompt_user("Press any key to continue");
@@ -679,14 +700,6 @@ sub config_digital{
 		       	if( $4 eq 'A' ){
                       		print "\n\nSangoma single/dual T1/E1 card detected on slot:$2 bus:$3\n";
 		      		print "Select configuration options:\n";
-		#		prompt_user("Press any key to continue");
-#				$def_femedia='';
-#				$def_feframe='';
-#				$def_feclock='';
-#				$def_signalling='';
-#				$def_switchtype='';
-#				$def_zapata_context='';
-#				$def_zapata_group='';
 		       		
 				$port=1;
 			}else{
@@ -756,6 +769,33 @@ sub config_digital{
 	close SCR;
 }
 
+
+sub get_te_ref_clock{
+	my @list_normal_clocks=@_;
+	my @f_list_normal_clocks;
+	my $f_port;
+	foreach my $port (@list_normal_clocks) {
+		if ($port eq '0'){
+			$f_port = "Free run";
+		} else {
+			$f_port = "Port ".$port;
+		}
+		push(@f_list_normal_clocks, $f_port);
+	}		
+
+	my $res = &prompt_user_list(@f_list_normal_clocks, "Free run");
+	my $i;
+	
+	for $i (0..$#f_list_normal_clocks){
+		if ( $res eq @f_list_normal_clocks[$i] ){
+			return @list_normal_clocks[$i];
+		}
+	}
+
+	print "Internal error: Invalid reference clock\n";
+	exit 1;
+
+}
 sub get_zapata_context{
 	my ($card_model,$card_port)=@_;
 	my $context='';
@@ -786,10 +826,6 @@ sub get_zapata_context{
 		exit 1;
 	}
 	$def_zapata_context=$context;
-#	if($is_trixbox==$FALSE){
-#		print "\n Use \"[$context]\" in your /etc/asterisk/extensions.conf to";
-#		print "\n configure your dialplan for incoming calls on this port.\n";
-#	}
 	return $context;	
 }
 sub get_zapata_group{
@@ -820,10 +856,6 @@ sub get_zapata_group{
 			$def_zapata_group=$group;
 		}      
 	}
-#	if($is_trixbox==$FALSE){
-#		print "\n Use \"exten=>s,1,Dial(Zap/g$group/\${EXTEN})\" in your";
-#		print "\n /etc/asterisk/extensions.conf to dial out on this port.\n";
-#	}
        
        	return $group;
 }

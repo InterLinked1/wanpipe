@@ -145,6 +145,10 @@
 #undef AFT_API_SUPPORT
 #endif
 
+#if defined(WANPIPE_64BIT_4G_DMA)
+#warning "Wanpipe compiled for 64bit 4G DMA"
+#endif
+
 
 /* Trigger on Number of transactions 
  * 1= 1x8 byte transactions
@@ -574,6 +578,20 @@ int aft_global_hw_device_init(void)
 	aft_hwdev[WANOPT_AFT_ANALOG].aft_write_cpld		= aft_analog_write_cpld;
 	aft_hwdev[WANOPT_AFT_ANALOG].aft_fifo_adjust		= aft_analog_fifo_adjust;
     	aft_hwdev[WANOPT_AFT_ANALOG].aft_check_ec_security	= a200_check_ec_security;     
+	
+	aft_hwdev[WANOPT_AFT_56K].init				= 1;
+	aft_hwdev[WANOPT_AFT_56K].aft_global_chip_config 	= a104_global_chip_config;
+	aft_hwdev[WANOPT_AFT_56K].aft_global_chip_unconfig	= a104_global_chip_unconfig;	
+	aft_hwdev[WANOPT_AFT_56K].aft_chip_config		= a104_chip_config;
+	aft_hwdev[WANOPT_AFT_56K].aft_chip_unconfig		= a104_chip_unconfig; 
+	aft_hwdev[WANOPT_AFT_56K].aft_chan_config		= a104_chan_dev_config; 
+	aft_hwdev[WANOPT_AFT_56K].aft_chan_unconfig 		= a104_chan_dev_unconfig;
+	aft_hwdev[WANOPT_AFT_56K].aft_led_ctrl 			= a104_led_ctrl;
+	aft_hwdev[WANOPT_AFT_56K].aft_test_sync 		= a104_test_sync;
+	aft_hwdev[WANOPT_AFT_56K].aft_read_cpld			= aft_56k_read_cpld;
+	aft_hwdev[WANOPT_AFT_56K].aft_write_cpld		= aft_56k_write_cpld;
+	aft_hwdev[WANOPT_AFT_56K].aft_fifo_adjust		= a104_fifo_adjust;
+	aft_hwdev[WANOPT_AFT_56K].aft_check_ec_security	= a104_check_ec_security; 
 
 	return 0;
 }
@@ -755,6 +773,91 @@ int wp_aft_te1_init (sdla_t* card, wandev_conf_t* conf)
 
 }
 
+
+int wp_aft_56k_init (sdla_t* card, wandev_conf_t* conf)
+{
+
+	AFT_FUNC_DEBUG();
+
+	wan_set_bit(CARD_DOWN,&card->wandev.critical);
+	
+	/* Verify configuration ID */
+	if (card->wandev.config_id != WANCONFIG_AFT_56K) {
+		DEBUG_EVENT( "%s: invalid configuration ID %u!\n",
+				  card->devname, card->wandev.config_id);
+		return -EINVAL;
+	}
+
+
+	card->hw_iface.getcfg(card->hw, SDLA_COREREV, &card->u.aft.firm_ver);
+	card->hw_iface.getcfg(card->hw, SDLA_COREID, &card->u.aft.firm_id);
+#if 0
+	if (card->u.aft.firm_ver < AFT_56K_MIN_FRMW_VER){
+		DEBUG_EVENT( "%s: Invalid/Obselete AFT firmware version %X (not >= %X)!\n",
+				  card->devname, card->u.aft.firm_ver,AFT_56K_MIN_FRMW_VER);
+		DEBUG_EVENT( "%s  Refer to /usr/share/doc/wanpipe/README.aft_firm_update\n",
+				  card->devname);
+		DEBUG_EVENT( "%s: Please contact Sangoma Technologies for more info.\n",
+				  card->devname);
+		return -EINVAL;
+	}
+#endif
+	ASSERT_AFT_HWDEV(card->wandev.card_type);
+	
+	if (conf == NULL){
+		DEBUG_EVENT("%s: Bad configuration structre!\n",
+				card->devname);
+		return -EINVAL;
+	}
+
+#if defined(WAN_DEBUG_MEM)
+        DEBUG_EVENT("%s: Total Mem %d\n",__FUNCTION__,wan_atomic_read(&wan_debug_mem));
+#endif
+
+	if (IS_56K_MEDIA(&conf->fe_cfg)){
+	
+		conf->fe_cfg.cfg.te_cfg.active_ch = 1;
+
+		memcpy(&card->fe.fe_cfg, &conf->fe_cfg, sizeof(sdla_fe_cfg_t));
+
+		DEBUG_56K("card->u.aft.firm_id: 0x%X\n", card->u.aft.firm_id);
+/*
+		if(card->u.aft.firm_id != AFT_56K_FE_CORE_ID){
+			DEBUG_EVENT("%s: Invalid (56K) Firmware ID: 0x%X!\n",
+				card->devname, card->u.aft.firm_id);
+			return -EINVAL;
+		}
+*/
+		sdla_56k_iface_init(&card->fe, &card->wandev.fe_iface);
+
+		card->fe.name		= card->devname;
+		card->fe.card		= card;
+#if 1
+		card->fe.write_fe_reg	= a56k_write_fe;
+		card->fe.read_fe_reg	= a56k_read_fe;
+		card->fe.__read_fe_reg	= __a56k_read_fe;
+#else
+		card->fe.write_fe_reg	= a104_write_fe;
+		card->fe.read_fe_reg	= a104_read_fe;
+		card->fe.__read_fe_reg	= __a104_read_fe;
+#endif
+		card->wandev.fe_enable_timer = enable_timer;
+		card->wandev.ec_enable_timer = enable_ec_timer;
+		card->wandev.te_link_state = handle_front_end_state;
+
+		card->wandev.comm_port=1;
+
+		card->u.aft.num_of_time_slots=1;
+
+	}else{
+		DEBUG_EVENT("%s: Invalid Front-End media type!!\n",
+				card->devname);
+		return -EINVAL;
+	}
+
+	return 	wan_aft_init(card,conf);
+
+}
 
 static int wan_aft_init (sdla_t *card, wandev_conf_t* conf)
 {
@@ -1439,6 +1542,14 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 
 	aft_chan_if_init(card,dev,chan);
 
+	
+	if(IS_56K_CARD(card)){
+		chan->single_dma_chain = 1;
+		conf->hdlc_streaming=1;
+	}
+
+
+
 	if (channelized){ 
 		chan->channelized_cfg=1;
 		if (wan_netif_priv(dev)){ 
@@ -1739,13 +1850,10 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 		err= -EINVAL;
 		goto new_if_error;
 	}
-
-	if (conf->single_tx_buf || 
-		((card->adptr_type == A101_ADPTR_2TE1 ||
-		 card->adptr_type == A101_ADPTR_1TE1) && 
-	    	 card->u.aft.firm_id == AFT_DS_FE_CORE_ID)){ 
-			
-              	chan->single_dma_chain=1;
+    	if (conf->single_tx_buf || 
+	    ((card->adptr_type == A101_ADPTR_2TE1 || card->adptr_type == A101_ADPTR_1TE1) && 
+	     card->u.aft.firm_id == AFT_DS_FE_CORE_ID)){ 
+             	chan->single_dma_chain=1;
 		chan->max_tx_bufs=MAX_AFT_DMA_CHAINS;  
                 dma_per_ch=MAX_AFT_DMA_CHAINS;
 	}
@@ -1981,6 +2089,8 @@ static int new_if (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t* conf)
 	if (IS_E1_CARD(card) && !(WAN_FE_FRAME(&card->fe) == WAN_FR_UNFRAMED)) {
 		conf->active_ch = conf->active_ch << 1;
 		wan_clear_bit(0,&conf->active_ch);
+	}else if (IS_56K_CARD(card)) {
+		conf->active_ch = 1;
 	}
 
 #ifdef CONFIG_PRODUCT_WANPIPE_TDM_VOICE	
@@ -4089,8 +4199,7 @@ static int aft_alloc_rx_dma_buff(sdla_t *card, private_area_t *chan, int num, in
 	
 	for (i=0;i<num;i++){
 		if (chan->channelized_cfg && !chan->hdlc_eng){
-#if 0
- defined(__LINUX__) && defined(CONFIG_X86_4G)
+#if defined(WANPIPE_64BIT_4G_DMA)
 			/* On 64bit Systems greater than 4GB we must
 			 * allocated our DMA buffers using GFP_DMA 
 			 * flag */
@@ -4768,7 +4877,7 @@ static int gdma_cnt=0;
 static void wp_aft_global_isr (sdla_t* card)
 {
 	u32 reg_sec,reg=0;
-	u32 a108_reg=0;
+	u32 a108_reg=0, a56k_reg=0;
 	u32 fifo_port_intr;
 	u32 dma_port_intr;
 	u32 wdt_port_intr;
@@ -4869,6 +4978,13 @@ static void wp_aft_global_isr (sdla_t* card)
 		dma_port_intr	= aft_chipcfg_a108_get_dma_intr_stats(a108_reg);
 		wdt_port_intr	= aft_chipcfg_a108_get_wdt_intr_stats(a108_reg);
 		tdmv_port_intr	= aft_chipcfg_a108_get_tdmv_intr_stats(a108_reg);	
+
+
+	}else if(IS_56K_CARD(card)){
+	       	__sdla_bus_read_4(card->hw,AFT_CHIP_STAT_REG, &a56k_reg);
+		fifo_port_intr	= wan_test_bit(AFT_CHIPCFG_A56K_FIFO_INTR_BIT,&a56k_reg);
+		dma_port_intr	= wan_test_bit(AFT_CHIPCFG_A56K_DMA_INTR_BIT,&a56k_reg);
+		wdt_port_intr	= wan_test_bit(AFT_CHIPCFG_A56K_WDT_INTR_BIT,&a56k_reg);
 		
 		
 	}else{

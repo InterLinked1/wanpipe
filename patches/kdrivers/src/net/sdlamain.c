@@ -539,7 +539,8 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 	sdla_t* card;
 	int err = 0;
 	int irq=0;
-
+	
+	
 	/* Sanity checks */
 	if ((wandev == NULL) || (wandev->private == NULL) || (conf == NULL)){
 		DEBUG_EVENT("%s: Failed Sdlamain Setup wandev %u, card %u, conf %u !\n",
@@ -572,6 +573,10 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 	switch(conf->config_id){
 	case WANCONFIG_AFT:
 		conf->card_type = WANOPT_AFT;
+		break;
+	case WANCONFIG_AFT_56K:
+		conf->card_type = WANOPT_AFT_56K;
+		conf->S514_CPU_no[0] = 'A';
 		break;
 	case WANCONFIG_AFT_TE1:
 		conf->card_type = WANOPT_AFT104;
@@ -645,7 +650,7 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		case WANOPT_AFT104:
 		case WANOPT_AFT300:
 		case WANOPT_AFT_ANALOG:
-		
+		case WANOPT_AFT_56K:
 			err=0;
 			if ((err=check_aft_conflicts(card,conf,&irq)) != 0){
 				sdla_unregister(&card->hw, card->devname);
@@ -885,6 +890,12 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 		DEBUG_EVENT("%s: Starting AFT Quad Hardware Init.\n",
 					card->devname);
 		err = wp_aft_te1_init(card,conf);
+		break;
+	
+	case WANCONFIG_AFT_56K:
+		DEBUG_EVENT("%s: Starting AFT 56K Hardware Init.\n",
+					card->devname);
+		err = wp_aft_56k_init(card,conf);
 		break;
 
 	case WANCONFIG_AFT_ANALOG:

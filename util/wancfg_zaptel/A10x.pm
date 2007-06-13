@@ -16,6 +16,7 @@ sub new	{
 		_fe_lcode  => 'B8ZS',
 		_fe_frame  => 'ESF',
 		_fe_clock  => 'NORMAL',
+		_te_ref_clock  => '0',
 		_signalling => 'PRI_CPE',
 		_pri_switchtype => 'national',
 		_hw_dchan  => '0',
@@ -33,6 +34,12 @@ sub fe_line {
 	    my ( $self, $fe_line ) = @_;
 	        $self->{_fe_line} = $fe_line if defined($fe_line);
 		    return $self->{_fe_line};
+}
+
+sub te_ref_clock {
+	    my ( $self, $te_ref_clock ) = @_;
+	        $self->{_te_ref_clock} = $te_ref_clock if defined($te_ref_clock);
+		    return $self->{_te_ref_clock};
 }
 sub signalling {
 	    my ( $self, $signalling ) = @_;
@@ -134,17 +141,23 @@ sub gen_wanpipe_conf{
 	my $fe_frame = $self->fe_frame;
 	my $fe_line = $self->fe_line;
 	my $fe_clock = $self->fe_clock;
+	my $te_ref_clock = $self->te_ref_clock;
+	my $te_sig_mode = '';
 	my $hwec_mode = $self->card->hwec_mode;
 	my $dchan = 0;
 	my $fe_lbo;
         if ($self->fe_media eq 'T1'){
 		if ($self->signalling eq 'PRI CPE' | $self->signalling eq 'PRI NET'){
+			  $te_sig_mode = '';	
 			  $dchan = 24;
 		}
 		$fe_lbo='0DB';
 	}else{
 		if ($self->signalling eq 'PRI CPE' | $self->signalling eq 'PRI NET'){
 			  $dchan = 16;
+		  	  $te_sig_mode = 'TE_SIG_MODE     = CCS';
+		} else {
+			  $te_sig_mode = 'TE_SIG_MODE     = CAS';
 		}
 		$fe_lbo='120OH';
 	}
@@ -163,7 +176,9 @@ sub gen_wanpipe_conf{
         $wp_file =~ s/FELCODE/$fe_lcode/g;
         $wp_file =~ s/FEFRAME/$fe_frame/g;
         $wp_file =~ s/FELINE/$fe_line/g;
+	$wp_file =~ s/TESIGMODE/$te_sig_mode/g;
         $wp_file =~ s/FECLOCK/$fe_clock/g;
+	$wp_file =~ s/TEREFCLOCK/$te_ref_clock/g;
         $wp_file =~ s/FELBO/$fe_lbo/g;
         $wp_file =~ s/TDMVDCHAN/$dchan/g;
         $wp_file =~ s/HWECMODE/$hwec_mode/g;

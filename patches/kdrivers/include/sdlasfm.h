@@ -182,6 +182,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define AFT_MCPU_INTERFACE_ADDR		0x46
 #define AFT_MCPU_INTERFACE		0x44
 
+#define AFT56K_MCPU_INTERFACE_ADDR      0x46
+#define AFT56K_MCPU_INTERFACE           0x44
+
 /* CPLD definitions */
 #define AFT_SECURITY_1LINE_UNCH		0x00
 #define AFT_SECURITY_1LINE_CH		0x01
@@ -192,6 +195,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define AFT_BIT_DEV_ADDR_CPLD  		0x200
 #define AFT4_BIT_DEV_ADDR_CLEAR		0x800
 #define AFT4_BIT_DEV_ADDR_CPLD		0x800
+#define AFT56K_BIT_DEV_ADDR_CPLD        0x800
+
+
 
 /* Maxim CPLD definitions */
 #define AFT8_BIT_DEV_ADDR_CLEAR		0x1800 /* QUAD */
@@ -269,8 +275,7 @@ typedef struct sfm			/* SDLA firmware file structire */
 		(adapter_type == A300_ADPTR_U_1TE3) 	   ? "AFT-A301" : \
 		(adapter_type == A200_ADPTR_ANALOG) 	   ? "AFT-A200" : \
 		(adapter_type == A400_ADPTR_ANALOG) 	   ? "AFT-A400" : \
-		(adapter_type == AFT_ADPTR_ISDN) 	   ? "AFT-A500" : \
-		(adapter_type == AFT_ADPTR_ISDN) 	   ? "AFT-A056" : \
+		(adapter_type == AFT_ADPTR_56K) 	   ? "AFT-A056" : \
 							     "UNKNOWN"
 							     
 #if 0
@@ -307,6 +312,9 @@ typedef struct sfm			/* SDLA firmware file structire */
 #define AFT_SUBTYPE_DECODE(adptr_subtype)				\
 		(adptr_subtype == AFT_SUBTYPE_NORMAL)	? "" :		\
 		(adptr_subtype == AFT_SUBTYPE_SHARK)	? "SHARK" : ""
+
+#define AFT_PCIEXPRESS_DECODE(hwcard)                           \
+                ((hwcard)->pci_bridge_dev) ? " PCI-Express" : ""
 
 #endif	/* _SDLASFM_H */
 

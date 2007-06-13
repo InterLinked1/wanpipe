@@ -372,6 +372,8 @@ typedef struct sdla_hw_type_cnt
 	unsigned char aft300_adapters;
 	unsigned char aft200_adapters;
 	unsigned char aft108_adapters;
+	unsigned char aft_56k_adapters;
+
 	unsigned char aft_x_adapters;
 }sdla_hw_type_cnt_t;
 

@@ -90,6 +90,14 @@ key_word_t common_conftab[] =	/* Common configuration parameters */
 
   { "TDMV_OPERMODE",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_remora_cfg_t, opermode_name), DTYPE_STR },
 
+  { "RM_NETWORK_SYNC",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + offsetof(sdla_remora_cfg_t, network_sync), DTYPE_UCHAR},
+
+/* DAVIDY: Uncomment this when RM_BATTTHRESH and RM_BATTDEBOUNCE become available in 2.3.4 drivers*/ 
+#if 0
+  { "RM_BATTTHRESH",    offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_remora_cfg_t, battthresh), DTYPE_UINT },
+  { "RM_BATTDEBOUNCE",  offsetof(wandev_conf_t, fe_cfg)+offsetof(sdla_fe_cfg_t, cfg) + smemof(sdla_remora_cfg_t, battdebounce), DTYPE_UINT },
+#endif
+  
   { "BAUDRATE",   offsetof(wandev_conf_t, bps),         DTYPE_UINT },
   { "MTU",        offsetof(wandev_conf_t, mtu),         DTYPE_UINT },
   { "UDPPORT",    offsetof(wandev_conf_t, udp_port),    DTYPE_UINT },
@@ -658,6 +666,7 @@ look_up_t	config_id_str[] =
 	{ WANCONFIG_POS,	(void*)"WAN_POS"	},
 	{ WANCONFIG_AFT,	(void*)"WAN_AFT"	},
 	{ WANCONFIG_AFT_TE1,	(void*)"WAN_AFT_TE1"	},
+	{ WANCONFIG_AFT_56K,	(void*)"WAN_AFT_56K"	},
 	{ WANCONFIG_AFT_TE3,	(void*)"WAN_AFT_TE3"	},
 	{ WANCONFIG_AFT,	(void*)"WAN_XILINX"	},
 	{ WANCONFIG_MFR,    	(void*)"WAN_MFR"   	},
@@ -1209,6 +1218,12 @@ int conf_file_reader::read_devices_section(FILE* file)
     link_defs->linkconf->config_id = WANCONFIG_AFT;
     link_defs->card_version = A200_ADPTR_ANALOG;
     break;
+
+  case WANCONFIG_AFT_56K:	/* AFT 56k DDS */
+    link_defs->linkconf->config_id = WANCONFIG_AFT;//WANCONFIG_AFT_56K;
+    link_defs->card_version = AFT_ADPTR_56K;
+    break;
+
   }
 
   Debug(DBG_CONF_FILE_READER, ("Updated link_defs->linkconf->config_id: %d\n",
@@ -2469,7 +2484,7 @@ void init_tokens(char **token){
 	}
 }
 
-/* Bug Fix by René Scharfe <l.s.r@web.de>
+/* Bug Fix by RenÃ© Scharfe <l.s.r@web.de>
  * removed strtok
  */
 int tokenize (char *str, char **tokens)

@@ -15,6 +15,7 @@ sub new	{
 		_fe_lcode  => 'B8ZS',
 		_fe_frame  => 'ESF',
 		_fe_clock  => 'NORMAL',
+		_te_ref_clock  => '0',
 		_signalling => 'PRI_CPE',
 		_pri_switchtype => 'national',
 		_hw_dchan  => '0',
@@ -32,6 +33,11 @@ sub fe_line {
 	    my ( $self, $fe_line ) = @_;
 	        $self->{_fe_line} = $fe_line if defined($fe_line);
 		    return $self->{_fe_line};
+}
+sub te_ref_clock {
+	    my ( $self, $te_ref_clock ) = @_;
+	        $self->{_te_ref_clock} = $te_ref_clock if defined($te_ref_clock);
+		    return $self->{_te_ref_clock};
 }
 sub signalling {
 	    my ( $self, $signalling ) = @_;

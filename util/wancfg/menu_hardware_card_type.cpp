@@ -283,10 +283,14 @@ again:
 	    fe_cfg->tdmv_law = WAN_TDMV_MULAW;
 	    snprintf(fe_cfg->cfg.remora.opermode_name, WAN_RM_OPERMODE_LEN, "%s", "FCC");
 	    break;
+
+	  case AFT_ADPTR_56K:
+	    fe_cfg->media = WAN_MEDIA_56K;
+	    break;
 	  }
 	  break;
 	  
-	case WANOPT_ADSL:
+	 case WANOPT_ADSL:
 	  set_default_adsl_configuration(adsl_cfg);
 	  break;
 	  
@@ -349,6 +353,10 @@ again:
 	    fe_cfg->tdmv_law = WAN_TDMV_MULAW;
 	    snprintf(fe_cfg->cfg.remora.opermode_name, WAN_RM_OPERMODE_LEN, "%s", "FCC");
 	    break;
+
+	  case AFT_ADPTR_56K:
+	    fe_cfg->media = WAN_MEDIA_56K;
+            break;
 	  }
 	  break;
 

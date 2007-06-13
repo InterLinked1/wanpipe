@@ -170,7 +170,8 @@ enum HW_SETUP_OPTIONS {
   TIMESLOT_GROUP_CFG,
   ADVANCED_PCI_CFG,
   TDMV_LAW_SELECT,
-  TDMV_OPERMODE
+  TDMV_OPERMODE,
+  AFT_ANALOG_ADVANCED
 };
 
 menu_hardware_setup::menu_hardware_setup(   IN char * lxdialog_path,
@@ -376,6 +377,11 @@ again:
       menu_str += tmp_buff;
       snprintf(tmp_buff, MAX_PATH_LENGTH, " \" \" ");
       menu_str += tmp_buff;
+      number_of_items++;
+
+      snprintf(tmp_buff, MAX_PATH_LENGTH, " \"%d\" ", AFT_ANALOG_ADVANCED);
+      menu_str += tmp_buff;
+      menu_str += " \"Advanced Physical Medium Configuration\" ";
       number_of_items++;
 
       //timeslot group configuration
@@ -689,6 +695,17 @@ display_hardware_selection_label:
         menu_hardware_te1_card_advanced_options hardware_te1_card_advanced_options(
                                                                   lxdialog_path, cfr);
         if(hardware_te1_card_advanced_options.run(selection_index) == NO){
+          rc = NO;
+          exit_dialog = YES;
+        }
+      }
+      break;
+
+    case AFT_ANALOG_ADVANCED:
+      {
+        menu_hardware_analog_card_advanced_options hardware_analog_card_advanced_options(
+                                                                  lxdialog_path, cfr);
+        if(hardware_analog_card_advanced_options.run(selection_index) == NO){
           rc = NO;
           exit_dialog = YES;
         }

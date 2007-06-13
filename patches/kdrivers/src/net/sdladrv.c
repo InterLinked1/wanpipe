@@ -684,6 +684,32 @@ sdla_save_hw_probe (sdlahw_t* hw, int port)
 				hw->hwcard->hwec_chan_no,
 				hw->hwcard->core_rev);
 			break;
+		
+		case A300_ADPTR_U_1TE3:
+		case AFT_ADPTR_56K:
+			if (hw->hwcard->adptr_subtype == AFT_SUBTYPE_SHARK){
+				snprintf(tmp_hw_probe->hw_info, 
+					sizeof(tmp_hw_probe->hw_info),
+					SDLA_HWPROBE_AFT_FORMAT, 
+					hw->hwcard->adptr_name,
+					hw->hwcard->slot_no, 
+					hw->hwcard->bus_no, 
+					hw->irq, 
+					SDLA_GET_CPU(hw->cpu_no), 
+					port+1,
+					hw->hwcard->core_rev);		/* line_no */
+			}else{
+				snprintf(tmp_hw_probe->hw_info, 
+					sizeof(tmp_hw_probe->hw_info),
+					SDLA_HWPROBE_PCI_FORMAT,
+					hw->hwcard->adptr_name,
+					hw->hwcard->slot_no, 
+					hw->hwcard->bus_no, 
+					hw->irq, 
+					SDLA_GET_CPU(hw->cpu_no), 
+					port ? "SEC" : "PRI");						
+			}
+			break;
 
 		default:
 			/*sprintf(tmp_hw_probe->hw_info,*/
@@ -1087,6 +1113,22 @@ static int sdla_get_cpld_info(sdlahw_t* hw)
 		/* Restore original value */	
 		sdla_bus_write_4(hw, AFT_CHIP_CFG_REG, reg1);
 		break;
+
+	case AFT_ADPTR_56K:
+		AFT_FUNC_DEBUG();
+		/* Enable memory access */	
+		sdla_bus_read_4(hw, AFT_CHIP_CFG_REG, &reg1);
+		reg = reg1;
+		wan_clear_bit(AFT_CHIPCFG_SFR_IN_BIT, &reg);
+		wan_clear_bit(AFT_CHIPCFG_SFR_EX_BIT, &reg);
+		sdla_bus_write_4(hw, AFT_CHIP_CFG_REG, reg);
+		
+		cpld_off = AFT_SH_CPLD_BOARD_STATUS_REG;
+		sdla_hw_read_cpld(hw, cpld_off, &status);
+		hw->hwcard->hwec_chan_no = 0;
+					
+		break;
+
 	}
 #endif	
 	sdla_memory_unmap(hw);
@@ -1463,6 +1505,30 @@ static int sdla_aft_hw_select (sdlahw_card_t* hwcard, int cpu_no, int irq, void*
 			hwcard->core_rev,
 			hwcard->bus_no, hwcard->slot_no, irq);
 		break;
+
+	case AFT_ADPTR_56K:
+		hwcard->cfg_type = WANOPT_AFT_56K;
+		sdla_adapter_cnt.aft_56k_adapters++;
+
+		if ((hw = sdla_hw_register(hwcard, cpu_no, irq, dev)) == NULL){
+			return -EINVAL;
+		}
+		sdla_get_cpld_info(hw);
+		sdla_get_adptr_name(hw);
+		sdla_save_hw_probe(hw, 0);
+		
+		number_of_cards += 1;
+		DEBUG_EVENT(
+		"%s: %s%s 56K card found (%s rev.%X), cpu(s) 1, bus #%d, slot #%d, irq #%d\n",
+			wan_drvname,
+			hwcard->adptr_name,
+			AFT_PCIEXPRESS_DECODE(hwcard),
+			AFT_CORE_ID_DECODE(hwcard->core_id),
+			hwcard->core_rev,
+			hwcard->bus_no, hwcard->slot_no, irq);
+		break;
+
+
 		
 	default:
 #if 0
@@ -1667,6 +1733,11 @@ static int sdla_pci_probe(sdlahw_t *hw)
 			hwcard->adptr_type	= A400_ADPTR_ANALOG;
 			hwcard->adptr_subtype	= AFT_SUBTYPE_SHARK;
 			break;
+
+		case AFT_56K_SHARK_SUBSYS_VENDOR:
+			hwcard->adptr_type	= AFT_ADPTR_56K;
+			hwcard->adptr_subtype	= AFT_SUBTYPE_SHARK;
+			break;
 	
 		default:
 			DEBUG_EVENT("%s: Unsupported subsystem vendor id %04X (bus=%d, slot=%d)\n",
@@ -1685,6 +1756,7 @@ static int sdla_pci_probe(sdlahw_t *hw)
 		case AFT_2TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_4TE1_SHARK_SUBSYS_VENDOR:
 		case AFT_8TE1_SHARK_SUBSYS_VENDOR:
+		case AFT_56K_SHARK_SUBSYS_VENDOR:
 			if (pci_dev->bus == NULL) break;
 			bus = pci_dev->bus;
 			if (bus->self == NULL) break;
@@ -2621,6 +2693,7 @@ void* sdla_register(sdlahw_iface_t* hw_iface, wandev_conf_t* conf, char* devname
 	case WANOPT_AFT108:
 	case WANOPT_AFT300:
 	case WANOPT_AFT_ANALOG:
+	case WANOPT_AFT_56K:
 		hwcard->type			= SDLA_AFT;
 		hw_iface->set_bit		= sdla_set_bit;
 		hw_iface->clear_bit		= sdla_clear_bit;
@@ -2638,12 +2711,14 @@ void* sdla_register(sdlahw_iface_t* hw_iface, wandev_conf_t* conf, char* devname
 		hw_iface->write_cpld		= sdla_hw_write_cpld;
 
 		switch(hw->hwcard->adptr_type){
+
 		case A101_ADPTR_1TE1:
 		case A101_ADPTR_2TE1:
 		case A104_ADPTR_4TE1:
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
 		case A400_ADPTR_ANALOG:
+		case AFT_ADPTR_56K:
 			DEBUG_EVENT("%s: Found: %s card, CPU %c, PciSlot=%d, PciBus=%d, Port=%d\n",
 					devname, 
 					SDLA_DECODE_CARDTYPE(hwcard->cfg_type),
@@ -2832,6 +2907,17 @@ static int sdla_register_check (wandev_conf_t* conf, char* devname)
 		}
 		break;
 
+	case WANOPT_AFT_56K:
+		if (conf->auto_pci_cfg && sdla_adapter_cnt.aft_56k_adapters > 1){
+ 			DEBUG_EVENT( "%s: HW Auto PCI failed: Multiple AFT-56K cards found! \n"
+				     "%s:    Disable the Autodetect feature and supply\n"
+				     "%s:    the PCI Slot and Bus numbers for each card.\n",
+               			        devname,devname,devname);
+			return -EINVAL;
+		}
+		break;
+
+
 	default:
 		DEBUG_EVENT("%s: Unsupported Sangoma Card (0x%X) requested by user!\n", 
 				devname,conf->card_type);
@@ -2943,6 +3029,7 @@ static int sdla_setup (void* phw, wandev_conf_t* conf)
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
 		case A400_ADPTR_ANALOG:
+		case AFT_ADPTR_56K:
 			if (hw->used > 1){
 				if (conf) conf->irq = hw->irq;
 				return 0;
@@ -3593,6 +3680,7 @@ static int sdla_down (void* phw)
 		case A108_ADPTR_8TE1:
 		case A200_ADPTR_ANALOG:
 		case A400_ADPTR_ANALOG:
+		case AFT_ADPTR_56K:
 			if (hw->used > 1){
 				break;
 			}
@@ -5271,6 +5359,9 @@ static int sdla_memory_map(sdlahw_t* hw, int cpu_no)
 		case A108_ADPTR_8TE1:
 			hw->memory = AFT8_PCI_MEM_SIZE; 
 			break;
+		case AFT_ADPTR_56K:
+			hw->memory = AFT2_PCI_MEM_SIZE; 
+			break;
 		default:
 			hw->memory = AFT_PCI_MEM_SIZE; 
 			break;
@@ -5499,32 +5590,63 @@ static sdlahw_t* sdla_find_adapter(wandev_conf_t* conf, char* devname)
 			case WANOPT_AFT:
 			case WANOPT_AFT300:
 			case WANOPT_AFT_ANALOG:
+			case WANOPT_AFT_56K:
 				if (conf->auto_pci_cfg){
 					if (hw->cpu_no == cpu_no &&
 					    hw->hwcard->cfg_type == conf->card_type){
 						goto adapter_found;
 					}
 				}else{
-
-					/* Allow old A101 & A102 config for A101d/2d */
+					/* Allow old A101 config for A101 SHARK */
 					if (conf->card_type == WANOPT_AFT &&
 					    hw->hwcard->slot_no == conf->PCI_slot_no && 
 				    	    hw->hwcard->bus_no == conf->pci_bus_no &&
-					    (hw->hwcard->cfg_type == WANOPT_AFT102 ||
-					     hw->hwcard->cfg_type == WANOPT_AFT101)) {
+					    hw->hwcard->cfg_type == WANOPT_AFT101) {
 						/* Remap the card type to standard
 						   A104 Shark style.  We are allowing
 						   and old config file for A101/2-SH */
-						conf->card_type = WANOPT_AFT104;
 						conf->config_id = WANCONFIG_AFT_TE1;
+						conf->card_type = WANOPT_AFT104;
+						conf->fe_cfg.line_no=1;
+                                        	goto adapter_found;
+					  	      
+					}              
+
+					/* Allow old A102 config for A102 SHARK */
+					if (conf->card_type == WANOPT_AFT &&
+					    hw->hwcard->slot_no == conf->PCI_slot_no && 
+				    	    hw->hwcard->bus_no == conf->pci_bus_no &&
+					    hw->hwcard->cfg_type == WANOPT_AFT102) {
+						/* Remap the card type to standard
+						   A104 Shark style.  We are allowing
+						   and old config file for A101/2-SH */
+						conf->config_id = WANCONFIG_AFT_TE1;
+						conf->card_type = WANOPT_AFT104;
 						if (cpu_no == SDLA_CPU_A) {
 							conf->fe_cfg.line_no=1;
 						} else {
 							conf->fe_cfg.line_no=2;		
 						}
                                         	goto adapter_found;
-					  	      
 					}              
+
+
+					
+                                        if (conf->card_type == WANOPT_S51X &&
+					    IS_56K_MEDIA(&conf->fe_cfg) && 
+					    hw->hwcard->slot_no == conf->PCI_slot_no && 
+				    	    hw->hwcard->bus_no == conf->pci_bus_no &&
+					    hw->hwcard->cfg_type == WANOPT_AFT_56K) {
+						/* Remap the old 56K card type to standard
+						   AFT 56K Shark style.  We are allowing
+						   and old config file for 56K */
+						conf->card_type = WANOPT_AFT_56K;
+						conf->config_id = WANCONFIG_AFT_56K;
+						conf->fe_cfg.line_no=1;
+                                        	goto adapter_found;
+					  	      
+					} 
+					
 					
 					if ((hw->hwcard->slot_no == conf->PCI_slot_no) && 
 				    	    (hw->hwcard->bus_no == conf->pci_bus_no) &&
@@ -5586,6 +5708,8 @@ adapter_found:
 		case A101_ADPTR_1TE1:
 		case A200_ADPTR_ANALOG:
 		case A400_ADPTR_ANALOG:
+		case AFT_ADPTR_56K:
+	
 			conf->comm_port = 0;
 			conf->fe_cfg.line_no = 0;
 			break;
@@ -5643,6 +5767,7 @@ adapter_found:
 		case WANOPT_AFT108:
 		case WANOPT_AFT300:
 		case WANOPT_AFT_ANALOG:
+		case WANOPT_AFT_56K:
 			switch(hw->hwcard->adptr_type){
 			case A101_ADPTR_1TE1:
 			case A101_ADPTR_2TE1:
@@ -5735,6 +5860,8 @@ adapter_found:
 		case WANOPT_AFT108:
 		case WANOPT_AFT300:
 		case WANOPT_AFT_ANALOG:
+		case WANOPT_AFT_56K:
+
 			DEBUG_EVENT(
 			"%s: Error, %s card not found on bus #%d, slot #%d, cpu %c, line %d\n",
                 	        	devname, 
@@ -6792,7 +6919,15 @@ static int sdla_hw_read_cpld(void *phw, u16 off, u8 *data)
 				sdla_bus_read_1(hw, AFT_MCPU_INTERFACE, data);
 				/* Restore the original address */
 				sdla_bus_write_2(hw, AFT_MCPU_INTERFACE_ADDR, org_off);
-				break;				
+				break;	
+			case AFT_ADPTR_56K:
+
+				off |= AFT56K_BIT_DEV_ADDR_CPLD; 
+
+   				sdla_bus_write_2(hw, AFT56K_MCPU_INTERFACE_ADDR, off);
+   				sdla_bus_read_1(hw, AFT56K_MCPU_INTERFACE, data);
+				break;
+			
 			default:
 				DEBUG_EVENT("%s: ERROR: Invalid read access to cpld!\n",
 						hw->devname);
@@ -6966,6 +7101,13 @@ static int sdla_hw_write_cpld(void *phw, u16 off, u8 data)
 				/* Restore the original address */
 				sdla_bus_write_2(hw, AFT_MCPU_INTERFACE_ADDR, org_off);
 				break;				
+			case AFT_ADPTR_56K:
+				off |= AFT56K_BIT_DEV_ADDR_CPLD; 
+
+				sdla_bus_write_2(hw, AFT56K_MCPU_INTERFACE_ADDR, off);
+   				sdla_bus_write_1(hw, AFT56K_MCPU_INTERFACE, data);
+				break;
+
 			default:
 				DEBUG_EVENT("%s: ERROR: Invalid write access to cpld!\n",
 						hw->devname);

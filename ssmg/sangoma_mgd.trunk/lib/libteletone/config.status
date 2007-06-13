@@ -535,9 +535,9 @@ s,@CXXDEPMODE@,depmode=gcc3,;t t
 s,@am__fastdepCXX_TRUE@,,;t t
 s,@am__fastdepCXX_FALSE@,#,;t t
 s,@CXXCPP@,g++ -E,;t t
-s,@F77@,g77,;t t
+s,@F77@,f95,;t t
 s,@FFLAGS@,-g -O2,;t t
-s,@ac_ct_F77@,g77,;t t
+s,@ac_ct_F77@,f95,;t t
 s,@LIBTOOL@,$(SHELL) $(top_builddir)/libtool,;t t
 s,@LIBOBJS@,,;t t
 s,@LTLIBOBJS@,,;t t

@@ -188,6 +188,11 @@ again:
         get_card_type_string(linkconf->card_type, link_def->card_version), fe_cfg->line_no);
       break;
 
+    case AFT_ADPTR_56K:
+      snprintf(tmp_buff, MAX_PATH_LENGTH, " \"Hardware Setup--> %s\" ",
+	get_card_type_string(linkconf->card_type, link_def->card_version));
+      break;
+
     default:
       snprintf(tmp_buff, MAX_PATH_LENGTH, " \"Hardware Setup--> %s\" ",
         get_card_type_string(linkconf->card_type, link_def->card_version));

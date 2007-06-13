@@ -1032,6 +1032,11 @@ static int sdla_ds_te1_unconfig(void* pfe)
 	
 	/* FIXME: Alex to disable interrupts here */
 	sdla_ds_te1_disable_irq(fe);
+
+	/* Set Rx Framer soft reset */
+	WRITE_REG(REG_RMMR, BIT_RMMR_SFTRST);
+	/* Set Tx Framer soft reset */
+	WRITE_REG(REG_TMMR, BIT_RMMR_SFTRST);
 	
 	/* Clear configuration flag */
 	wan_clear_bit(TE_CONFIGURED,(void*)&fe->te_param.critical);
@@ -1399,14 +1404,22 @@ static int sdla_ds_te1_set_alarms(sdla_fe_t* fe, unsigned long alarms)
 ** Arguments:
 ** Returns:
 */
+
 static int sdla_ds_te1_clear_alarms(sdla_fe_t* fe, unsigned long alarms)
 {
+	u8	value;
+	
 	if (alarms & WAN_TE_BIT_YEL_ALARM){
-		DEBUG_TEST("%s: Clearing YELLOW alarm (not supported)!\n",
-						fe->name);
+		if (IS_T1_FEMEDIA(fe)){
+			DEBUG_EVENT("%s: Clearing YELLOW alarm!\n",
+							fe->name);
+			value = READ_REG(REG_TCR1);
+			WRITE_REG(REG_TCR1, value & ~BIT_TCR1_T1_TRAI);
+		}
 	}
 	return 0;
 }
+
 
 /*
  ******************************************************************************

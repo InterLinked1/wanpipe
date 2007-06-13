@@ -1,7 +1,7 @@
 #!/bin/bash -p
 
-
-
+# chkconfig: 2345 7 9
+# description: Starts and stop Wanpipe devices
 
 
 
@@ -1904,7 +1904,7 @@ WANPIPE_IS_RUNNING=/var/run/wanpipe_is_running
 RUGGEDCOM=No
 
 if [ $OSYSTEM = "Linux" ]; then
-	ROUTER_VERSION=2.3.4-9
+	ROUTER_VERSION=2.3.4-10
 	IFCONFIG_LIST=ifconfig
 	MODULE_STAT=lsmod
 	WAN_DRIVERS="wanpipe"

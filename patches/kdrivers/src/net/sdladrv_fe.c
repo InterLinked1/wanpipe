@@ -84,6 +84,11 @@ static int 		sdla_shark_analog_write_fe (void* phw, ...);
 static unsigned char  __sdla_shark_analog_read_fe (void* phw, ...);
 unsigned char    	sdla_shark_analog_read_fe (void* phw, ...);
 
+static int	__sdla_shark_56k_write_fe(void *phw, ...);
+int		sdla_shark_56k_write_fe(void *phw, ...);
+static u_int8_t	__sdla_shark_56k_read_fe (void *phw, ...);
+u_int8_t	sdla_shark_56k_read_fe (void *phw, ...);
+
 extern int sdla_bus_write_1(void* phw, unsigned int offset, u8 value);
 extern int sdla_bus_write_2(void* phw, unsigned int offset, u16 value);
 extern int sdla_bus_write_4(void* phw, unsigned int offset, u32 value);
@@ -327,6 +332,133 @@ static unsigned char sdla_shark_te1_read_fe (void *phw, ...)
         return tmp;
 }
 #endif
+
+
+
+/***************************************************************************
+	56K Front End interface for Shark subtype cards
+***************************************************************************/
+
+/*============================================================================
+ * Write 56k Front end registers
+ */
+static int __sdla_shark_56k_write_fe (void *phw, ...)
+{
+	sdlahw_t*	hw = (sdlahw_t*)phw;
+	va_list		args;
+	u_int16_t 	qaccess, line_no, off;
+	u_int8_t	value;
+//	u8		qaccess = card->wandev.state == WAN_CONNECTED ? 1 : 0;
+
+	va_start(args, phw);
+	qaccess = (u_int16_t)va_arg(args, int);
+	line_no = (u_int16_t)va_arg(args, int);
+	off	= (u_int16_t)va_arg(args, int);
+	value	= (u_int8_t)va_arg(args, int);
+	va_end(args);
+
+	off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
+
+   	sdla_bus_write_2(hw,0x46, (u16)off);
+
+	sdla_bus_write_2(hw,0x44, (u16)value);
+
+	if (!qaccess){
+		WP_DELAY(5);
+	}
+   	
+	return 0;
+}
+
+int sdla_shark_56k_write_fe (void *phw, ...)
+{
+	sdlahw_t*	hw = (sdlahw_t*)phw;
+	va_list		args;
+	u_int16_t	qaccess, line_no, off;
+	u_int8_t	value;
+
+	if (sdla_hw_fe_test_and_set_bit(hw,0)){
+		if (WAN_NET_RATELIMIT()){
+			DEBUG_EVENT(
+			"%s: %s:%d: Critical Error: Re-entry in FE!\n",
+					hw->devname,
+					__FUNCTION__,__LINE__);
+		}
+		return -EINVAL;
+	}
+
+	va_start(args, phw);
+	qaccess = (u_int16_t)va_arg(args, int);
+	line_no = (u_int16_t)va_arg(args, int);
+	off	= (u_int16_t)va_arg(args, int);
+	value	= (u_int8_t)va_arg(args, int);
+	va_end(args);
+
+	__sdla_shark_56k_write_fe(hw, qaccess, line_no, off, value);
+
+	sdla_hw_fe_clear_bit(hw,0);
+     return 0;
+}
+
+/*============================================================================
+ * Read 56k Front end registers
+ */
+static u_int8_t __sdla_shark_56k_read_fe (void *phw, ...)
+{
+	sdlahw_t*	hw = (sdlahw_t*)phw;
+	va_list		args;
+	u_int16_t  	qaccess, line_no, off;
+	u_int32_t	tmp;
+//	u8		qaccess = card->wandev.state == WAN_CONNECTED ? 1 : 0;
+
+	va_start(args, phw);
+	qaccess = (u_int16_t)va_arg(args, int);
+	line_no = (u_int16_t)va_arg(args, int);
+	off	= (u_int8_t)va_arg(args, int);
+	va_end(args);
+
+	off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
+
+   	sdla_bus_write_2(hw,0x46, (u16)off);
+
+   	sdla_bus_read_4(hw,0x44, &tmp);
+
+	if (!qaccess){
+		WP_DELAY(5);
+	}
+
+	return (u_int8_t)tmp;
+}
+
+u_int8_t sdla_shark_56k_read_fe (void *phw, ...)
+{
+	sdlahw_t*	hw = (sdlahw_t*)phw;
+	va_list		args;
+	u_int16_t	qaccess, line_no, off;
+	u_int8_t	tmp;
+
+	if (sdla_hw_fe_test_and_set_bit(hw,0)){
+		if (WAN_NET_RATELIMIT()){
+		DEBUG_EVENT("%s: %s:%d: Critical Error: Re-entry in FE!\n",
+			hw->devname, __FUNCTION__,__LINE__);
+		}
+		return 0x00;
+	}
+
+	va_start(args, phw);
+	qaccess = (u_int16_t)va_arg(args, int);
+	line_no = (u_int16_t)va_arg(args, int);
+	off	= (u_int16_t)va_arg(args, int);
+	va_end(args);
+
+	tmp = __sdla_shark_56k_read_fe(hw, qaccess, line_no, off);
+
+	sdla_hw_fe_clear_bit(hw,0);
+        return tmp;
+}
+
+
+
 
 /***************************************************************************
 	Front End FXS/FXO interface for Shark subtype cards

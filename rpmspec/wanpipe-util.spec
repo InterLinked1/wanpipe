@@ -2,7 +2,7 @@
 %define WANPIPE_VER	  wanpipe-util
 %define name              %{WANPIPE_VER}
 %define version           2.3.4
-%define release           9
+%define release           10
 %define	serial	 	  1
 %define UTILS_DIR 	  /usr/sbin
 %define UTILS_LOCAL_DIR   /usr/local/sbin
@@ -244,6 +244,28 @@ install_init;
 
 
 %changelog
+* Thu Jun 13 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-10
+=============================================================== 
+
+- Support for AFT 54K DDS hardware
+
+- Support for New A301 T3/E3 Card
+
+- Updated Maxim (A101/2/4/8) Front end
+  On port shutdown properly reset the port.
+  This will solve instances where on port
+  shutdown, the remote end stays up.
+
+- Updated Setup for patching Zaptel 1.2.17
+
+- Analog Network Sync Feature
+  Synchronize Analog card to a clock of a
+  Digital T1/E1 port using external cable.
+  Improves Faxing performance! 
+  For more info: 
+     http://wiki.sangoma.com/t1e1analogfaxing	
+
+
 * Wed May 17 2007 Nenad Corbic <ncorbic@sangoma.com> - 2.3.4-9
 ====================================================================  
 

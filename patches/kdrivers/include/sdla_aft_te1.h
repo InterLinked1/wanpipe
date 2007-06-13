@@ -77,6 +77,7 @@
 */
 
 # define AFT_CHIPCFG_TE1_CFG_BIT	0
+# define AFT_CHIPCFG_56K_CFG_BIT	0
 # define AFT_CHIPCFG_ANALOG_CLOCK_SELECT_BIT 0
 # define AFT_CHIPCFG_SFR_EX_BIT		1
 # define AFT_CHIPCFG_SFR_IN_BIT		2
@@ -266,6 +267,33 @@ aft_chipcfg_a108_get_tdmv_intr_stats(u32 reg)
 
 
 
+/* 56k IRQ status bits */
+# define AFT_CHIPCFG_A56K_WDT_INTR_BIT		0
+# define AFT_CHIPCFG_A56K_DMA_INTR_BIT		24
+# define AFT_CHIPCFG_A56K_FIFO_INTR_BIT		16
+
+# define AFT_CHIPCFG_A56K_FE_MASK			0x7F
+# define AFT_CHIPCFG_A56K_FE_SHIFT			9
+
+static __inline u32
+aft_chipcfg_a56k_read_fe(u32 reg)
+{
+	reg=reg>>AFT_CHIPCFG_A56K_FE_SHIFT;
+	reg&=AFT_CHIPCFG_A56K_FE_MASK;
+	return reg;
+}
+
+static __inline u32
+aft_chipcfg_a56k_write_fe(u32 reg, u32 val)
+{
+	val&=AFT_CHIPCFG_A56K_FE_MASK;
+
+	reg &= ~(AFT_CHIPCFG_A56K_FE_MASK<<AFT_CHIPCFG_A56K_FE_SHIFT);
+
+	reg |= (val<<AFT_CHIPCFG_A56K_FE_SHIFT);
+
+	return reg;
+}
 static __inline u32
 aft_chipcfg_get_ec_channels(u32 reg)
 {
@@ -289,6 +317,7 @@ aft_chipcfg_get_ec_channels(u32 reg)
 	
 	return 0;
 }
+
 
 
 static __inline u32
@@ -1010,7 +1039,7 @@ aft_get_num_of_slots(u32 total_slots, u32 chan_slots)
 }
 
 
-#define MAX_AFT_HW_DEV 10
+#define MAX_AFT_HW_DEV 14
 
 typedef struct aft_hw_dev{
 

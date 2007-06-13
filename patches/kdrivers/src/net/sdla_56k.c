@@ -36,6 +36,7 @@
 # include <linux/wanpipe_debug.h>
 # include <linux/wanproc.h>
 # include <linux/wanpipe.h>	/* WANPIPE common user API definitions */
+# include <linux/aft_a104.h>/* for aft_56k_write_cpld() declaration  */
 #endif
 
 /******************************************************************************
@@ -43,6 +44,12 @@
 ******************************************************************************/
 #define WRITE_REG(reg,val) fe->write_fe_reg(fe->card, 0, (u32)(reg),(u32)(val))
 #define READ_REG(reg)	   fe->read_fe_reg(fe->card, 0, (u32)(reg))
+
+#if 0
+#define AFT_FUNC_DEBUG()  DEBUG_EVENT("%s:%d\n",__FUNCTION__,__LINE__)
+#else
+#define AFT_FUNC_DEBUG()  
+#endif
 
 
 /******************************************************************************
@@ -59,12 +66,32 @@
 ******************************************************************************/
 
 
+static int sdla_56k_global_config(void* pfe);
+static int sdla_56k_global_unconfig(void* pfe);
+
+
+static unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read);
+
+
 static int sdla_56k_config(void* pfe);
+static int sdla_56k_unconfig(void* pfe);
+static int sdla_56k_intr(sdla_fe_t *fe);
+static int sdla_56k_check_intr(sdla_fe_t *fe);
+
 static unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read);
 static int sdla_56k_udp(sdla_fe_t*, void*, unsigned char*);
 static void display_Rx_code_condition(sdla_fe_t* fe);
 static int sdla_56k_print_alarm(sdla_fe_t* fe, unsigned int);
 static int sdla_56k_update_alarm_info(sdla_fe_t *fe, struct seq_file* m, int* stop_cnt);
+
+
+/* enable 56k chip reset state */
+static unsigned int reset_on_LXT441PE(sdla_t *card);
+/* disable 56k chip reset state */
+static unsigned int reset_off_LXT441PE(sdla_t *card);
+
+
+
 
 /******************************************************************************
 			  FUNCTION DEFINITIONS
@@ -160,8 +187,7 @@ unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read)
 
 		/* if Insertion Loss is less than 44.4 dB, then we are connected */
 		if ((fe->fe_param.k56_param.RRA_reg_56k & 0x0F) > BIT_DEV_STAT_IL_44_dB) {
-			if((fe->fe_status == FE_DISCONNECTED) ||
-			 (fe->fe_status == FE_UNITIALIZED)) {
+			if((fe->fe_status != FE_CONNECTED)) {
 				
 				fe->fe_status = FE_CONNECTED;
 				/* reset the Rx code condition changes */
@@ -177,7 +203,7 @@ unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read)
 			}
 		}else{
 			if((fe->fe_status == FE_CONNECTED) || 
-			 (fe->fe_status == FE_UNITIALIZED)) {
+			   (fe->fe_status == FE_UNITIALIZED)) {
 				
 				fe->fe_status = FE_DISCONNECTED;
 				/* reset the Rx code condition changes */
@@ -187,8 +213,10 @@ unsigned int sdla_56k_alarm(sdla_fe_t *fe, int manual_read)
 					DEBUG_EVENT("%s: 56k Receive Loss of Signal\n", 
 							fe->name);
 				}
-				DEBUG_EVENT("%s: 56k Disconnected (loopback)\n",
-						fe->name);
+				DEBUG_EVENT("%s: 56k Disconnected (loopback) (RRA=0x%0X < 0x%0X)\n",
+						fe->name,
+						fe->fe_param.k56_param.RRA_reg_56k & 0x0F,
+						BIT_DEV_STAT_IL_44_dB);
 			}
 		}
 	}
@@ -206,11 +234,19 @@ int sdla_56k_default_cfg(void* pcard, void* p56k_cfg)
 }
 
 
-int sdla_56k_iface_init(void* pfe_iface)
+int sdla_56k_iface_init(void *p_fe, void* pfe_iface)
 {
+
+	sdla_fe_t	*fe = (sdla_fe_t*)p_fe;
 	sdla_fe_iface_t	*fe_iface = (sdla_fe_iface_t*)pfe_iface;
 
+
+	fe_iface->global_config		= &sdla_56k_global_config;
+	fe_iface->global_unconfig	= &sdla_56k_global_unconfig;
+
 	fe_iface->config		= &sdla_56k_config;
+	fe_iface->unconfig		= &sdla_56k_unconfig;
+	
 	fe_iface->get_fe_status		= &sdla_56k_get_fe_status;
 	fe_iface->get_fe_media		= &sdla_56k_get_fe_media;
 	fe_iface->get_fe_media_string	= &sdla_56k_get_fe_media_string;
@@ -218,19 +254,79 @@ int sdla_56k_iface_init(void* pfe_iface)
 	fe_iface->read_alarm		= &sdla_56k_alarm;
 	fe_iface->update_alarm_info	= &sdla_56k_update_alarm_info;
 	fe_iface->process_udp		= &sdla_56k_udp;
+
+	fe_iface->isr			= &sdla_56k_intr;
+	fe_iface->check_isr		= &sdla_56k_check_intr;
+
+	/* The 56k CSU/DSU front end status has not been initialized  */
+	fe->fe_status = FE_UNITIALIZED;
+
 	return 0;
 }
+
+/* called from TASK */
+static int sdla_56k_intr(sdla_fe_t *fe) 
+{
+	/*AFT_FUNC_DEBUG();*/
+
+	WAN_ASSERT(fe->write_fe_reg == NULL);
+	WAN_ASSERT(fe->read_fe_reg == NULL);
+
+	sdla_56k_alarm(fe, 1);
+
+	return 0;
+}
+
+/*	Called from ISR. On AFT card there is only on 56 port, it 
+	means the interrupt is always ours.
+	Returns: 1
+ */
+static int sdla_56k_check_intr(sdla_fe_t *fe) 
+{
+	/*AFT_FUNC_DEBUG();*/
+
+	WAN_ASSERT(fe->write_fe_reg == NULL);
+	WAN_ASSERT(fe->read_fe_reg == NULL);
+
+	return 1;
+}
+
+static int sdla_56k_global_config(void* pfe)
+{
+	DEBUG_56K("%s: %s Global Front End configuration\n", 
+			fe->name, FE_MEDIA_DECODE(fe));
+	return 0;
+}
+
+static int sdla_56k_global_unconfig(void* pfe)
+{
+	DEBUG_56K("%s: %s Global unconfiguration!\n",
+				fe->name,
+				FE_MEDIA_DECODE(fe));
+	return 0;
+}
+
+
+
 
 static int sdla_56k_config(void* pfe)
 {
 	sdla_fe_t	*fe = (sdla_fe_t*)pfe;
 	sdla_t		*card = (sdla_t *)fe->card;
+	u16			adapter_type;
+
+	/*AFT_FUNC_DEBUG();*/
+
 
 	WAN_ASSERT(fe->write_fe_reg == NULL);
 	WAN_ASSERT(fe->read_fe_reg == NULL);
 
+	card->hw_iface.getcfg(card->hw, SDLA_ADAPTERTYPE, &adapter_type);
+
+#if 0
 	/* The 56k CSU/DSU front end status has not been initialized  */
 	fe->fe_status = FE_UNITIALIZED;
+#endif
 
 	/* Zero the previously read RRC register value */
 	fe->fe_param.k56_param.prev_RRC_reg_56k = 0;
@@ -238,6 +334,12 @@ static int sdla_56k_config(void* pfe)
 	/* Zero the RRC register changes */ 
 	fe->fe_param.k56_param.delta_RRC_reg_56k = 0;
 	
+		
+	if(adapter_type == AFT_ADPTR_56K){
+		reset_on_LXT441PE(card);
+		reset_off_LXT441PE(card);
+	}
+
 	if(WRITE_REG(REG_INT_EN_STAT, (BIT_INT_EN_STAT_IDEL | 
 		BIT_INT_EN_STAT_RX_CODE | BIT_INT_EN_STAT_ACTIVE))) {
 		return 1;
@@ -287,6 +389,51 @@ static int sdla_56k_config(void* pfe)
 	return 0;
 }
 
+static int sdla_56k_unconfig(void* pfe)
+{
+	sdla_fe_t	*fe = (sdla_fe_t*)pfe;
+	sdla_t		*card = (sdla_t *)fe->card;
+	u16			adapter_type;
+
+	/*AFT_FUNC_DEBUG();*/
+
+	WAN_ASSERT(fe->write_fe_reg == NULL);
+	WAN_ASSERT(fe->read_fe_reg == NULL);
+
+	card->hw_iface.getcfg(card->hw, SDLA_ADAPTERTYPE, &adapter_type);
+
+	if(adapter_type == AFT_ADPTR_56K){
+		reset_on_LXT441PE(card);
+	}
+	return 0;
+}
+
+
+
+
+static unsigned int reset_on_LXT441PE(sdla_t *card)
+{	
+	AFT_FUNC_DEBUG();
+	aft_56k_write_cpld(card, 0x00,0x00);
+	WP_DELAY(1000);
+	return 0;
+}
+
+static unsigned int reset_off_LXT441PE(sdla_t *card)
+{	
+	AFT_FUNC_DEBUG();
+	aft_56k_write_cpld(card, 0x00, 0x03);
+	WP_DELAY(1000);
+	return 0;
+}
+
+
+
+
+
+
+
+
 
 static void display_Rx_code_condition(sdla_fe_t* fe)
 {
@@ -296,11 +443,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_DLP) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_DLP) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving DSU Loopback code\n", 
 					fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k DSU Loopback code condition ceased\n", 
 					fe->name);
+			}
 		}
 	}
 
@@ -308,11 +459,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_OOF) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_OOF) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving Out of Frame code\n", 
 					fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k Out of Frame code condition ceased\n", 
 					fe->name);
+			}
 		}
 	}
 
@@ -320,11 +475,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_OOS) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_OOS) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving Out of Service code\n", 
 					fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k Out of Service code condition ceased\n", 
 					fe->name);
+			}
 		}
 	}
 
@@ -332,11 +491,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_CMI) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_CMI) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving Control Mode Idle\n",
 					fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k Control Mode Idle condition ceased\n", 
 					fe->name);
+			}
 		}
 	}
 
@@ -344,11 +507,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_ZSC) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_ZSC) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving Zero Suppression code\n", 
 					fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k Zero Suppression code condition ceased\n", 
 					fe->name);
+			}
 		}
 	}
 
@@ -356,11 +523,15 @@ static void display_Rx_code_condition(sdla_fe_t* fe)
 	if((k56_param->RRC_reg_56k ^ k56_param->prev_RRC_reg_56k) &
 		BIT_RX_CODES_DMI) {
 		if(k56_param->RRC_reg_56k & BIT_RX_CODES_DMI) {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k receiving Data Mode Idle\n",
 				fe->name);
+			}
 		} else {
+			if (WAN_NET_RATELIMIT()) {
 			DEBUG_EVENT("%s: 56k Data Mode Idle condition ceased\n", 
 				fe->name);
+			}
 		}
 	}
 }
@@ -532,5 +703,4 @@ static int sdla_56k_update_alarm_info(sdla_fe_t* fe, struct seq_file* m, int* st
 #endif
 	return m->count;	
 }
-
 

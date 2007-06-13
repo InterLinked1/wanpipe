@@ -608,9 +608,18 @@ int menu_hardware_probe::parse_selected_card_line(char *selected_card_line,
       global_hw_ec_max_num = atoi(hw_ec_max_num_ptr);
       Debug(DBG_MENU_HARDWARE_PROBE, ("global_hw_ec_max_num: %d\n", global_hw_ec_max_num));
     }
-
     goto done;
-  }
+    }	
+  //
+  //A056 (AFT) 56k DDS card
+  //
+ 
+  if( strstr(selected_card_line, "AFT-A056-SH") != NULL){
+    rc = YES;
+    *card_type = WANOPT_AFT;
+    *card_version = AFT_ADPTR_56K;
+    goto done;
+   }
 
 done:
 

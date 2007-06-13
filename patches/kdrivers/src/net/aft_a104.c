@@ -68,6 +68,7 @@ static int aft_hwec_enable(void *pcard, int enable, int channel);
 #endif
 
 int __a104_write_fe (void *pcard, ...);
+int __a56k_write_fe (void *pcard, ...);
 
 static int aft_map_fifo_baddr_and_size(sdla_t *card, unsigned char fifo_size, unsigned char *addr);
 
@@ -434,7 +435,12 @@ int a104_led_ctrl(sdla_t *card, int color, int led_pos, int on)
 			break;			
 		}
 
-		aft_te1_write_cpld(card,card->wandev.comm_port + 0x08,card->u.aft.led_ctrl);
+		
+		if(IS_56K_CARD(card)){
+			aft_56k_write_cpld(card,card->wandev.comm_port + 0x08,card->u.aft.led_ctrl);
+		}else{
+			aft_te1_write_cpld(card,card->wandev.comm_port + 0x08,card->u.aft.led_ctrl);
+		}
 	}else{
 		card->hw_iface.bus_read_4(card->hw,
 			AFT_PORT_REG(card,AFT_LINE_CFG_REG),&reg);
@@ -474,7 +480,8 @@ int a104_global_chip_config(sdla_t *card)
 		wan_clear_bit(AFT_CHIPCFG_TE1_CFG_BIT,&reg);
 	}else if (IS_E1_CARD(card)){
 		wan_set_bit(AFT_CHIPCFG_TE1_CFG_BIT,&reg);
-		
+	}else if (IS_56K_CARD(card)){
+		wan_set_bit(AFT_CHIPCFG_56K_CFG_BIT,&reg);	
 	}else{
 		DEBUG_EVENT("%s: Error: Xilinx doesn't support non T1/E1 interface!\n",
 				card->devname);
@@ -522,6 +529,8 @@ int a104_global_chip_config(sdla_t *card)
 			aft_te1_write_cpld(card,0x00,0x00);
 		}else if (IS_E1_CARD(card)){
 			aft_te1_write_cpld(card,0x00,0x02);
+		}else if (IS_56K_CARD(card)){
+			aft_56k_write_cpld(card,0x00,0x02);/* DR: Framer 'reset off' */
 		}
 		wan_spin_unlock_irq(&card->wandev.lock,&flags);
 		card->hw_iface.hw_unlock(card->hw,&smp_flags);
@@ -1168,8 +1177,8 @@ int __a104_write_fe (void *pcard, ...)
 		if (off & 0x1000) off |= 0x4000;
 		off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
 		if ((card->adptr_type == A101_ADPTR_2TE1 ||
-		     card->adptr_type == A101_ADPTR_1TE1) && 
-		     port_no == 1){
+		    card->adptr_type == A101_ADPTR_1TE1) &&
+			 port_no == 1){
 			off |= AFT8_BIT_DEV_MAXIM_ADDR_CPLD;
 		}
 	}
@@ -1258,8 +1267,8 @@ unsigned char __a104_read_fe (void *pcard, ...)
 		if (off & 0x0800) off |= 0x2000;
 		if (off & 0x1000) off |= 0x4000;
 		off &= ~AFT8_BIT_DEV_ADDR_CLEAR;	
-		if ((card->adptr_type == A101_ADPTR_2TE1 || 
-		     card->adptr_type == A101_ADPTR_1TE1) && 
+		if ((card->adptr_type == A101_ADPTR_2TE1 ||
+		     card->adptr_type == A101_ADPTR_2TE1) &&
 		     port_no == 1){
 			off |= AFT8_BIT_DEV_MAXIM_ADDR_CPLD;
 		}
@@ -1315,6 +1324,161 @@ unsigned char a104_read_fe (void *pcard, ...)
    	return tmp;
 }
 
+/*============================================================================
+ * Read/Write 56k Front End registers. Different from TE1!!
+ */
+unsigned char __a56k_read_fe (void *pcard, ...)
+{
+        va_list args;
+        sdla_t  *card = (sdla_t*)pcard;
+        int     port_no, off, tmp;
+        u8              qaccess = card->wandev.state == WAN_CONNECTED ? 1 : 0;
+
+        va_start(args, pcard);
+        port_no = (int)va_arg(args, int);
+        off     = (int)va_arg(args, int);
+        va_end(args);
+
+        off &= ~AFT8_BIT_DEV_ADDR_CLEAR;
+
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE_ADDR, (u16)off);
+
+        card->hw_iface.bus_read_4(card->hw, AFT56K_MCPU_INTERFACE, &tmp);
+
+        if (!qaccess){
+                WP_DELAY(5);
+        }
+#if 0
+        DEBUG_56K("%s(): port_no: 0x%X, off: 0x%X, cpld_data: 0x%X\n",
+                __FUNCTION__, port_no, off, tmp);
+#endif
+    return (u8)tmp;
+}
+
+unsigned char a56k_read_fe (void *pcard, ...)
+{
+        va_list                 args;
+        sdla_t                  *card = (sdla_t*)pcard;
+        unsigned int    port_no, off;
+        unsigned int    cpld_data=0;
+
+        if (card->hw_iface.fe_test_and_set_bit(card->hw,0)){
+                if (WAN_NET_RATELIMIT()){
+                        DEBUG_EVENT("%s: %s:%d: Critical Error: Re-entry in FE!\n",
+                                card->devname, __FUNCTION__,__LINE__);
+                }
+                return 0x00;
+        }
+
+        va_start(args, pcard);
+        port_no = (int)va_arg(args, int);
+        off     = (int)va_arg(args, int);
+        va_end(args);
+
+        cpld_data = __a56k_read_fe(card, port_no, off);
+
+        card->hw_iface.fe_clear_bit(card->hw,0);
+
+        return (unsigned char)cpld_data;
+}
+
+int __a56k_write_fe (void *pcard, ...)
+{
+        va_list args;
+        sdla_t  *card = (sdla_t*)pcard;
+        int     port_no, off, value;
+        u8      qaccess = card->wandev.state == WAN_CONNECTED ? 1 : 0;
+
+        va_start(args, pcard);
+        port_no = va_arg(args, int);
+        off     = va_arg(args, int);
+        value   = va_arg(args, int);
+        va_end(args);
+
+        off &= ~AFT8_BIT_DEV_ADDR_CLEAR;
+
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE_ADDR, (u16)off);
+
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE, (u16)value);
+        if (!qaccess){
+                WP_DELAY(5);
+        }
+#if 0
+        DEBUG_56K("%s(): port_no: 0x%X, off: 0x%X, value: 0x%X\n",
+                __FUNCTION__, port_no, off, value);
+#endif
+    return 0;
+}
+
+
+int a56k_write_fe (void *pcard, ...)
+{
+        va_list args;
+        sdla_t  *card = (sdla_t*)pcard;
+        int     port_no, off, value;
+
+        if (card->hw_iface.fe_test_and_set_bit(card->hw,0)){
+                if (WAN_NET_RATELIMIT()){
+                        DEBUG_EVENT(
+                        "%s: %s:%d: Critical Error: Re-entry in FE!\n",
+                                        card->devname,
+                                        __FUNCTION__,__LINE__);
+                }
+                return -EINVAL;
+        }
+
+        va_start(args, pcard);
+        port_no = va_arg(args, int);
+        off     = va_arg(args, int);
+        value   = va_arg(args, int);
+        va_end(args);
+
+        __a56k_write_fe(card, port_no, off, value);
+
+        card->hw_iface.fe_clear_bit(card->hw,0);
+
+        return 0;
+}
+
+/*============================================================================
+ * Read/Write 56k CPLD. Different from TE1!!
+ */
+
+int aft_56k_write_cpld(sdla_t *card, unsigned short cpld_off, unsigned char cpld_data)
+{
+        cpld_off |= AFT56K_BIT_DEV_ADDR_CPLD;
+#if 0
+        DEBUG_56K("%s(): cpld_off: 0x%X, cpld_data: 0x%X\n",
+                __FUNCTION__, cpld_off, cpld_data);
+#endif
+
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE_ADDR, cpld_off);
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE, cpld_data);
+        return 0;
+}
+
+unsigned char aft_56k_read_cpld(sdla_t *card, unsigned short cpld_off)
+{
+        unsigned int cpld_data;
+
+        cpld_off |= AFT56K_BIT_DEV_ADDR_CPLD;
+
+        card->hw_iface.bus_write_2(card->hw, AFT56K_MCPU_INTERFACE_ADDR, cpld_off);
+        card->hw_iface.bus_read_4(card->hw, AFT56K_MCPU_INTERFACE, &cpld_data);
+
+#if 0
+        DEBUG_56K("%s(): cpld_off: 0x%X, cpld_data: 0x%X\n",
+                __FUNCTION__, cpld_off, cpld_data);
+#endif
+
+        return (unsigned char)cpld_data;
+}
+
+/*============================================================================
+ * Read TE1 CPLD.
+ */
+
+
 
 unsigned char aft_te1_read_cpld(sdla_t *card, unsigned short cpld_off)
 {
@@ -1334,6 +1498,7 @@ unsigned char aft_te1_read_cpld(sdla_t *card, unsigned short cpld_off)
 	card->hw_iface.fe_clear_bit(card->hw,0);
         return tmp;
 }
+
 
 int aft_te1_write_cpld(sdla_t *card, unsigned short off,unsigned char data)
 {

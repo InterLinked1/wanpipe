@@ -74,7 +74,9 @@
 #define WANOPT_AFT108		8
 #define WANOPT_AFT_X		9
 #define WANOPT_AFT102		10
+#define WANOPT_AFT_56K		12
 #define WANOPT_AFT101		13
+
 
 /*
  * Configuration options defines.
@@ -300,15 +302,17 @@ enum {
  
 
 #define SDLA_DECODE_CARDTYPE(card_type)				\
-		(card_type == WANOPT_S50X) ? "S50X" :		\
-		(card_type == WANOPT_S51X) ? "S51X" :		\
-		(card_type == WANOPT_ADSL) ? "ADSL" :		\
-		(card_type == WANOPT_AFT)  ? "A101/2" :		\
-		(card_type == WANOPT_AFT102 ||			\
+		(card_type == WANOPT_S50X) ?       "S50X" :		\
+		(card_type == WANOPT_S51X) ?       "S51X" :		\
+		(card_type == WANOPT_ADSL) ?       "ADSL" :		\
+		(card_type == WANOPT_AFT)  ?	   "A101/2" :		\
+		(card_type == WANOPT_AFT101 ||			\
+		 card_type == WANOPT_AFT102 ||			\
 		 card_type == WANOPT_AFT104 ||			\
-		 card_type == WANOPT_AFT108) ? "A102/2D/4/4D/8" :	\
-		(card_type == WANOPT_AFT300) ?  "A300"  :	\
-		(card_type == WANOPT_AFT_ANALOG) ?  "A200"  :	\
+		 card_type == WANOPT_AFT108) ?     "A101/1D/A102/2D/4/4D/8" :	\
+		(card_type == WANOPT_AFT300) ?     "A300"  :	\
+		(card_type == WANOPT_AFT_ANALOG) ? "A200/400"  :	\
+		(card_type == WANOPT_AFT_56K) ?    "A056"  :	\
 					"Unknown"
 
 #define COMPORT_DECODE(port)	(port == WANOPT_PRI) ? "PRI" : "SEC"
@@ -984,6 +988,8 @@ typedef struct wandev_conf
 #define WANCONFIG_AFT_ANALOG	132	/* AFT Analog Driver */
 #define WANCONFIG_ZAP		133	/* Used in wanpipemon when working with Zaptel driver */
 #define WANCONFIG_LAPD    	134	/* LIP LAPD Q921 Protocol Support */
+#define WANCONFIG_AFT_56K       136     /* AFT 56K Support */
+
 
 /*FIXME: This should be taken out, I just
 //used it so I don't break the apps that are

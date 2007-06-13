@@ -345,7 +345,8 @@ int wp_mprot_init (sdla_t* card, wandev_conf_t* conf)
 	}else if (IS_56K_MEDIA(&conf->fe_cfg)){
 
 		memcpy(&card->fe.fe_cfg, &conf->fe_cfg, sizeof(sdla_fe_cfg_t));
-		sdla_56k_iface_init(&card->wandev.fe_iface);
+		sdla_56k_iface_init(&card->fe, &card->wandev.fe_iface);
+
 		card->fe.name		= card->devname;
 		card->fe.card		= card;
 		card->fe.write_fe_reg	= write_front_end_reg;
@@ -1578,18 +1579,23 @@ static unsigned char read_front_end_reg (void* card1, ...)
         char* data = mb->wan_data;
 	u16		reg, line_no;
         int err;
+	int retry=15;
 
 	va_start(args, card1);
 	line_no	= (u16)va_arg(args, u32);
 	reg	= (u16)va_arg(args, u32);
 	va_end(args);
 
-        ((FRONT_END_REG_STRUCT *)data)->register_number = (unsigned short)reg;
-	mb->wan_data_len = sizeof(FRONT_END_REG_STRUCT);
-        mb->wan_command = READ_FRONT_END_REGISTER;
-        err = card->hw_iface.cmd(card->hw, card->mbox_off, mb);
-        if (err != COMMAND_OK)
-                chdlc_error(card,err,mb);
+	do {
+	        ((FRONT_END_REG_STRUCT *)data)->register_number = (unsigned short)reg;
+		mb->wan_data_len = sizeof(FRONT_END_REG_STRUCT);
+        	mb->wan_command = READ_FRONT_END_REGISTER;
+        	err = card->hw_iface.cmd(card->hw, card->mbox_off, mb);
+        	if (err != COMMAND_OK) {
+                	chdlc_error(card,err,mb);
+		}
+	}while(err && --retry);
+
         return(((FRONT_END_REG_STRUCT *)data)->register_value);
 }  
 
@@ -2992,7 +2998,11 @@ static int intr_test( sdla_t* card)
 			if (err != CMD_OK) 
 				chdlc_error(card, err, mb);
 
-			udelay(10000);
+			WP_DELAY(1000);
+			WP_DELAY(1000);
+			WP_DELAY(1000);
+			WP_DELAY(1000);
+			WP_DELAY(1000);
 			schedule();
 		}
 	}else{
@@ -3433,7 +3443,16 @@ static int set_adapter_config (sdla_t* card)
 
 	card->hw_iface.getcfg(card->hw, SDLA_ADAPTERTYPE, &cfg->adapter_type);
 	cfg->adapter_config = 0x00; 
-	cfg->operating_frequency = 00; 
+	cfg->operating_frequency = 0x00; 
+	
+#if 0
+	if (IS_56K_CARD(card)) {
+#warning "56K Operating Frequency 20MHZ"
+		DEBUG_EVENT("%s: Configuring 56K for 20MHZ\n",card->devname);
+		cfg->operating_frequency = 20000000; 
+	}
+#endif
+	
 	mb->wan_data_len = sizeof(ADAPTER_CONFIGURATION_STRUCT);
 	mb->wan_command = SET_ADAPTER_CONFIGURATION;
 	err = card->hw_iface.cmd(card->hw, card->mbox_off, mb);
@@ -3718,6 +3737,5 @@ static int digital_loop_test(sdla_t* card,wan_udp_pkt_t* wan_udp_pkt)
 
 	return 0;
 }
-
 
 /****** End ****************************************************************/

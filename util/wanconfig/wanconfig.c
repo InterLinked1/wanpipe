@@ -1193,6 +1193,7 @@ look_up_t conf_def_tables[] =
 	{ WANCONFIG_AFT,        xilinx_conftab  },
 	{ WANCONFIG_AFT_TE1,    xilinx_conftab  },
 	{ WANCONFIG_AFT_ANALOG, xilinx_conftab  },
+	{ WANCONFIG_AFT_56K,    xilinx_conftab  },
 	{ WANCONFIG_AFT_TE3,    xilinx_conftab  },
 	{ WANCONFIG_BITSTRM,    bitstrm_conftab },
 	{ WANCONFIG_SDLC,	sdlc_conftab 	},
@@ -1207,6 +1208,7 @@ look_up_t conf_if_def_tables[] =
 	{ WANCONFIG_AFT,	xilinx_if_conftab },
 	{ WANCONFIG_AFT_TE1,	xilinx_if_conftab },
 	{ WANCONFIG_AFT_TE3,    xilinx_if_conftab },
+        { WANCONFIG_AFT_56K,    xilinx_if_conftab },
 	{ WANCONFIG_AFT_ANALOG, xilinx_if_conftab },
 	{ WANCONFIG_ASYHDLC,	chdlc_conftab	},
 	{ 0,			NULL		}
@@ -1254,6 +1256,7 @@ look_up_t	config_id_str[] =
 	{ WANCONFIG_AFT,	"WAN_AFT"	},
 	{ WANCONFIG_AFT_TE1,	"WAN_AFT_TE1"	},
 	{ WANCONFIG_AFT_ANALOG,	"WAN_AFT_ANALOG" },
+	{ WANCONFIG_AFT_56K,    "WAN_AFT_56K"   },	
 	{ WANCONFIG_AFT_TE3,	"WAN_AFT_TE3"	},
 	{ WANCONFIG_AFT,	"WAN_XILINX"	},
 	{ WANCONFIG_MFR,    	"WAN_MFR"   	},

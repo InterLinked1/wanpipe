@@ -158,6 +158,16 @@ again:
 
   //////////////////////////////////////////////////////////////////////////
   //
+  // A056 - 56k DDS Card
+  //
+  //////////////////////////////////////////////////////////////////////////
+  snprintf(tmp_buff, MAX_PATH_LENGTH, " \"%d\" ", AFT_ADPTR_56K);
+  menu_str += tmp_buff;
+  snprintf(tmp_buff, MAX_PATH_LENGTH, " \"%s\" ", "A056 - 56k DDS");
+  menu_str += tmp_buff;
+
+  //////////////////////////////////////////////////////////////////////////
+  //
   // A300 Card
   //
   //////////////////////////////////////////////////////////////////////////
@@ -252,6 +262,11 @@ again:
     case A104_ADPTR_4TE1:
       linkconf->card_type = WANOPT_AFT;
       link_def->card_version = A104_ADPTR_4TE1;
+      break;
+
+    case AFT_ADPTR_56K:
+      linkconf->card_type = WANOPT_AFT;
+      link_def->card_version = AFT_ADPTR_56K;
       break;
 
     case A200_ADPTR_ANALOG:

@@ -732,6 +732,9 @@ char * get_card_type_string(int card_type, int card_version)
     case A200_ADPTR_ANALOG:
     	snprintf(card_type_name, MAX_PATH_LENGTH, "A200/A400-Analog");
 	break;
+    case AFT_ADPTR_56K:
+    	snprintf(card_type_name, MAX_PATH_LENGTH, "A056-56k DDS");
+	break;
     default:
         ERR_DBG_OUT(("Invalid AFT card version: 0x%x!\n", card_version));
     }

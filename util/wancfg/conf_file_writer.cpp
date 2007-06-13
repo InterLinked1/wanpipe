@@ -553,6 +553,19 @@ get_keyword_from_look_up_t_table(config_id_str, WANCONFIG_AFT_TE1),//for A104
 );
       break;
 
+     case AFT_ADPTR_56K:
+      snprintf(tmp_buff, MAX_PATH_LENGTH,
+"\n\
+[devices]\n\
+%s = %s, %s\n",
+cfr->link_defs->name,
+get_keyword_from_look_up_t_table(config_id_str, WANCONFIG_AFT_56K),//for A056
+(cfr->link_defs->descr == NULL ? "Comment" : cfr->link_defs->descr)
+);
+      break;
+
+
+
     case A200_ADPTR_ANALOG:
       snprintf(tmp_buff, MAX_PATH_LENGTH,
 "\n\
@@ -1536,9 +1549,28 @@ TE3_TXLBO	= NO		# NO (default) / YES
         fe_cfg->cfg.remora.opermode_name);
       te1_cfg_string += tmp_buff;
     }
-    break;
+   
 
-  default:
+/* DAVIDY: Uncomment this when RM_BATTTHRESH and RM_BATTDEBOUNCE become available in 2.3.4 drivers*/ 
+#if 0
+    snprintf(tmp_buff, MAX_PATH_LENGTH, "RM_BATTTHRESH	= %d\n",
+        fe_cfg->cfg.remora.battthresh);
+    te1_cfg_string += tmp_buff;
+
+    snprintf(tmp_buff, MAX_PATH_LENGTH, "RM_BATTDEBOUNCE = %d\n",
+        fe_cfg->cfg.remora.battdebounce);
+    te1_cfg_string += tmp_buff;
+
+    break;
+#endif
+	
+    snprintf(tmp_buff, MAX_PATH_LENGTH, "RM_NETWORK_SYNC = %s\n",
+        fe_cfg->cfg.remora.network_sync == WANOPT_YES ? "YES" : "NO");
+    te1_cfg_string += tmp_buff;
+
+     break;
+
+  default:	
     snprintf(tmp_buff, MAX_PATH_LENGTH, "FE_TXTRISTATE	= %s\n", 
 	(fe_cfg->tx_tristate_mode == WANOPT_YES ? "YES" : "NO"));
     te1_cfg_string += tmp_buff;
