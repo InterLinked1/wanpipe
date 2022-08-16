@@ -61,6 +61,7 @@
 #define USER_SECTOR_START_ADDR	0x40000
 
 /* Manufacturer code */
+#define MCODE_CYPRESS	0x01
 #define MCODE_ST	0x20
 
 /* Device code */

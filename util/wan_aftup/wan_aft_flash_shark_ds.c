@@ -32,6 +32,7 @@
 #define AFT_SHARK_USER_SECTOR_START_ADDR	0x80000
 
 /* Manufacturer code */
+#define MCODE_CYPRESS	0x01
 #define MCODE_ST	0x20
 
 /* Device code */
@@ -397,7 +398,8 @@ static int aft_flash_id_shark(wan_aft_cpld_t *cpld, int mtype, int stype, int *f
 	__aft_write_flash_shark_byte(cpld, stype, mtype, 0xAAA, 0x90);
 
 	man_code = aft_read_flash_shark_byte(cpld, stype, mtype, 0x00);
-	if (man_code != MCODE_ST){
+	if ((card->man_id != MCODE_ST) && (card->man_id != MCODE_CYPRESS)){
+
 		printf("The current flash is not supported (man id %02X)!\n",
 				man_code);
 		return -EINVAL;

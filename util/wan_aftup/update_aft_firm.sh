@@ -31,5 +31,15 @@ fi
 
 eval "./scripts/unload.sh"
 
+if [ -f "/tmp/fw-upd-err.txt" ]; then
+	eval 'grep -nr "Failed with" /tmp/fw-upd-err.txt  | grep "manufcaturer ID as FF" >/dev/null 2>/dev/null'
+	if [ $? -eq 0 ]; then
+		 echo ""
+		 echo "****************************************************************************************"
+		 echo -e " Please \e[31m\e[4mREBOOT SYSTEM\e[0m and Try Firmware Upgrade Again to ensure the card functionality!! "
+		 echo "****************************************************************************************"
 
+		 rm -rf /tmp/fw-upd-err.txt
+	fi
+fi
 

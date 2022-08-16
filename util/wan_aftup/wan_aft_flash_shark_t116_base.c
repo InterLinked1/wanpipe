@@ -48,6 +48,7 @@
 #define AFT_SHARK_USER_SECTOR_START_ADDR	0x80000
 
 /* Manufacturer code */
+#define MCODE_CYPRESS	0x01
 #define MCODE_ST	0x20
 
 /* Device code */
@@ -466,10 +467,21 @@ static int aft_flash_id_t116_base(wan_aft_cpld_t *cpld, int mtype, int stype, in
 	__aft_write_flash_t116_base_byte(cpld, stype, mtype, 0xAAA, 0x90);
 
 	man_code = aft_read_flash_byte_t116_base(cpld, stype, mtype, 0x00);
+	printf("The current shark flash man id %02X , cpld = %p, mtype =%02X and stype = %02X\n", man_code, cpld, mtype, stype);
+
 	printf("stype=0x%x, mtype=0x%x\n",stype,mtype);
-	if (man_code != MCODE_ST){
+	if ((man_code != MCODE_ST) && (man_code != MCODE_CYPRESS)){
+		FILE *fp = NULL;
+
+		fp = fopen("/tmp/fw-upd-err.txt","w");
+
 		printf("The current shark flash is not supported (man id %02X)!\n",
 				man_code);
+
+		if( fp ){
+			fprintf(fp, "Firmware Upgrade Failed with manufcaturer ID as %02X!\n", man_code);
+			fclose(fp);
+		}
 		return -EINVAL;
 	}
 	*flash_id = man_code << 8;

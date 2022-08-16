@@ -25,7 +25,7 @@
 #
 
 %define NAME			wanpipe
-%define VERSION           7.0.34
+%define VERSION           7.0.34.1
 %define RELEASE			0
 %define KVERSION		%{?kernel}
 %define KSRC			%{?ksrc}
@@ -259,6 +259,15 @@ fi
 ################################################################################
 
 %changelog
+* Wed Sep 15 2021 Pushkar Singh <psingh@sangoma.com> - 7.0.34
+==================================================================
+- Support for Kernel version 5.9.x - 5.13.x
+- Handle support of HAVE_UNLOCKED_IOCTL for kernel >= 5.9
+- Handle support of set_fs / get_fs for kernel >= 5.10
+- Handle suppot for get / set sockpot for kernel >= 5.10
+- Handle MODPOST EXTERN SYMBOLS
+- Support for Centos 8 & Debian 10
+
 * Tue Apr 26 2021 Pushkar Singh <psingh@sangoma.com> - 7.0.32
 ==================================================================
 - Support for Kernel version 5.x.x - 5.8.x
