@@ -564,6 +564,50 @@ check_kern_modpost ()
 	PROTOCOL_DEFINES="$PROTOCOL_DEFINES $KERN_MODPOST_UPDATE "
 }
 
+check_kern_task_state_chg ()
+{
+	if [ -e $SOURCEDIR/include/linux/sched.h ];then
+		eval "grep -A20  \"task_struct {\" $SOURCEDIR/include/linux/sched.h | grep __state >/dev/null 2>/dev/null"
+		if [ $? -eq 0 ]; then
+			TASK_STATE_CHG="-DKERN_TASK_STATE_CHG=1"
+		else
+			TASK_STATE_CHG="-DKERN_TASK_STATE_CHG=0"
+		fi
+	elif [ -e $DEBSRCDIR/include/linux/sched.h ];then
+		eval "grep -A20  \"task_struct {\" $DEBSRCDIR/include/linux/sched.h | grep __state >/dev/null 2>/dev/null"
+		if [ $? -eq 0 ]; then
+			TASK_STATE_CHG="-DKERN_TASK_STATE_CHG=1"
+		else
+			TASK_STATE_CHG="-DKERN_TASK_STATE_CHG=0"
+		fi
+	else
+		TASK_STATE_CHG="-DKERN_TASK_STATE_CHG=0"
+	fi
+	PROTOCOL_DEFINES="$PROTOCOL_DEFINES $TASK_STATE_CHG "
+}
+
+check_kern_recv_datagram_chg ()
+{
+	if [ -e $SOURCEDIR/include/linux/skbuff.h ];then
+		val=`grep "*skb_recv_datagram" $SOURCEDIR/include/linux/skbuff.h | tr -cd ")" | wc -c`
+		if [ $val -eq 0 ]; then
+			RECV_DATAGRAM_CHG="-DKERN_RECV_DATAGRAM_CHG=0"
+		else
+			RECV_DATAGRAM_CHG="-DKERN_RECV_DATAGRAM_CHG=1"
+		fi
+	elif [ -e $DEBSRCDIR/include/linux/skbuff.h ];then
+		val=`grep "*skb_recv_datagram" $DEBSRCDIR/include/linux/skbuff.h | tr -cd ")" | wc -c`
+		if [ $val -eq 0 ]; then
+			RECV_DATAGRAM_CHG="-DKERN_RECV_DATAGRAM_CHG=0"
+		else
+			RECV_DATAGRAM_CHG="-DKERN_RECV_DATAGRAM_CHG=1"
+		fi
+	else
+		RECV_DATAGRAM_CHG="-DKERN_RECV_DATAGRAM_CHG=0"
+	fi
+	PROTOCOL_DEFINES="$PROTOCOL_DEFINES $RECV_DATAGRAM_CHG "
+}
+
 # ----------------------------------------------------------------------------
 # Display error message.
 # ----------------------------------------------------------------------------
@@ -1290,11 +1334,21 @@ update_wanpipe_drivers ()
 	echo -n "Installing ${DISTR_NAME} include headers ..."
 
 	if [ ! -d $SOURCEDIR/include/linux ]; then
-		echo
-		echo "ERROR: Directory $SOURCEDIR/include/linux not found!"
-		echo "       Corrupted linux headers in $SOURCEDIR dir."
-		echo
-		return 1
+		if [ "w$distributor_id" == "w0" ]; then
+			echo "I am here 2"
+			COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
+			if [ -d $COMMONDIR/include/linux ]; then
+				ln -s $COMMONDIR/include/linux $SOURCEDIR/include/linux
+			fi
+		fi
+
+		if [ ! -d $SOURCEDIR/include/linux ]; then
+			echo
+			echo "ERROR: Directory $SOURCEDIR/include/linux not found!"
+			echo "       Corrupted linux headers in $SOURCEDIR dir."
+			echo
+			return 1
+		fi
 	fi
 
 	eval "./patches/clean_old_wanpipe.sh $DRIVER_INC_DIR $SOURCEDIR/include/linux"
@@ -1518,7 +1572,14 @@ ENDOFTEXT
 	}
 	cd $PROD_HOME/patches
 
-	get_kernel_ver $SOURCEDIR
+	if [ "w$distributor_id" == "w0" ]; then
+			echo "I am here 3"
+		COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
+		get_kernel_ver $COMMONDIR
+	else
+		get_kernel_ver $SOURCEDIR
+	fi
+
 	if [ $? -eq 1 ]; then
 		pause
 		return 1;
@@ -1529,6 +1590,7 @@ ENDOFTEXT
 	#If the kernel has already been patched, offer an
 	#upgrade option.
 	check_kernel_patch_level $SOURCEDIR 
+	echo "KERNEL_VERSION=$KERNEL_VERSION and KERN_VER = $KERN_VER $?"
 	#if [ $? -ne 0 ]; then 
 	if [ 1 ]; then
 		echo
@@ -2619,8 +2681,14 @@ get_distrib()
 	if [ $? -eq 0 ]
 	then
 		return 1; #RedHat Found
+	fi
+
+	grep -i "Debian" "/etc/issue" > /dev/null 
+	if [ $? -eq 0 ]
+	then
+		return 0; #Debian Found
 	else
-		return 0;
+		return 2; #SUSE Found
 	fi
 }
 
@@ -3691,7 +3759,14 @@ ENDOFTEXT
 	\mkdir "$DRIVER_TMP_DIR/mod"
 	\mkdir "$DRIVER_TMP_DIR/tmp"
 
-	get_kernel_ver $SOURCEDIR
+	if [ "w$distributor_id" == "w0" ]; then
+			echo "I am here 4"
+		COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
+		get_kernel_ver $COMMONDIR
+	else
+		get_kernel_ver $SOURCEDIR
+	fi
+
 	if [ $? -eq 1 ]; then
 		pause
 		return 1
@@ -3708,7 +3783,6 @@ ENDOFTEXT
 			return 1
 		fi
 	fi
-
 
 	ANNEXG_LOAD=NO
 
@@ -4002,6 +4076,10 @@ CFLAGS="$CC -Wp,-MD,.wanpipe.o.d -nostdinc -iwithprefix include -D__LINUX__ -Dli
 		check_kern_ds
 
 		check_kern_modpost
+
+		check_kern_task_state_chg
+
+		check_kern_recv_datagram_chg
 
 		if [ "$BRI_MODULE_TEST" = "YES" ]; then
 			PROTOCOL_DEFINES="$PROTOCOL_DEFINES -DBUILD_MOD_TESTER"
@@ -7786,7 +7864,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=7.0.34.3
+PROD_VER=7.0.35
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -7996,6 +8074,22 @@ SPLIT_RPMS="NO";
 
 check_bash
 check_awk
+
+# Distributor ID
+# 0 = Debian
+# 1 = Redhat
+# 2 = SUSE
+# By default we always say as Redhat
+distributor_id=1
+get_distrib
+distributor_id=$?
+
+echo "$distributor_id"
+#Make sure we source /etc/profile for debian to have proper #PATH variable assign
+if [ "w$distributor_id" == "w0" ]; then
+	echo " I am here"
+	source /etc/profile
+fi
 
 #Check for kernel series 2.2.X or 2.4.X
 eval "uname -r | grep \"^2.4.*\" > /dev/null"
@@ -8547,7 +8641,13 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 
 		enable_protocols $PROTS
 
-		get_kernel_ver $SOURCEDIR
+		if [ "w$distributor_id" == "w0" ]; then
+			echo "I am here 1"
+			COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
+			get_kernel_ver $COMMONDIR
+		else
+			get_kernel_ver $SOURCEDIR
+		fi
 
 		banner
 

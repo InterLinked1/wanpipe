@@ -366,6 +366,28 @@ KERN_MODPOST_STATIC_ERR=0
 EXTRA_CFLAGS+=-DKERN_MODPOST_STATIC_ERR=$(KERN_MODPOST_STATIC_ERR)
 endif
 
+ifneq (,$(wildcard $(KDIR)/include/linux/sched.h))
+KERN_TASK_STATE_CHG=$(shell grep -A20  "task_struct {" $(KDIR)/include/linux/sched.h | grep __state -c)
+EXTRA_CFLAGS+=-DKERN_TASK_STATE_CHG=$(KERN_TASK_STATE_CHG)
+else ifneq (,$(wildcard $(KSRC)/include/linux/sched.h))
+KERN_TASK_STATE_CHG=$(shell grep -A20  "task_struct {" $(KSRC)/include/linux/sched.h | grep __state -c)
+EXTRA_CFLAGS+=-DKERN_TASK_STATE_CHG=$(KERN_TASK_STATE_CHG)
+else
+KERN_TASK_STATE_CHG=0
+EXTRA_CFLAGS+=-DKERN_TASK_STATE_CHG=$(KERN_TASK_STATE_CHG)
+endif
+
+ifneq (,$(wildcard $(KDIR)/include/linux/skbuff.h))
+KERN_RECV_DATAGRAM_CHG=${shell grep "*skb_recv_datagram" $(KDIR)/include/linux/skbuff.h | tr -cd ")" | wc -c}
+EXTRA_CFLAGS+=-DKERN_RECV_DATAGRAM_CHG=$(KERN_RECV_DATAGRAM_CHG)
+else ifneq (,$(wildcard $(KSRC)/include/linux/skbuff.h))
+KERN_RECV_DATAGRAM_CHG=${shell grep "*skb_recv_datagram" $(KSRC)/include/linux/skbuff.h | tr -cd ")" | wc -c}
+EXTRA_CFLAGS+=-DKERN_RECV_DATAGRAM_CHG=$(KERN_RECV_DATAGRAM_CHG)
+else
+KERN_RECV_DATAGRAM_CHG=0
+EXTRA_CFLAGS+=-DKERN_RECV_DATAGRAM_CHG=$(KERN_RECV_DATAGRAM_CHG)
+endif
+
 # First pass, kernel Makefile reads module objects
 ifneq ($(KERNELRELEASE),)
 obj-m := sdladrv.o wanrouter.o wanpipe.o wanpipe_syncppp.o wanec.o 

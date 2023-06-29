@@ -544,7 +544,11 @@ int wanpipe_annexg_accept(struct socket *sock, struct socket *newsock, int flags
 		return -EPROTOTYPE;
 
 	add_wait_queue(sk->sleep,&wait);
+#if ((LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)) && (KERN_TASK_STATE_CHG == 0))
 	current->state = TASK_INTERRUPTIBLE;
+#else
+	set_current_state(TASK_INTERRUPTIBLE);
+#endif
 	for (;;){
 		skb = skb_dequeue(&sk->receive_queue);
 		if (skb){
@@ -563,7 +567,11 @@ int wanpipe_annexg_accept(struct socket *sock, struct socket *newsock, int flags
 		}
 		schedule();
 	}
+#if ((LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)) && (KERN_TASK_STATE_CHG == 0))
 	current->state = TASK_RUNNING;
+#else
+	set_current_state(TASK_RUNNING);
+#endif
 	remove_wait_queue(sk->sleep,&wait);
 
 	if (err != 0)
@@ -1350,7 +1358,11 @@ int wanpipe_annexg_recvmsg(struct socket *sock, struct msghdr *msg, int len,
 	if (flags & MSG_OOB){	
 		skb=skb_dequeue(&sk->error_queue);
 	}else{
+#if (KERN_RECV_DATAGRAM_CHG > 0)
+		skb=skb_recv_datagram(sk,flags,&err);
+#else
 		skb=skb_recv_datagram(sk,flags,1,&err);
+#endif
 	}
 	/*
 	 *	An error occurred so return it. Because skb_recv_datagram() 

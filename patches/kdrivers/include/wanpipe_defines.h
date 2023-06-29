@@ -915,6 +915,9 @@ typedef struct wan_rtp_pkt {
 #define WAN_NETDEV_OPS_STATS(dev,ops,wan_stats)				ops.ndo_get_stats = wan_stats
 #define WAN_NETDEV_OPS_TIMEOUT(dev,ops,wan_timeout)			ops.ndo_tx_timeout = wan_timeout
 #define WAN_NETDEV_OPS_IOCTL(dev,ops,wan_ioctl)				ops.ndo_do_ioctl = wan_ioctl
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+#define WAN_NETDEV_OPS_SIOCDEVPRIVATE(dev,ops,wan_siocdevprivate)	ops.ndo_siocdevprivate = wan_siocdevprivate
+#endif
 # if defined(KERN_NDO_CHANGE_MTU_RH74) && KERN_NDO_CHANGE_MTU_RH74 > 0
 #define WAN_NETDEV_OPS_MTU(dev,ops,wan_mtu)				ops.ndo_change_mtu_rh74 = wan_mtu
 # else

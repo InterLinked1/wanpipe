@@ -260,6 +260,10 @@ static int 	if_open   (netdevice_t* dev);
 static int 	if_close  (netdevice_t* dev);
 static int 	if_do_ioctl(netdevice_t*, struct ifreq*, wan_ioctl_cmd_t);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+static int 	if_siocdevprivate(netdevice_t*, struct ifreq*, void __user *data, wan_ioctl_cmd_t);
+#endif
+
 #if defined(__LINUX__) || defined(__WINDOWS__)
 static int 	if_init   (netdevice_t* dev);
 static int 	if_send (netskb_t* skb, netdevice_t* dev);
@@ -3114,7 +3118,10 @@ static int new_if_private (wan_device_t* wandev, netdevice_t* dev, wanif_conf_t*
 	WAN_NETDEV_OPS_STATS(dev,wan_netdev_ops,&if_stats);
 	WAN_NETDEV_OPS_TIMEOUT(dev,wan_netdev_ops,&if_tx_timeout);
 	WAN_NETDEV_OPS_IOCTL(dev,wan_netdev_ops,&if_do_ioctl);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+	WAN_NETDEV_OPS_SIOCDEVPRIVATE(dev,wan_netdev_ops,&if_siocdevprivate);
 	WAN_NETDEV_OPS_MTU(dev,wan_netdev_ops,if_change_mtu);
+#endif
 
 # if defined(CONFIG_PRODUCT_WANPIPE_GENERIC)
 	if_init(dev);
@@ -4114,6 +4121,9 @@ static int if_init (netdevice_t* dev)
 	}
 
 	WAN_NETDEV_OPS_IOCTL(dev,wan_netdev_ops,&if_do_ioctl);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+	WAN_NETDEV_OPS_SIOCDEVPRIVATE(dev,wan_netdev_ops,&if_siocdevprivate);
+#endif
 	WAN_NETDEV_OPS_MTU(dev,wan_netdev_ops,if_change_mtu);
 
 	if (chan->common.usedby == BRIDGE ||
@@ -4843,6 +4853,53 @@ unsigned char aft_read_customer_id(sdla_t *card)
 	return cid;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+static int
+if_siocdevprivate(netdevice_t *dev, struct ifreq *ifr, void __user *data, wan_ioctl_cmd_t cmd)
+{
+	private_area_t* chan= (private_area_t*)wan_netif_priv(dev);
+	sdla_t *card;
+	wan_smp_flag_t smp_flags;
+	int err=-EOPNOTSUPP;
+
+	if (!chan || !chan->card){
+		DEBUG_EVENT("%s:%d: No Chan of card ptr\n",
+				__FUNCTION__,__LINE__);
+		return -ENODEV;
+	}
+	card=chan->card;
+
+	if (wan_test_bit(CARD_DOWN,&card->wandev.critical)){
+		DEBUG_EVENT("%s: Card down: Ignoring Ioctl call!\n",
+			card->devname);
+		return -ENODEV;
+	}
+
+	switch(cmd)
+	{
+		case SIOC_WANPIPE_SNMP:
+		case SIOC_WANPIPE_SNMP_IFSPEED:
+			return wan_snmp_data(card, dev, cmd, ifr);
+
+		case SIOC_WANPIPE_PIPEMON:
+			NET_ADMIN_CHECK();
+			err=wan_user_process_udp_mgmt_pkt(card,chan,ifr->ifr_data);
+			break;
+		default:
+#ifndef WANPIPE_GENERIC
+			DEBUG_TEST("%s: Command %x not supported!\n",
+				card->devname,cmd);
+			return -EOPNOTSUPP;
+#else
+			if (card->wandev.hdlc_ioctl){
+				err = card->wandev.hdlc_ioctl(card, dev, ifr, cmd);
+			}
+#endif
+	}
+
+	return err;
+}
+#endif
 
 /*========================================================================
  *
@@ -4863,6 +4920,7 @@ unsigned char aft_read_customer_id(sdla_t *card)
  * 	     wanpipemon debugger
  *
  */
+
 static int
 if_do_ioctl(netdevice_t *dev, struct ifreq *ifr, wan_ioctl_cmd_t cmd)
 {

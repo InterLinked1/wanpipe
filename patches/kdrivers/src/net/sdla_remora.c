@@ -310,7 +310,7 @@ static struct fxo_mode {
 		   Greece, Iceland, Ireland, Italy, Luxembourg, Netherlands,
 		   Norway, Portugal, Spain, Sweden, Switzerland, and UK */
 	{ "ARGENTINA", 0, 0, 0, 0, 0, 0x3, 0, 0, },
-	{ "AUSTRALIA", 1, 0, 0, 0, 0, 0, 0x3, 0x3, },
+	{ "AUSTRALIA", 1, 0, 0, 0, 0, 0x1, 0x1, 0x3, },
 	{ "AUSTRIA", 0, 1, 0, 0, 1, 0x3, 0, 0x3, },
 	{ "BAHRAIN", 0, 0, 0, 0, 1, 0x3, 0, 0x2, },
 	{ "BELGIUM", 0, 1, 0, 0, 1, 0x3, 0, 0x2, },
