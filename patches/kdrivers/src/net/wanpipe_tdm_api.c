@@ -3606,12 +3606,12 @@ int wanpipe_tdm_api_span_rx_tx(sdla_t *card, wanpipe_tdm_api_span_t *tdm_span, u
 
 			if (card->u.aft.tdm_rx_dma[l_ch]) {			
 				wan_dma_descr_t *dma_descr = card->u.aft.tdm_rx_dma[l_ch]; 
-				card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, PCI_DMA_FROMDEVICE);
+				card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, DMA_FROM_DEVICE);
 			}
 
 			if (card->u.aft.tdm_tx_dma[l_ch]) {
 				wan_dma_descr_t *dma_descr = card->u.aft.tdm_tx_dma[l_ch]; 
-				card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, PCI_DMA_TODEVICE);
+				card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, DMA_TO_DEVICE);
 			}
  
 			prefetch(tdm_api->rx_buf);

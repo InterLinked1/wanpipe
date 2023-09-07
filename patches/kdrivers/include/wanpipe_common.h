@@ -797,7 +797,11 @@ static __inline void wan_vfree(void* ptr)
 static __inline unsigned long wan_virt2bus(unsigned long* ptr)
 {
 #if defined(__LINUX__)
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0))
 	return virt_to_bus(ptr);
+#else
+	return isa_virt_to_bus(ptr);
+#endif
 #elif defined(__FreeBSD__)
 	return vtophys((vm_offset_t)ptr);
 #elif defined(__OpenBSD__) || defined(__NetBSD__)
@@ -816,7 +820,11 @@ static __inline unsigned long wan_virt2bus(unsigned long* ptr)
 static __inline unsigned long* wan_bus2virt(unsigned long virt_addr)
 {
 #if defined(__LINUX__)
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(6,0,0))
 	return bus_to_virt(virt_addr);
+#else
+	return isa_bus_to_virt(virt_addr);
+#endif
 #elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 	return (unsigned long*)virt_addr;
 #elif defined(__WINDOWS__)
@@ -902,9 +910,15 @@ wan_dma_alloc_org(void* hw, wan_dma_descr_org_t* dma_descr)
 		return err;
 	}		
 #elif defined(__LINUX__)
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 	dma_descr->vAddr = pci_alloc_consistent(NULL,
 					dma_descr->max_length,
 					(dma_addr_t *)&dma_descr->pAddr); 
+#else
+	dma_descr->vAddr = dma_alloc_coherent(NULL,
+					dma_descr->max_length,
+					(dma_addr_t *)&dma_descr->pAddr, GFP_KERNEL);
+#endif
 	if (dma_descr->vAddr == NULL){
 		err = -ENOMEM;
 	}
@@ -948,7 +962,11 @@ wan_dma_free_org(void* hw, wan_dma_descr_org_t* dma_descr)
 		dma_descr->max_length,
 		get_order(dma_descr->max_length));
 
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 	pci_free_consistent(NULL, dma_descr->max_length,dma_descr->vAddr,dma_descr->pAddr);
+#else
+	dma_free_coherent(NULL, dma_descr->max_length,dma_descr->vAddr,dma_descr->pAddr);
+#endif
 	dma_descr->vAddr = NULL;
 	dma_descr->pAddr = 0;
 #elif defined(__WINDOWS__)

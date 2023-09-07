@@ -1209,12 +1209,12 @@ static int wp_tdmv_span_buf_rotate(void *pcard, u32 buf_sz, unsigned long mask, 
 
                         if (card->u.aft.tdm_rx_dma[x]) {
                                 wan_dma_descr_t *dma_descr = card->u.aft.tdm_rx_dma[x];
-                                card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, PCI_DMA_FROMDEVICE);
+                                card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, DMA_FROM_DEVICE);
                         }
 
                         if (card->u.aft.tdm_tx_dma[x]) {
                                 wan_dma_descr_t *dma_descr = card->u.aft.tdm_tx_dma[x];
-                                card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, PCI_DMA_TODEVICE);
+                                card->hw_iface.busdma_sync(card->hw, dma_descr, 1, 1, DMA_TO_DEVICE);
                         }
 
 

@@ -4988,7 +4988,7 @@ static void aft_tx_dma_chain_init(private_area_t *chan, aft_dma_chain_t *dma_cha
 		chan->card->hw_iface.pci_unmap_dma(chan->card->hw,
 			 dma_chain->dma_addr,
 	 		 dma_chain->dma_len,
-	 		 PCI_DMA_TODEVICE);
+			 DMA_TO_DEVICE);
 	}
 	
 
@@ -5012,7 +5012,7 @@ static void aft_rx_dma_chain_init(private_area_t *chan, aft_dma_chain_t *dma_cha
 		chan->card->hw_iface.pci_unmap_dma(chan->card->hw,
 			 dma_chain->dma_addr,
 	 		 dma_chain->dma_len,
-	 		 PCI_DMA_FROMDEVICE);
+			 DMA_FROM_DEVICE);
 	}
 	
 
@@ -5180,7 +5180,7 @@ static int xilinx_dma_te3_tx (sdla_t *card,private_area_t *chan)
 					card->hw_iface.pci_map_dma(card->hw,
 							wan_skb_data(dma_chain->skb),
 							wan_skb_len(dma_chain->skb),
-							PCI_DMA_TODEVICE);
+							DMA_TO_DEVICE);
 			
 		dma_chain->dma_len = wan_skb_len(dma_chain->skb);
 	
@@ -5421,7 +5421,7 @@ static int xilinx_dma_rx(sdla_t *card, private_area_t *chan, int gcur_ptr)
 				      card->hw_iface.pci_map_dma(card->hw,
 			      	       		wan_skb_tail(dma_chain->skb),
 						chan->dma_mtu,
-		    		       		PCI_DMA_FROMDEVICE); 	
+						DMA_FROM_DEVICE);
 		
 		dma_chain->dma_len  = chan->dma_mtu;
 
@@ -5551,7 +5551,7 @@ static void aft_rx_dma_chain_handler(private_area_t *chan, int wtd, int reset)
 		card->hw_iface.pci_unmap_dma(card->hw,
 				 dma_chain->dma_addr,
 				 chan->dma_mtu,
-				 PCI_DMA_FROMDEVICE);
+				 DMA_FROM_DEVICE);
 
 		rx_el=(wp_rx_element_t *)wan_skb_push(dma_chain->skb, sizeof(wp_rx_element_t));
 		memset(rx_el,0,sizeof(wp_rx_element_t));

@@ -167,10 +167,10 @@ JUNK	= *~ *.bak DEADJOE
 
 #Check for PDE_DATA kernel feature
 ifneq (,$(wildcard $(KDIR)/include/linux/proc_fs.h))
-KERN_PROC_PDE_FEATURE=$(shell grep PDE_DATA $(KDIR)/include/linux/proc_fs.h -c)
+KERN_PROC_PDE_FEATURE=$(shell grep PDE_DATA $(KDIR)/include/linux/proc_fs.h -c -i)
 EXTRA_CFLAGS+=-DKERN_PROC_PDE_FEATURE=$(KERN_PROC_PDE_FEATURE)
 else
-KERN_PROC_PDE_FEATURE=$(shell grep PDE_DATA $(KSRC)/include/linux/proc_fs.h -c)
+KERN_PROC_PDE_FEATURE=$(shell grep PDE_DATA $(KSRC)/include/linux/proc_fs.h -c -i)
 EXTRA_CFLAGS+=-DKERN_PROC_PDE_FEATURE=$(KERN_PROC_PDE_FEATURE)
 endif
 

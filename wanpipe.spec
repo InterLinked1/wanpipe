@@ -25,7 +25,7 @@
 #
 
 %define NAME			wanpipe
-%define VERSION           7.0.35
+%define VERSION           7.0.36
 %define RELEASE			0
 %define KVERSION		%{?kernel}
 %define KSRC			%{?ksrc}
@@ -259,6 +259,19 @@ fi
 ################################################################################
 
 %changelog
+* Tue Sep 05 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.36
+==================================================================
+- Support for Kernel version 5.18.x - 6.1
+- Support for Debian 11 with 6.1 kernel
+
+* Wed June 29 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.35
+==================================================================
+- Support for Kernel version 4.18 Centos 8
+- Support for Kernel version 5.14.x - 5.18.x
+- Support for Debian 10 and 11
+- Support for Dell Server 750xs
+- Support for Firmware upgrade for A108 cards
+
 * Wed Sep 15 2021 Pushkar Singh <psingh@sangoma.com> - 7.0.34
 ==================================================================
 - Support for Kernel version 5.9.x - 5.13.x

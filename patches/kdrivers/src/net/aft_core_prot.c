@@ -165,7 +165,7 @@ aft_rtp_init_exit:
 }
 
 
-__inline void aft_rtp_tap_chan(sdla_t *card, u8 *data, u32 len,
+static void aft_rtp_tap_chan(sdla_t *card, u8 *data, u32 len,
                                     netskb_t **skb_q,
 				    u32 *timestamp,
 				    u8 call_status,

@@ -287,7 +287,11 @@ void *PDE_DATA(const struct inode *inode)
  #define dev_init_buffers(a)
 
  #if defined(KERN_PROC_PDE_FEATURE) && KERN_PROC_PDE_FEATURE > 0
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+ # define WP_PDE_DATA pde_data
+ #else
  # define WP_PDE_DATA PDE_DATA
+ #endif
  #else 
  #include <linux/proc_fs.h>
  static inline void*WP_PDE_DATA(const struct inode *inode)

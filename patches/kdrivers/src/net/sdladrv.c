@@ -11006,8 +11006,13 @@ sdla_busdma_map(void *phw, wan_dma_descr_t *dma_descr, void *buf, int buflen, in
 		map_len-=dma_descr->dma_offset;
 	}
 	
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 	dma_descr->dma_addr = 
 			cpu_to_le32(pci_map_single(hwcard->u_pci.pci_dev,dma_descr->dma_virt,map_len,dir));
+#else
+	dma_descr->dma_addr =
+			cpu_to_le32(dma_map_single(&hwcard->u_pci.pci_dev->dev,dma_descr->dma_virt,map_len,dir));
+#endif
 	
 	
 	if (dma_descr->dma_addr & (dma_descr->alignment-1)){
@@ -11086,10 +11091,17 @@ static void sdla_busdma_unmap(void *phw, wan_dma_descr_t *dma_descr, int dir)
 	}
 #elif defined(__LINUX__)
 	if (dma_descr->dma_addr){
-		pci_unmap_single(	hwcard->u_pci.pci_dev, 
-					dma_descr->dma_addr, 
-					dma_descr->dma_map_len, 
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
+		pci_unmap_single(	hwcard->u_pci.pci_dev,
+					dma_descr->dma_addr,
+					dma_descr->dma_map_len,
 					dir);
+#else
+		dma_unmap_single(	&hwcard->u_pci.pci_dev->dev,
+					dma_descr->dma_addr,
+					dma_descr->dma_map_len,
+					dir);
+#endif
 	}
 	dma_descr->dma_addr	= 0;
 #elif defined(__OpenBSD__)
@@ -11139,13 +11151,23 @@ sdla_busdma_sync(void *phw, wan_dma_descr_t *dma_descr, int ndescr, int single, 
 	}
 
 #elif defined(__LINUX__)
-	if (dir == PCI_DMA_TODEVICE) {
-    	pci_dma_sync_single_for_device(hwcard->u_pci.pci_dev, dma_descr->dma_addr,
-	 			    dma_descr->dma_map_len, dir); 
+	if (dir == DMA_TO_DEVICE) {
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
+	pci_dma_sync_single_for_device(hwcard->u_pci.pci_dev, dma_descr->dma_addr,
+					dma_descr->dma_map_len, dir);
 	} else {
 		pci_dma_sync_single_for_cpu(hwcard->u_pci.pci_dev, dma_descr->dma_addr,
-								   dma_descr->dma_map_len, dir);   
+								   dma_descr->dma_map_len, dir);
 	}
+#else
+	dma_sync_single_for_device(&hwcard->u_pci.pci_dev->dev, dma_descr->dma_addr,
+					dma_descr->dma_map_len, dir);
+	} else {
+		dma_sync_single_for_cpu(&hwcard->u_pci.pci_dev->dev, dma_descr->dma_addr,
+								   dma_descr->dma_map_len, dir);
+	}
+
+#endif
 #elif defined(__OpenBSD__)
 #elif defined(__WINDOWS__)
 #else
@@ -11169,7 +11191,11 @@ static sdla_dma_addr_t sdla_pci_map_dma(void *phw, void *buf, int len, int ctrl)
 	hwcard = hwcpu->hwcard;
 
 #if defined(__LINUX__)
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 	return cpu_to_le32(pci_map_single(hwcard->u_pci.pci_dev, buf, len, ctrl));
+#else
+	return cpu_to_le32(dma_map_single(&hwcard->u_pci.pci_dev->dev, buf, len, ctrl));
+#endif
 #elif defined(__WINDOWS__)
 	{
 		/* translate virtual to physical */
@@ -11195,7 +11221,11 @@ static int sdla_pci_unmap_dma(void *phw, sdla_dma_addr_t buf, int len, int ctrl)
 	hwcard = hwcpu->hwcard;
 
 #if defined(__LINUX__)
+# if  (LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0))
 	pci_unmap_single(hwcard->u_pci.pci_dev, buf, len, ctrl);
+#else
+	dma_unmap_single(&hwcard->u_pci.pci_dev->dev, buf, len, ctrl);
+#endif
 #endif
 	return 0;
 }

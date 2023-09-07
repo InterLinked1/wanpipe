@@ -2017,7 +2017,7 @@ static int del_if_private (wan_device_t* wandev, netdevice_t* dev)
 		card->hw_iface.pci_unmap_dma(card->hw,
 			rx_el->dma_addr,
 			chan->dma_mru,
-			PCI_DMA_FROMDEVICE);
+			DMA_FROM_DEVICE);
 
 		wan_skb_free(skb);
 	}
@@ -3691,7 +3691,7 @@ static int xilinx_dma_rx(sdla_t *card, private_area_t *chan)
 		card->hw_iface.pci_unmap_dma(card->hw,
 			rx_el->dma_addr,
 			chan->dma_mru,
-			PCI_DMA_FROMDEVICE);
+			DMA_FROM_DEVICE);
 
 		aft_init_requeue_free_skb(chan, skb);
 	}
@@ -3736,7 +3736,7 @@ static int xilinx_dma_rx(sdla_t *card, private_area_t *chan)
 	bus_addr = card->hw_iface.pci_map_dma(card->hw,
 		wan_skb_tail(chan->rx_dma_skb),
 		chan->dma_mru,
-		PCI_DMA_FROMDEVICE);
+		DMA_FROM_DEVICE);
 
 	if (!bus_addr){
 		DEBUG_EVENT("%s: %s Critical error pci_map_dma() failed!\n",
@@ -3924,7 +3924,7 @@ static int xilinx_dma_tx (sdla_t *card, private_area_t *chan)
 		chan->tx_dma_addr = card->hw_iface.pci_map_dma(card->hw,
 			wan_skb_data(chan->tx_idle_skb),
 			wan_skb_len(chan->tx_idle_skb),
-			PCI_DMA_TODEVICE);
+			DMA_TO_DEVICE);
 
 		chan->tx_dma_len = wan_skb_len(chan->tx_idle_skb);
 
@@ -3969,7 +3969,7 @@ static int xilinx_dma_tx (sdla_t *card, private_area_t *chan)
 			card->hw_iface.pci_map_dma(card->hw,
 			wan_skb_data(skb),
 			wan_skb_len(skb),
-			PCI_DMA_TODEVICE);
+			DMA_TO_DEVICE);
 
 		chan->tx_dma_len = wan_skb_len(skb);
 	}
@@ -4350,7 +4350,7 @@ static void xilinx_dma_rx_complete (sdla_t *card, private_area_t *chan)
 	card->hw_iface.pci_unmap_dma(card->hw,
 		rx_el->dma_addr,
 		chan->dma_mru,
-		PCI_DMA_FROMDEVICE);
+		DMA_FROM_DEVICE);
 
 	DEBUG_RX("%s:%s: RX HI=0x%X  LO=0x%X DMA=0x%lX\n",
 		__FUNCTION__,chan->if_name,rx_el->reg,rx_el->align,rx_el->dma_addr);
@@ -6456,7 +6456,7 @@ static void enable_data_error_intr(sdla_t *card)
 			card->hw_iface.pci_unmap_dma(card->hw,
 				rx_el->dma_addr,
 				chan->dma_mru,
-				PCI_DMA_FROMDEVICE);
+				DMA_FROM_DEVICE);
 
 			aft_init_requeue_free_skb(chan, skb);
 		}
@@ -6616,7 +6616,7 @@ static void xilinx_rx_fifo_over_recover(sdla_t *card, private_area_t *chan)
 		card->hw_iface.pci_unmap_dma(card->hw,
 			rx_el->dma_addr,
 			chan->dma_mru,
-			PCI_DMA_FROMDEVICE);
+			DMA_FROM_DEVICE);
 
 		DEBUG_RX("%s:%s: RX HI=0x%X  LO=0x%X DMA=0x%lX\n",
 			__FUNCTION__,chan->if_name,rx_el->reg,rx_el->align,rx_el->dma_addr);
@@ -6997,7 +6997,7 @@ static void aft_unmap_tx_dma(sdla_t *card, private_area_t *chan)
 	card->hw_iface.pci_unmap_dma(card->hw,
 		chan->tx_dma_addr,
 		chan->tx_dma_len,
-		PCI_DMA_TODEVICE);
+		DMA_TO_DEVICE);
 
 	chan->tx_dma_addr=0;
 	chan->tx_dma_len=0;

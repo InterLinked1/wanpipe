@@ -1014,9 +1014,11 @@ EXPORT_SYMBOL(wanpipe_global_cdev_free);
 
 EXPORT_SYMBOL(wanpipe_cdev_free);
 
+#if defined (KERN_MODPOST_STATIC_ERR) && KERN_MODPOST_STATIC_ERR > 0
 EXPORT_SYMBOL(wanpipe_cdev_tx_wake);
 EXPORT_SYMBOL(wanpipe_cdev_rx_wake);
 EXPORT_SYMBOL(wanpipe_cdev_event_wake);
+#endif
 EXPORT_SYMBOL(wanpipe_cdev_tdm_create);
 EXPORT_SYMBOL(wanpipe_cdev_tdm_ctrl_create);
 EXPORT_SYMBOL(wanpipe_cdev_cfg_ctrl_create);

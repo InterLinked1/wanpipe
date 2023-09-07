@@ -152,7 +152,7 @@ check_inode_struct ()
 check_kern_pde_feature ()
 {
 	if [ -e $SOURCEDIR/include/linux/proc_fs.h ];then
-		eval "grep PDE_DATA $SOURCEDIR/include/linux/proc_fs.h >/dev/null 2>/dev/null"
+		eval "grep -i PDE_DATA $SOURCEDIR/include/linux/proc_fs.h >/dev/null 2>/dev/null"
 		if [ $? -eq 0 ]; then 
 			PDE_FEATURE="-DKERN_PROC_PDE_FEATURE=1"
 		else
@@ -160,7 +160,7 @@ check_kern_pde_feature ()
 		fi
 		PROTOCOL_DEFINES="$PROTOCOL_DEFINES $PDE_FEATURE "
 	elif [ -e $DEBSRCDIR/include/linux/proc_fs.h ];then
-		eval "grep PDE_DATA $DEBSRCDIR/include/linux/proc_fs.h >/dev/null 2>/dev/null"
+		eval "grep -i PDE_DATA $DEBSRCDIR/include/linux/proc_fs.h >/dev/null 2>/dev/null"
 		if [ $? -eq 0 ]; then 
 			PDE_FEATURE="-DKERN_PROC_PDE_FEATURE=1"
 		else
@@ -1335,7 +1335,6 @@ update_wanpipe_drivers ()
 
 	if [ ! -d $SOURCEDIR/include/linux ]; then
 		if [ "w$distributor_id" == "w0" ]; then
-			echo "I am here 2"
 			COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
 			if [ -d $COMMONDIR/include/linux ]; then
 				ln -s $COMMONDIR/include/linux $SOURCEDIR/include/linux
@@ -1401,9 +1400,11 @@ get_kernel_ver ()
 
 	KERNEL_VERSION=$KVER"."$KPATCH"."$KLVL$KEVER
 
-	if [ "$KVER" -eq "3" ] || [ "$KVER" -eq "4" ] || [ "$KVER" -eq "5" ]; then
+	if [ "$KVER" -eq "3" ] || [ "$KVER" -eq "4" ] || [ "$KVER" -eq "5" ] || [ "$KVER" -eq "6" ]; then
 		KERN_VER=30;
-		if [ "$KVER" -eq "5" ]; then
+		if [ "$KVER" -eq "6" ]; then
+			SUBKERN_VER=60;
+		elif [ "$KVER" -eq "5" ]; then
 			SUBKERN_VER=50;
 		elif [ "$KVER" -eq "4" ]; then
 			SUBKERN_VER=40;
@@ -1573,7 +1574,6 @@ ENDOFTEXT
 	cd $PROD_HOME/patches
 
 	if [ "w$distributor_id" == "w0" ]; then
-			echo "I am here 3"
 		COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
 		get_kernel_ver $COMMONDIR
 	else
@@ -3760,7 +3760,6 @@ ENDOFTEXT
 	\mkdir "$DRIVER_TMP_DIR/tmp"
 
 	if [ "w$distributor_id" == "w0" ]; then
-			echo "I am here 4"
 		COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
 		get_kernel_ver $COMMONDIR
 	else
@@ -4101,6 +4100,8 @@ CFLAGS="$CC -Wp,-MD,.wanpipe.o.d -nostdinc -iwithprefix include -D__LINUX__ -Dli
 				echo -n "Compiling General ${DISTR_NAME} Driver for 4.X.X Kernel ."
 			elif [ $SUBKERN_VER -eq 50 ]; then
 				echo -n "Compiling General ${DISTR_NAME} Driver for 5.X.X Kernel ."
+			elif [ $SUBKERN_VER -eq 60 ]; then
+				echo -n "Compiling General ${DISTR_NAME} Driver for 6.X.X Kernel ."
 			else
 				echo -n "Compiling General ${DISTR_NAME} Driver for 3.X.X Kernel ."
 			fi
@@ -4332,6 +4333,7 @@ WANPIPE_OBJS=
 	build_kernel_module sdladrv "$SDLADRV_OBJS"
 	if [ -e $MODSYM ]; then
 		cp $MODSYM  $PROD_HOME/$MODSYM.sdladrv 
+		export KBUILD_EXTRA_SYMBOLS=$PROD_HOME/$MODSYM.sdladrv
 	fi
 
 	WANROUTER_OBJS="wanmain wanproc waniface "
@@ -4342,6 +4344,7 @@ WANPIPE_OBJS=
 	build_kernel_module wanrouter "$WANROUTER_OBJS"
 	if [ -e $MODSYM ]; then
 		cp $MODSYM  $PROD_HOME/$MODSYM.wanrouter
+		export KBUILD_EXTRA_SYMBOLS="$KBUILD_EXTRA_SYMBOLS $PROD_HOME/$MODSYM.wanrouter"
 	fi
 
 	AF_EXTRA_FLAGS="-DCONFIG_PRODUCT_WANPIPE_SOCK_DATASCOPE"
@@ -4906,6 +4909,9 @@ WANPIPE_OBJS=
 	fi
 	if [ -e  $PROD_HOME/$MODSYM.lip ]; then
 		cat $PROD_HOME/$MODSYM.lip >> $MODSYM
+	fi
+	if [ -e $ZAPTEL_INSTALL_DIR/drivers/dahdi/Module.symvers ]; then
+		export KBUILD_EXTRA_SYMBOLS="$KBUILD_EXTRA_SYMBOLS $ZAPTEL_INSTALL_DIR/drivers/dahdi/Module.symvers"
 	fi
 
 	WANPIPE_OBJS=$WANPIPE_OBJS"sdlamain wanpipe_tdm_api wanpipe_codec wanpipe_codec_law " 
@@ -7864,7 +7870,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=7.0.35
+PROD_VER=7.0.36
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces
@@ -8087,7 +8093,6 @@ distributor_id=$?
 echo "$distributor_id"
 #Make sure we source /etc/profile for debian to have proper #PATH variable assign
 if [ "w$distributor_id" == "w0" ]; then
-	echo " I am here"
 	source /etc/profile
 fi
 
@@ -8642,7 +8647,6 @@ if [ "$PKG_NAME" != "wanpipe-lite" ]; then
 		enable_protocols $PROTS
 
 		if [ "w$distributor_id" == "w0" ]; then
-			echo "I am here 1"
 			COMMONDIR="/usr/src/linux-headers-`uname -r | cut -d - -f-2`-common"
 			get_kernel_ver $COMMONDIR
 		else
