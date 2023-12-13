@@ -2,7 +2,7 @@
 #ifndef _LIP_HDLC_H_
 #define _LIP_HDLC_H_ 1 
 
-#include "stddef.h"
+#include "linux/stddef.h"
 #include "linux/types.h"
 #include "wanpipe_abstr.h"
 #include "wanpipe_cfg_def.h"

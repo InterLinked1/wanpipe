@@ -1573,7 +1573,7 @@ static int if_open (netdevice_t* dev)
 	netif_start_queue(dev);
 
 	wanpipe_open(card);
-	do_gettimeofday( &tv );
+	wan_gettimeofday( &tv );
 	chan->router_start_time = tv.tv_sec;
 	
 	atomic_inc(&card->wandev.if_up_cnt);
@@ -3465,7 +3465,9 @@ static void process_route (netdevice_t *dev)
 
 	struct ifreq if_info;
 	struct sockaddr_in *if_data;
+#ifndef LINUX_5_10
 	mm_segment_t fs = get_fs();
+#endif
 	u32 ip_tmp;
 	int err;
 
@@ -3478,14 +3480,18 @@ static void process_route (netdevice_t *dev)
 		memset(&if_info, 0, sizeof(if_info));
 		strcpy(if_info.ifr_name, dev->name);
 
+#ifndef LINUX_5_10
 		set_fs(get_ds());     /* get user space block */ 
+#endif
 		
 		if_data = (struct sockaddr_in *)&if_info.ifr_dstaddr;
 		if_data->sin_addr.s_addr = chan->ip_remote;
 		if_data->sin_family = AF_INET;
 		err = wp_devinet_ioctl( SIOCSIFDSTADDR, &if_info );
 
+#ifndef LINUX_5_10
 		set_fs(fs);           /* restore old block */
+#endif
 
 		if (err) {
 
@@ -3510,14 +3516,18 @@ static void process_route (netdevice_t *dev)
 
 		ip_tmp = get_ip_address(dev,WAN_POINTOPOINT_IP);	
 
+#ifndef LINUX_5_10
 		set_fs(get_ds());     /* get user space block */ 
+#endif
 		
 		if_data = (struct sockaddr_in *)&if_info.ifr_dstaddr;
 		if_data->sin_addr.s_addr = 0;
 		if_data->sin_family = AF_INET;
 		err = wp_devinet_ioctl( SIOCSIFDSTADDR, &if_info );
 
-		set_fs(fs);    
+#ifndef LINUX_5_10
+		set_fs(fs);
+#endif
 		
 		if (err) {
 
@@ -4478,7 +4488,7 @@ static void set_chan_state (netdevice_t* dev, int state)
 		}
 
 		chan->common.state = state;
-		do_gettimeofday(&tv);
+		wan_gettimeofday( &tv );
 		chan->router_last_change = tv.tv_sec;
 
 		if (chan->common.usedby == API){
@@ -4889,7 +4899,7 @@ static int process_udp_mgmt_pkt(sdla_t* card, void *local_dev)
 			break;
 		
 		case FPIPE_ROUTER_UP_TIME:
-			do_gettimeofday(&tv);
+			wan_gettimeofday( &tv );
 			chan->router_up_time = tv.tv_sec - 
 						chan->router_start_time;
     	                *(unsigned long *)&wan_udp_pkt->wan_udp_data =
@@ -6456,12 +6466,12 @@ static int fr_snmp_data(sdla_t* card, netdevice_t *dev, void* data)
 		break;
 
 	case FRCIRCUITCREATIONTIME:
-		do_gettimeofday( &tv );
+		wan_gettimeofday( &tv );
 		snmp->snmp_val = tv.tv_sec - chan->router_start_time;
 		break;
 
 	case FRCIRCUITLASTTIMECHANGE:
-		do_gettimeofday( &tv );
+		wan_gettimeofday( &tv );
 		snmp->snmp_val = tv.tv_sec - chan->router_last_change;
 		break;
 

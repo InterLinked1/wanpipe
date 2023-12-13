@@ -393,7 +393,7 @@ static void wanpipe_tty_start(struct tty_struct *tty)
 
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20))   
-static void wanpipe_tty_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
+static void wanpipe_tty_set_termios(struct tty_struct *tty, const struct ktermios *old_termios)
 #else
 static void wanpipe_tty_set_termios(struct tty_struct *tty, struct termios *old_termios)
 #endif
@@ -505,13 +505,13 @@ static void wanpipe_tty_send_xchar(struct tty_struct *tty, char ch)
 }
 #endif
 
-static int wanpipe_tty_chars_in_buffer(struct tty_struct *tty)
+static unsigned int wanpipe_tty_chars_in_buffer(struct tty_struct *tty)
 {
 	return 0;
 }
 
 
-static int wanpipe_tty_write_room(struct tty_struct *tty)
+static unsigned int wanpipe_tty_write_room(struct tty_struct *tty)
 {
 	wplip_link_t *lip_link;
 
@@ -625,7 +625,9 @@ static struct tty_operations wanpipe_tty_ops = {
 	.wait_until_sent = NULL,
 	.tiocmget = NULL,
 	.tiocmset = NULL,
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0))
 	.proc_fops = NULL,
+#endif
 
 };
 #endif
@@ -669,12 +671,14 @@ int wplip_reg_tty(wplip_link_t *lip_link, wanif_conf_t *cfg)
 				WAN_TTY_MAJOR,MIN_PORT,MAX_PORT);
 	
 	
-		serial_driver=alloc_tty_driver(NR_PORTS);
+		serial_driver=tty_alloc_driver(NR_PORTS, 0);
 		if (!serial_driver) {
 			return -ENOMEM;
 		}
 
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0))
 		serial_driver->magic = TTY_DRIVER_MAGIC;
+#endif
 
 		serial_driver->owner = THIS_MODULE;
 		serial_driver->driver_name = "wanpipe_tty"; 
@@ -704,7 +708,7 @@ int wplip_reg_tty(wplip_link_t *lip_link, wanif_conf_t *cfg)
 		if (tty_register_driver(serial_driver)){
 			DEBUG_EVENT( "%s: Failed to register serial driver!\n",
 					lip_link->name);
-			put_tty_driver(serial_driver);
+			tty_driver_kref_put(serial_driver);
 			serial_driver=NULL;
 			return -EINVAL;
 		}
@@ -778,12 +782,16 @@ int wplip_unreg_tty(wplip_link_t *lip_link)
 	tty_port_destroy(&lip_link->tty_port);
 
 	if ((--tty_init_cnt) == 0 && serial_driver){
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,13,0))
 		int e1;
 		if ((e1 = tty_unregister_driver(serial_driver))){
 			DEBUG_EVENT( "SERIAL: failed to unregister serial driver (%d)\n",
 			       e1);
 		}
-		put_tty_driver(serial_driver);
+#else
+		tty_unregister_driver(serial_driver);
+#endif
+		tty_driver_kref_put(serial_driver);
 		serial_driver=NULL;
 		DEBUG_EVENT( "%s: Unregistering TTY Driver, Major %i\n",
 				lip_link->name,WAN_TTY_MAJOR);

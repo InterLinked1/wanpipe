@@ -1327,7 +1327,8 @@ static int if_open (netdevice_t* dev)
 	if (open_dev_check(dev))
 		return -EBUSY;
 
-	do_gettimeofday(&tv);
+	wan_gettimeofday(&tv);
+
 	chdlc_priv_area->router_start_time = tv.tv_sec;
 
 	netif_start_queue(dev);
@@ -1461,17 +1462,25 @@ static void disable_comm (sdla_t *card)
 #ifndef LINUX_2_6
 			serial_driver->refcount=0;
 #endif
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,13,0))
 			if ((e1 = tty_unregister_driver(serial_driver))) {
 				printk(KERN_INFO "SERIAL: failed to unregister serial driver (%d)\n",
 				       e1);
 			}
-			put_tty_driver(serial_driver);
+#else
+			tty_unregister_driver(serial_driver);
+#endif
+			tty_driver_kref_put(serial_driver);
 			serial_driver=NULL;
 
 #ifndef LINUX_2_6
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(5,13,0))
 			if ((e1 = tty_unregister_driver(&callout_driver)))
 				printk(KERN_INFO "SERIAL: failed to unregister callout driver (%d)\n", 
 				       e1);
+#else
+			tty_unregister_driver(&callout_driver);
+#endif
 #endif			
 			printk(KERN_INFO "%s: Unregistering TTY Driver, Major %i\n",
 					card->devname,WAN_TTY_MAJOR);
@@ -2557,7 +2566,7 @@ static void rx_intr (sdla_t* card)
 		api_rx_hdr->wp_api_rx_hdr_chdlc_error_flag = rxbuf.error_flag;
 		api_rx_hdr->wp_api_rx_hdr_chdlc_time_stamp = rxbuf.time_stamp;
 
-		do_gettimeofday(&tv);
+		wan_gettimeofday(&tv);
 		api_rx_hdr->wan_hdr_chdlc_time_sec=tv.tv_sec;
 		api_rx_hdr->wan_hdr_chdlc_time_usec=tv.tv_usec;
 
@@ -3204,7 +3213,9 @@ static void process_route (sdla_t *card)
 	u32 			IP_netmask, IP_addr;
         int 			err = 0;
 	struct in_device 	*in_dev;
+#ifndef LINUX_5_10
 	mm_segment_t 		fs;
+#endif
 	struct ifreq 		if_info;
         struct sockaddr_in 	*if_data1, *if_data2;
 	
@@ -3294,8 +3305,10 @@ static void process_route (sdla_t *card)
        		}
 	}
 
+#ifndef LINUX_5_10
         fs = get_fs();                  /* Save file system  */
         set_fs(get_ds());               /* Get user space block */
+#endif
 
         /* Setup a structure for adding/removing routes */
         memset(&if_info, 0, sizeof(if_info));
@@ -3370,7 +3383,9 @@ static void process_route (sdla_t *card)
 		break;
 	}
 
+#ifndef LINUX_5_10
         set_fs(fs);                     /* Restore file system */
+#endif
 
 }
 
@@ -3759,7 +3774,7 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 			trace_pkt->real_length =
 				trace_element_struct.trace_length;
 
-			do_gettimeofday(&tv);
+			wan_gettimeofday(&tv);
 			trace_pkt->sec=tv.tv_sec;
 			trace_pkt->usec=tv.tv_usec;		
 			
@@ -3834,7 +3849,7 @@ static int process_udp_mgmt_pkt(sdla_t* card, netdevice_t* dev,
 			break;
 
 		case CPIPE_ROUTER_UP_TIME:
-			do_gettimeofday( &tv );
+			wan_gettimeofday(&tv);
 			chdlc_priv_area->router_up_time = tv.tv_sec - 
 					chdlc_priv_area->router_start_time;
 			*(unsigned long *)&wan_udp_pkt->wan_udp_data = 
@@ -5390,7 +5405,7 @@ static int change_speed(sdla_t *card, struct tty_struct *tty,
 
 	
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20))   
-static void wanpipe_tty_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
+static void wanpipe_tty_set_termios(struct tty_struct *tty, const struct ktermios *old_termios)
 #else
 static void wanpipe_tty_set_termios(struct tty_struct *tty, struct termios *old_termios)
 #endif 
@@ -5553,13 +5568,13 @@ static void wanpipe_tty_send_xchar(struct tty_struct *tty, char ch)
 }
 #endif
 
-static int wanpipe_tty_chars_in_buffer(struct tty_struct *tty)
+static unsigned int wanpipe_tty_chars_in_buffer(struct tty_struct *tty)
 {
 	return 0;
 }
 
 
-static int wanpipe_tty_write_room(struct tty_struct *tty)
+static unsigned int wanpipe_tty_write_room(struct tty_struct *tty)
 {
 	sdla_t *card;
 
@@ -5696,13 +5711,15 @@ int wanpipe_tty_init(sdla_t *card)
 	
 		tty_driver_mode = card->u.c.async_mode;
 	
-        serial_driver=alloc_tty_driver(NR_PORTS);
+		serial_driver=tty_alloc_driver(NR_PORTS, 0);
 		if (!serial_driver) {
 			return -ENOMEM;
 		}
               
 		
+# if (LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0))
 		serial_driver->magic = TTY_DRIVER_MAGIC;
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,0))
 		serial_driver->owner = THIS_MODULE;
@@ -5774,7 +5791,7 @@ int wanpipe_tty_init(sdla_t *card)
 		if (tty_register_driver(serial_driver)){
 			printk(KERN_INFO "%s: Failed to register serial driver!\n",
 					card->devname);
-			put_tty_driver(serial_driver);
+			tty_driver_kref_put(serial_driver);
 			serial_driver=NULL;
 			return -EINVAL;
 		}

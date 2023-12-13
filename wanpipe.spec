@@ -25,7 +25,7 @@
 #
 
 %define NAME			wanpipe
-%define VERSION           7.0.36
+%define VERSION           7.0.37
 %define RELEASE			0
 %define KVERSION		%{?kernel}
 %define KSRC			%{?ksrc}
@@ -259,12 +259,16 @@ fi
 ################################################################################
 
 %changelog
+* Wed Dec 13 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.37
+==================================================================
+- Support for ppp mode on kernel 6.1.x
+
 * Tue Sep 05 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.36
 ==================================================================
 - Support for Kernel version 5.18.x - 6.1
 - Support for Debian 11 with 6.1 kernel
 
-* Wed June 29 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.35
+* Wed Jun 29 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.35
 ==================================================================
 - Support for Kernel version 4.18 Centos 8
 - Support for Kernel version 5.14.x - 5.18.x

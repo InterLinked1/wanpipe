@@ -983,7 +983,7 @@ static int if_open (netdevice_t *dev)
 
 	netif_start_queue(dev);
 	
-	do_gettimeofday( &tv );
+	wan_gettimeofday( &tv );
 	ppp_priv_area->router_start_time = tv.tv_sec;
 
 	/* We cannot configure the card here because we don't
@@ -3192,7 +3192,7 @@ static void process_udp_mgmt_pkt(sdla_t *card, netdevice_t *dev,
 		
 		case PPIPE_ROUTER_UP_TIME:
 
-			do_gettimeofday( &tv );
+			wan_gettimeofday( &tv );
 			ppp_priv_area->router_up_time = tv.tv_sec - 
 					ppp_priv_area->router_start_time;
 			*(unsigned long *)&wan_udp_pkt->wan_udp_data = ppp_priv_area->router_up_time;
@@ -3449,7 +3449,9 @@ static int read_info( sdla_t *card )
 	int err;
 	struct ifreq if_info;
 	struct sockaddr_in *if_data1, *if_data2;
+#ifndef	LINUX_5_10
 	mm_segment_t fs;
+#endif
 
 	dev = WAN_DEVLE2DEV(WAN_LIST_FIRST(&card->wandev.dev_head));
 	if (!dev || !wan_netif_priv(dev))
@@ -3462,8 +3464,10 @@ static int read_info( sdla_t *card )
 	strcpy(if_info.ifr_name, dev->name);
 
 
+#ifndef	LINUX_5_10
 	fs = get_fs();
 	set_fs(get_ds());     /* get user space block */ 
+#endif
 
 	/* Change the local and remote ip address of the interface.
 	 * This will also add in the destination route.
@@ -3477,8 +3481,10 @@ static int read_info( sdla_t *card )
 	if_data2->sin_family = AF_INET;
 	err = wp_devinet_ioctl( SIOCSIFDSTADDR, &if_info );
 
+#ifndef	LINUX_5_10
 	set_fs(fs);           /* restore old block */
-	
+#endif
+
 	if (err) {
 		printk (KERN_INFO "%s: Adding of route failed: %i\n",
 			card->devname,err);
@@ -3500,7 +3506,9 @@ static void remove_route( sdla_t *card )
 	netdevice_t 		*dev;
 	long ip_addr;
 	int err;
+#ifndef	LINUX_5_10
         mm_segment_t fs;
+#endif
 	struct ifreq if_info;
 	struct sockaddr_in *if_data1;
         struct in_device *in_dev;
@@ -3522,8 +3530,10 @@ static void remove_route( sdla_t *card )
 	memset(&if_info, 0, sizeof(if_info));
 	strcpy(if_info.ifr_name, dev->name);
 
+#ifndef	LINUX_5_10
 	fs = get_fs();
-       	set_fs(get_ds());     /* get user space block */ 
+	set_fs(get_ds());     /* get user space block */
+#endif
 
 
 	/* Change the local ip address of the interface to 0.
@@ -3534,9 +3544,10 @@ static void remove_route( sdla_t *card )
 	if_data1->sin_family = AF_INET;
 	err = wp_devinet_ioctl( SIOCSIFADDR, &if_info );
 
+#ifndef	LINUX_5_10
         set_fs(fs);           /* restore old block */
+#endif
 
-	
 	if (err) {
 		printk (KERN_INFO "%s: Deleting dynamic route failed %d!\n",
 			 card->devname, err);

@@ -417,7 +417,7 @@ check_kern_timer_struct ()
 	fi
 
 	if [ -e $SOURCEDIR/include/linux/types.h ];then
-		eval "grep \"define timer_setup\" $SOURCEDIR/include/linux/t* >/dev/null 2>/dev/null"
+		eval "grep \"define timer_setup\" $SOURCEDIR/include/linux/t* | grep typedef >/dev/null 2>/dev/null"
 		if [ $? -eq 0 ]; then
 			TIMER_32BIT="-DKERN_TIMER_32BIT=1"
 		else
@@ -425,7 +425,7 @@ check_kern_timer_struct ()
 		fi
 		PROTOCOL_DEFINES="$PROTOCOL_DEFINES $TIMER_32BIT "
 	elif [ -e $DEBSRCDIR/include/linux/types.h ];then
-		eval "grep \"define timer_setup\" $DEBSRCDIR/include/linux/t* >/dev/null 2>/dev/null"
+		eval "grep \"define timer_setup\" $DEBSRCDIR/include/linux/t* | grep typedef >/dev/null 2>/dev/null"
 		if [ $? -eq 0 ]; then
 			TIMER_32BIT="-DKERN_TIMER_32BIT=1"
 		else
@@ -7870,7 +7870,7 @@ KERNEL_UNAME=`uname -r`
 PKG_NAME=wanpipe
 DISTR_NAME="WANPIPE"
 PROD=wanrouter
-PROD_VER=7.0.36
+PROD_VER=7.0.37
 PROD_HOME=`pwd`
 META_CONF=$PROD_HOME/$PROD.rc
 WAN_INTR_DIR=$PROD_HOME/interfaces

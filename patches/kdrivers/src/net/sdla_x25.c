@@ -1460,7 +1460,7 @@ static int if_open (netdevice_t* dev)
 		}
 	}
 	/* Device is not up untill the we are in connected state */
-	do_gettimeofday( &tv );
+	wan_gettimeofday( &tv );
 	chan->router_start_time = tv.tv_sec;
 
 	netif_start_queue(dev);
@@ -2677,7 +2677,7 @@ static void trace_intr(sdla_t *card)
 	/* Add an additional kernel timestamp */
 	{
 		trace_data_t *trace_hdr=(trace_data_t *)buf;
-		do_gettimeofday(&tv);
+		wan_gettimeofday(&tv);
 		trace_hdr->sec=tv.tv_sec;
 		trace_hdr->usec=tv.tv_usec;
 	}
@@ -6305,7 +6305,7 @@ static int process_udp_mgmt_pkt(sdla_t *card,netdevice_t *local_dev)
                         break;
 
 		case XPIPE_ROUTER_UP_TIME:
-			do_gettimeofday(&tv);
+			wan_gettimeofday(&tv);
 			chan->router_up_time = tv.tv_sec - chan->router_start_time;
     	                *(unsigned long *)&wan_udp_pkt->wan_udp_data = chan->router_up_time;	
 			wan_udp_pkt->wan_udp_data_len = mbox->wan_data_len = 4;
@@ -6754,7 +6754,7 @@ static void x25_clear_cmd_update(sdla_t* card, unsigned lcn, wan_mbox_t* mb)
 		return;
 
 	chan=wan_netif_priv(dev);
-	do_gettimeofday(&tv);
+	wan_gettimeofday(&tv);
 	chan->chan_clear_time = tv.tv_sec;
 	chan->chan_clear_cause = mb->wan_x25_cause;
 	chan->chan_clear_diagn = mb->wan_x25_diagn;

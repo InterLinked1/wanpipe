@@ -1487,7 +1487,9 @@ int wplip_set_ipv4_addr (void *wplip_id,
 	struct sockaddr_in *if_data;
 	struct ifreq if_info;	
 	int err=0;
+#ifndef LINUX_5_10
 	mm_segment_t fs;
+#endif
 	netdevice_t *dev=lip_dev->common.dev;
 	
 	 /* Setup a structure for adding/removing routes */
@@ -1498,10 +1500,14 @@ int wplip_set_ipv4_addr (void *wplip_id,
 	if_data->sin_addr.s_addr = local;
 	if_data->sin_family = AF_INET;
 
+#ifndef LINUX_5_10
 	fs = get_fs();                  /* Save file system  */
        	set_fs(get_ds());    
+#endif
 	err = wp_devinet_ioctl(SIOCSIFADDR, &if_info);
+#ifndef LINUX_5_10
 	set_fs(fs);
+#endif
         
 	memset(&if_info, 0, sizeof(if_info));
         strcpy(if_info.ifr_name, dev->name);
@@ -1510,10 +1516,14 @@ int wplip_set_ipv4_addr (void *wplip_id,
 	if_data->sin_addr.s_addr = remote;
 	if_data->sin_family = AF_INET;
 
+#ifndef LINUX_5_10
 	fs = get_fs();                  /* Save file system  */
        	set_fs(get_ds());  
+#endif
 	err = wp_devinet_ioctl(SIOCSIFDSTADDR, &if_info);
+#ifndef LINUX_5_10
 	set_fs(fs);
+#endif
 
 	return 0;
 #elif defined(__WINDOWS__)
@@ -1618,16 +1628,22 @@ int wplip_set_hw_idle_frame (void *liplink_ptr, unsigned char *data, int len)
 static int wplip_change_dev_flags (netdevice_t *dev, unsigned flags)
 {
 	struct ifreq if_info;
+#ifndef LINUX_5_10
 	mm_segment_t fs = get_fs();
+#endif
 	int err;
 
 	memset(&if_info, 0, sizeof(if_info));
 	strcpy(if_info.ifr_name, dev->name);
 	if_info.ifr_flags = flags;	
 
+#ifndef LINUX_5_10
 	set_fs(get_ds());     /* get user space block */ 
+#endif
 	err = wp_devinet_ioctl(SIOCSIFFLAGS, &if_info);
+#ifndef LINUX_5_10
 	set_fs(fs);
+#endif
 
 	return err;
 }        
