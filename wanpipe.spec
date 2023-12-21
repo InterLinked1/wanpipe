@@ -25,7 +25,7 @@
 #
 
 %define NAME			wanpipe
-%define VERSION           7.0.37
+%define VERSION           7.0.37.1
 %define RELEASE			0
 %define KVERSION		%{?kernel}
 %define KSRC			%{?ksrc}
@@ -255,6 +255,9 @@ fi
 %files
 ################################################################################
 /*
+%exclude %dir /lib
+%exclude %dir /usr/lib
+%exclude %dir /usr/sbin
 
 ################################################################################
 
