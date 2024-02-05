@@ -388,6 +388,17 @@ KERN_RECV_DATAGRAM_CHG=0
 EXTRA_CFLAGS+=-DKERN_RECV_DATAGRAM_CHG=$(KERN_RECV_DATAGRAM_CHG)
 endif
 
+ifneq (,$(wildcard $(KDIR)/arch/x86/include/asm/io.h))
+KERN_BUS_CHG=${shell grep -wir "bus_to_virt" $(KDIR)/arch/x86/include/asm/io.h | wc -l}
+EXTRA_CFLAGS+=-DKERN_BUS_CHG=$(KERN_BUS_CHG)
+else ifneq (,$(wildcard $(KSRC)/arch/x86/include/asm/io.h))
+KERN_BUS_CHG=${shell grep -wir "bus_to_virt" $(KSRC)/arch/x86/include/asm/io.h | wc -l}
+EXTRA_CFLAGS+=-DKERN_BUS_CHG=$(KERN_BUS_CHG)
+else
+KERN_BUS_CHG=0
+EXTRA_CFLAGS+=-DKERN_BUS_CHG=$(KERN_BUS_CHG)
+endif
+
 # First pass, kernel Makefile reads module objects
 ifneq ($(KERNELRELEASE),)
 obj-m := sdladrv.o wanrouter.o wanpipe.o wanpipe_syncppp.o wanec.o 

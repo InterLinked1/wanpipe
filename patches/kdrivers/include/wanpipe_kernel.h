@@ -289,6 +289,9 @@ void *PDE_DATA(const struct inode *inode)
  #if defined(KERN_PROC_PDE_FEATURE) && KERN_PROC_PDE_FEATURE > 0
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
  # define WP_PDE_DATA pde_data
+ #elif defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+       RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,1)
+ # define WP_PDE_DATA pde_data
  #else
  # define WP_PDE_DATA PDE_DATA
  #endif
@@ -800,6 +803,10 @@ static inline int open_dev_check(netdevice_t *dev)
 
 #endif
 
+#if defined (KERN_BUS_CHG) && (KERN_BUS_CHG == 0)
+#define bus_to_virt	phys_to_virt
+#define virt_to_bus	virt_to_phys
+#endif
 
 /* For All operating Systems */
 

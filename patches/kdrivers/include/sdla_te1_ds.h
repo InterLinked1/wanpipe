@@ -151,6 +151,19 @@
 #define REG_E1EBCR1		0x56
 #define REG_E1EBCR2		0x57
 
+#if 1 /*TBR4*/
+#define REG_E1RRTS7         0x62
+#define BIT_E1RRTS7_CSC5    0x80
+#define BIT_E1RRTS7_CSC4    0x40
+#define BIT_E1RRTS7_CSC3    0x20
+#define BIT_E1RRTS7_CSC2    0x10
+#define BIT_E1RRTS7_CSC1    0x80
+#define BIT_E1RRTS7_CSC0    0x08
+#define BIT_E1RRTS7_CRC4SA  0x04
+#define BIT_E1RRTS7_CASSA   0x02
+#define BIT_E1RRTS7_FASA    0x01
+#endif
+
 #define REG_T1RBOC		0x63
 
 #define REG_E1RNAF		0x65
@@ -553,6 +566,8 @@
 #define BIT_SSIE4_CH31		0x02
 #define BIT_SSIE4_CH32		0x01
 
+#define REG_TE1_TIDR1           0x120
+
 #define REG_TS1			0x140
 #define BIT_TS_A		0x08
 #define BIT_TS_B		0x04
@@ -584,9 +599,11 @@
 #define REG_T1TBOC		0x163
 
 #define REG_E1TAF		0x164
+#define BIT_E1TAF_SI		0x80
 
 #define REG_E1TNAF		0x165
 #define BIT_E1TNAF_A		0x20
+#define BIT_E1TNAF_SI		0x80
 
 #define REG_E1TSa4		0x169
 #define REG_E1TSa5		0x16A

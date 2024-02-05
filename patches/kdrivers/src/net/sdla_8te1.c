@@ -79,6 +79,14 @@
 # include "sdla_te1_ds.h"
 # include "wanpipe.h"	/* WANPIPE common user API definitions */
 
+#define FIX_TBR4
+int tbr4_verbose = 0;
+/* TODO:
+*  - Move clearing RSL# latched register at the end of fr_rx_intr(). Sometimes
+*    we can use values in different order. 
+*/
+
+//#define ERCNT_MANUAL
 
 /******************************************************************************
 *			  DEFINES AND MACROS
@@ -319,6 +327,10 @@ static int sdla_ds_te1_bert_status(sdla_fe_t *fe, sdla_te_bert_stats_t *);
 static int sdla_ds_e1_sa6code(sdla_fe_t* fe);
 static int sdla_ds_e1_sabits(sdla_fe_t* fe);
 
+#ifdef FIX_TBR4
+static int sdla_ds_te1_lost_frame_align(sdla_fe_t *fe);
+static int sdla_ds_te1_in_frame_align(sdla_fe_t *fe);
+#endif
 /******************************************************************************
 *			  FUNCTION DEFINITIONS
 ******************************************************************************/
@@ -1247,12 +1259,27 @@ static int sdla_ds_te1_chip_config(void* pfe)
 		value |= BIT_RCR1_E1_RSIGM; /* CCS */
 		WRITE_REG(REG_RCR1, value | BIT_RCR1_E1_RCRC4);
 
+#if defined(FIX_TBR4)
+        /* TBR4 */		
+		if (tbr4_verbose) DEBUG_EVENT("%s: Enable FRC bit at register RCR1\n", fe->name);
+		value = READ_REG(REG_RCR1);
+		WRITE_REG(REG_RCR1, value | BIT_RCR1_E1_FRC);
+		if (tbr4_verbose) DEBUG_EVENT("%s: New RCR1 values is %02X\n", fe->name, READ_REG(REG_RCR1));
+#endif
+
 		value = READ_REG(REG_TCR1);
 		WRITE_REG(REG_TCR1, value | BIT_TCR1_E1_TCRC4);
 		/* EBIT: Enable auto E-bit support */
 		value = READ_REG(REG_TCR2);
 		WRITE_REG(REG_TCR2, value | BIT_TCR2_E1_AEBE);
 
+#if defined(FIX_TBR4)
+        /* TBR4 */		
+		if (tbr4_verbose) DEBUG_EVENT("%s: Enable ARA bit at register TCR2\n", fe->name);
+		value = READ_REG(REG_TCR2);
+		WRITE_REG(REG_TCR2, value | BIT_TCR2_E1_ARA);
+		if (tbr4_verbose) DEBUG_EVENT("%s: New TCR2 values is %02X\n", fe->name, READ_REG(REG_TCR2));
+#endif
 		WRITE_REG(REG_SSIE1+0, 0);	
 		WRITE_REG(REG_SSIE1+1, 0);	
 		WRITE_REG(REG_SSIE1+2, 0);	
@@ -1358,8 +1385,16 @@ static int sdla_ds_te1_chip_config(void* pfe)
 		//WRITE_REG(REG_E1TAF, 0x1B);
 		//WRITE_REG(REG_E1TNAF, 0x40);
 		
+#if defined(FIX_TBR4)
+		if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: TEST Dec 31, 2009 3:30am!\n", fe->name);
+		WRITE_REG(REG_E1TAF, 0x1B | BIT_E1TAF_SI) ;
+		WRITE_REG(REG_E1TNAF, 0x5F | BIT_E1TNAF_SI);
+        	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Register %04X = %02X\n", fe->name, REG_E1TAF, READ_REG(REG_E1TAF));
+        	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Register %04X = %02X\n", fe->name, REG_E1TNAF, READ_REG(REG_E1TNAF));
+#else
 		WRITE_REG(REG_E1TAF, 0x1B);
 		WRITE_REG(REG_E1TNAF, 0x5F);
+#endif		
 		WRITE_REG(REG_E1TSa4, 0x00);
 		WRITE_REG(REG_E1TSa5, 0x00);
 		WRITE_REG(REG_E1TSa6, 0x00);
@@ -1593,7 +1628,9 @@ static int sdla_ds_te1_chip_config(void* pfe)
 	}else{
 		value |= BIT_ERCNT_LCVCRF;
 	}
+#if defined(ERCNT_MANUAL)
 	value |= BIT_ERCNT_EAMS;		/* manual mode select */
+#endif
 	WRITE_REG(REG_ERCNT, value);
 
 #if 1
@@ -2115,6 +2152,50 @@ sdla_ds_te1_sigctrl(sdla_fe_t *fe, int sig_mode, unsigned long ch_map, int mode)
 
 }
 
+#if defined(FIX_TBR4)
+static u_int32_t sdla_ds_is_local_alarm(sdla_fe_t *fe, u_int32_t alarms)
+{
+   	u_int32_t alarm_mask = 0;
+
+	if (IS_T1_FEMEDIA(fe)){
+
+    	alarm_mask = WAN_T1_FRAMED_ALARMS;
+    
+	}else if (IS_E1_FEMEDIA(fe)){
+
+    	if (WAN_FE_FRAME(fe) == WAN_FR_UNFRAMED){
+    		alarm_mask = WAN_TE1_UNFRAMED_ALARMS;
+    		if (!fe->te_param.lb_mode_map){
+    			alarm_mask |= ( WAN_TE_BIT_ALARM_LIU_OC |
+    					WAN_TE_BIT_ALARM_LIU_SC |
+    					WAN_TE_BIT_ALARM_LIU_LOS);
+    		}
+    	}else{
+    		alarm_mask = WAN_E1_FRAMED_ALARMS;
+    	}    
+    }
+	return (alarms & alarm_mask);
+}
+
+static u_int32_t sdla_ds_is_remote_alarm(sdla_fe_t *fe, u_int32_t alarms)
+{
+   	u_int32_t alarm_mask = 0;
+
+   	/* Alex Feb 27, 2008
+   	** Special case for customer that uses 
+   	** YEL alarm for protocol control */
+   	if (fe->fe_cfg.cfg.te_cfg.ignore_yel_alarm == WANOPT_NO){
+   		alarm_mask |= WAN_TE_BIT_ALARM_RAI;
+   	}
+	return (alarms & alarm_mask);
+}
+
+static u_int32_t sdla_ds_is_alarm(sdla_fe_t *fe, u_int32_t alarms)
+{
+    return (sdla_ds_is_local_alarm(fe,alarms) | sdla_ds_is_remote_alarm(fe,alarms));
+}
+
+#endif
 
 /******************************************************************************
 **			sdla_ds_t1_is_alarm()	
@@ -2185,11 +2266,28 @@ static int sdla_ds_te1_set_status(sdla_fe_t* fe, u_int32_t alarms)
 	unsigned char	new_fe_status = fe->fe_status;
 	u_int32_t	valid_rx_alarms = 0x00;
 
+#if defined(FIX_TBR4)
+	u_int32_t	valid_rx_alarms_t = 0x00;
+	if (IS_T1_FEMEDIA(fe)){
+		valid_rx_alarms_t = sdla_ds_t1_is_alarm(fe, alarms);
+	}else if (IS_E1_FEMEDIA(fe)){
+		valid_rx_alarms_t = sdla_ds_e1_is_alarm(fe, alarms);
+	}
+
+	valid_rx_alarms = sdla_ds_is_alarm(fe, alarms);
+
+	if(valid_rx_alarms_t != valid_rx_alarms)
+		if(tbr4_verbose)
+			DEBUG_EVENT("%s: [TBR4] Change in alarms received Valid_rx_new=0x%08X Valid_rx_new=0x%08X\n",
+			fe->name,valid_rx_alarms,valid_rx_alarms_t);
+#else
+
 	if (IS_T1_FEMEDIA(fe)){
 		valid_rx_alarms = sdla_ds_t1_is_alarm(fe, alarms);
 	}else if (IS_E1_FEMEDIA(fe)){
 		valid_rx_alarms = sdla_ds_e1_is_alarm(fe, alarms);
 	}
+#endif
 
 	if (valid_rx_alarms){
 		if (fe->fe_status != FE_DISCONNECTED){
@@ -2374,6 +2472,13 @@ static u_int32_t sdla_ds_te1_read_frame_alarms(sdla_fe_t *fe)
 				fe->name, FE_MEDIA_DECODE(fe),
 				rrts1, alarm);
 
+#if defined(FIX_TBR4)
+
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Reading %s Framer status (Old:%08X,%02X:%08X)\n", 
+				fe->name, FE_MEDIA_DECODE(fe),
+				alarm, rrts1,sdla_ds_is_local_alarm(fe, alarm));
+	if (!sdla_ds_is_local_alarm(fe, alarm)){
+#endif
 	if (fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_YES) {
 		alarm &= ~WAN_TE_BIT_ALARM_RAI;
 
@@ -2411,7 +2516,9 @@ static u_int32_t sdla_ds_te1_read_frame_alarms(sdla_fe_t *fe)
 					WAN_T1_ALARM_THRESHOLD_RAI_OFF);
 		}
 	}
-
+#if defined(FIX_TBR4)
+	}
+#endif
 	if (rrts1 & BIT_RRTS1_RAIS){
 		if ((fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_NO) ||
 		    ((fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_YES) && (!IS_TE_ALARM_AIS(alarm)))) {
@@ -2453,6 +2560,42 @@ static u_int32_t sdla_ds_te1_read_frame_alarms(sdla_fe_t *fe)
 	}
 
 	if (WAN_FE_FRAME(fe) != WAN_FR_UNFRAMED){
+#if defined(FIX_TBR4)
+		if (IS_T1_FEMEDIA(fe)){
+			if (rrts1 & BIT_RRTS1_RLOF){
+				if (!IS_TE_ALARM_LOF(alarm)){
+					sdla_ds_te1_swirq_trigger(
+						fe,
+						WAN_TE1_SWIRQ_TYPE_ALARM_LOF,
+						WAN_TE1_SWIRQ_SUBTYPE_ALARM_ON,
+						WAN_T1_ALARM_THRESHOLD_LOF_ON);
+				}
+			}else{
+				if (IS_TE_ALARM_LOF(alarm)){
+					sdla_ds_te1_swirq_trigger(
+						fe,
+						WAN_TE1_SWIRQ_TYPE_ALARM_LOF,
+						WAN_TE1_SWIRQ_SUBTYPE_ALARM_OFF,
+						WAN_T1_ALARM_THRESHOLD_LOF_OFF);
+				}
+			}
+		}else{
+			if (rrts1 & BIT_RRTS1_RLOF){
+				if (!IS_TE_ALARM_LOF(alarm)){
+					unsigned char	rls2 = READ_REG(REG_RLS2);
+					if (rls2 & BIT_RLS2_E1_FASRC){
+						sdla_ds_te1_lost_frame_align(fe);
+						alarm |= WAN_TE_BIT_ALARM_LOF;
+					}
+				}
+			} else {
+				if (IS_TE_ALARM_LOF(alarm)){
+					sdla_ds_te1_in_frame_align(fe);
+					alarm &= ~WAN_TE_BIT_ALARM_LOF;
+				}
+			}
+		}
+#else
 		if (rrts1 & BIT_RRTS1_RLOF){
 		if ((fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_NO) ||
 		    ((fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_YES) && (!IS_TE_ALARM_LOF(alarm)))) {
@@ -2472,6 +2615,7 @@ static u_int32_t sdla_ds_te1_read_frame_alarms(sdla_fe_t *fe)
 					WAN_T1_ALARM_THRESHOLD_LOF_OFF);
 			}
 		}
+#endif
 	}
 	/* Aug 30, 2006
 	** Red alarm is either LOS or OOF alarms */
@@ -2531,12 +2675,28 @@ static unsigned int sdla_ds_te1_read_liu_alarms(sdla_fe_t *fe)
 	}
 	if (lrsr & BIT_LRSR_LOSS){
 		if (!(alarm & WAN_TE_BIT_ALARM_LIU_LOS)){
+#ifdef FIX_TBR4
+			sdla_t* card = (sdla_t*)fe->card;
+			if(tbr4_verbose) DEBUG_EVENT("%s:  Set Clock: ON\n", fe->name);
+			if(WAN_TE1_CLK(&card->fe) == WAN_NORMAL_CLK){
+				WAN_TE1_CLK(&card->fe) = WAN_MASTER_CLK;
+				a104_set_digital_fe_clock(fe->card);
+				WAN_TE1_CLK(&card->fe) = WAN_NORMAL_CLK;
+			}
+#endif
 			DEBUG_EVENT("%s: Lost of Signal is detected!\n",
 					fe->name);
 		}
 		alarm |= WAN_TE_BIT_ALARM_LIU_LOS;
 	}else{
 		if (alarm & WAN_TE_BIT_ALARM_LIU_LOS){
+#ifdef FIX_TBR4
+			sdla_t* card = (sdla_t*)fe->card;
+			if(tbr4_verbose) DEBUG_EVENT("%s:  Clear Master Clock\n", fe->name);
+			if(WAN_TE1_CLK(&card->fe) == WAN_NORMAL_CLK){
+				a104_set_digital_fe_clock(fe->card);
+			}
+#endif
 			DEBUG_EVENT("%s: Lost of Signal is cleared!\n",
 					fe->name);
 		}
@@ -2736,6 +2896,10 @@ static int sdla_ds_te1_set_alarms(sdla_fe_t* fe, u_int32_t alarms)
 			fe->te_param.tx_yel_alarm = 1;
 			fe->fe_stats.tx_alarms |= WAN_TE_BIT_YEL_ALARM;
 		}else{
+#ifdef FIX_TBR4
+		    value = READ_REG(REG_TCR2);
+		    if (!(value & BIT_TCR2_E1_ARA)){
+#endif
 			value = READ_REG(REG_E1TNAF);
 			if (!(value & BIT_E1TNAF_A)){
 				DEBUG_EVENT("%s: Enable transmit YEL alarm\n",
@@ -2744,6 +2908,9 @@ static int sdla_ds_te1_set_alarms(sdla_fe_t* fe, u_int32_t alarms)
 			}
 			fe->te_param.tx_yel_alarm = 1;
 			fe->fe_stats.tx_alarms |= WAN_TE_BIT_YEL_ALARM;
+#ifdef FIX_TBR4
+			}
+#endif
 		}
 	}
 
@@ -2787,6 +2954,10 @@ static int sdla_ds_te1_clear_alarms(sdla_fe_t* fe, u_int32_t alarms)
 			fe->te_param.tx_yel_alarm = 0;
 			fe->fe_stats.tx_alarms &= ~WAN_TE_BIT_YEL_ALARM;
 		}else{
+#ifdef FIX_TBR4
+		    value = READ_REG(REG_TCR2);
+		    if (!(value & BIT_TCR2_E1_ARA)){
+#endif
 			value = READ_REG(REG_E1TNAF);
 			if (value & BIT_E1TNAF_A) {
 				DEBUG_EVENT("%s: Disable transmit YEL alarm\n",
@@ -2795,6 +2966,9 @@ static int sdla_ds_te1_clear_alarms(sdla_fe_t* fe, u_int32_t alarms)
 			}
 			fe->te_param.tx_yel_alarm = 0;
 			fe->fe_stats.tx_alarms &= ~WAN_TE_BIT_YEL_ALARM;
+#ifdef FIX_TBR4
+		    }
+#endif
 		}
 	}
 
@@ -3502,6 +3676,45 @@ sdla_ds_te1_intr_ctrl(sdla_fe_t *fe, int dummy, u_int8_t type, u_int8_t mode, un
 	return 0;
 }
 
+#if defined(FIX_TBR4)
+static int sdla_ds_te1_lost_frame_align(sdla_fe_t *fe)
+{
+	unsigned char   value;
+
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Lost basic frame alignment (ticks:%ld:%d)!\n", fe->name, SYSTEM_TICKS,HZ);
+
+	value = READ_REG(REG_TCR1);
+	WRITE_REG(REG_TCR1, value | BIT_TCR1_E1_TSiS);
+	value = READ_REG(REG_TCR2);
+	WRITE_REG(REG_TCR2, value & ~BIT_TCR2_E1_AEBE);
+	
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Reg %04X = %02X!\n", 
+			fe->name, REG_TCR1, READ_REG(REG_TCR1));
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Reg %04X = %02X!\n", 
+			fe->name, REG_TCR2, READ_REG(REG_TCR2));
+	
+	return 0;
+}
+
+static int sdla_ds_te1_in_frame_align(sdla_fe_t *fe)
+{
+	unsigned char   value;
+	
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: In frame alignment (ticks:%ld)!\n", fe->name, SYSTEM_TICKS);
+
+	value = READ_REG(REG_TCR1);
+	WRITE_REG(REG_TCR1, value & ~BIT_TCR1_E1_TSiS);
+	value = READ_REG(REG_TCR2);
+	WRITE_REG(REG_TCR2, value | BIT_TCR2_E1_AEBE);
+	
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Reg %04X = %02X!\n", 
+				fe->name, REG_TCR1, READ_REG(REG_TCR1));
+	if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Reg %04X = %02X!\n", 
+				fe->name, REG_TCR2, READ_REG(REG_TCR2));
+
+	return 0;
+}
+#endif
 
 static int sdla_ds_te1_fr_rxintr_rls1(sdla_fe_t *fe, int silent) 
 {
@@ -3509,6 +3722,9 @@ static int sdla_ds_te1_fr_rxintr_rls1(sdla_fe_t *fe, int silent)
 	unsigned char	rls1 = READ_REG(REG_RLS1);
 	unsigned char	rrts1 = READ_REG(REG_RRTS1);
 
+#if defined(FIX_TBR4)
+    if (!sdla_ds_is_local_alarm(fe, fe->fe_alarm)){
+#endif
 	if (rls1 & (BIT_RLS1_RRAIC|BIT_RLS1_RRAID)){
 		if (rrts1 & BIT_RRTS1_RRAI){
 			if (fe->fe_cfg.cfg.te_cfg.ignore_debounce_alarm == WANOPT_YES) {
@@ -3536,7 +3752,9 @@ static int sdla_ds_te1_fr_rxintr_rls1(sdla_fe_t *fe, int silent)
 			}
 		}
 	}
-
+#if defined(FIX_TBR4)
+	}
+#endif
 	if (rim1 & (BIT_RIM1_RAISC|BIT_RIM1_RAISD)){
 		if (rls1 & (BIT_RLS1_RAISC|BIT_RLS1_RAISD)){
 			if (rrts1 & BIT_RRTS1_RAIS){
@@ -3575,6 +3793,68 @@ static int sdla_ds_te1_fr_rxintr_rls1(sdla_fe_t *fe, int silent)
 	}
 
 	if (WAN_FE_FRAME(fe) != WAN_FR_UNFRAMED){
+#if defined(FIX_TBR4)
+		if (rim1 & (BIT_RIM1_RLOFC | BIT_RIM1_RLOFD)){
+       		if (IS_T1_FEMEDIA(fe)){
+        		if (rls1 & (BIT_RLS1_RLOFC|BIT_RLS1_RLOFD)){
+    				if (rrts1 & BIT_RRTS1_RLOF){
+    					sdla_ds_te1_swirq_trigger(
+    							fe,
+    							WAN_TE1_SWIRQ_TYPE_ALARM_LOF,
+    							WAN_TE1_SWIRQ_SUBTYPE_ALARM_ON,
+    							WAN_T1_ALARM_THRESHOLD_LOF_ON);
+    				}else{
+    					sdla_ds_te1_swirq_trigger(
+    							fe,
+    							WAN_TE1_SWIRQ_TYPE_ALARM_LOF,
+    							WAN_TE1_SWIRQ_SUBTYPE_ALARM_OFF,
+    							WAN_T1_ALARM_THRESHOLD_LOF_OFF);
+    				}
+        		}       		
+       		}else{
+       		    if (rls1 & BIT_RLS1_RLOFD){
+            		unsigned char	rls2 = READ_REG(REG_RLS2);
+			if (tbr4_verbose) DEBUG_EVENT("[TBR4]: %s: rls2=%02X\n", fe->name, rls2);
+            		if (rls1 & BIT_RLS1_RLOFC){
+	                       	/* Special case to handle for E1 (TBR4) */
+        	               	unsigned char stat7 = READ_REG(REG_E1RRTS7);
+                       		if (tbr4_verbose) DEBUG_EVENT("[TBR4] %s: Special case LOFD:LOFC (rls1=%02X, stat7=%02X)\n", 
+                        	                fe->name, rls1, stat7);
+                        	if (stat7 & BIT_E1RRTS7_FASA){
+                           			if (WAN_FE_FRAME(fe) == WAN_FR_CRC4){
+										if (stat7 & BIT_E1RRTS7_CRC4SA){
+				              				sdla_ds_te1_lost_frame_align(fe);    
+											if (!silent) DEBUG_EVENT("%s: LOF alarm is 1 ON\n",
+															fe->name);
+											fe->fe_alarm |= WAN_TE_BIT_ALARM_LOF;
+										}
+                           			}else{
+                               			sdla_ds_te1_lost_frame_align(fe);
+										if (!silent) DEBUG_EVENT("%s: LOF alarm is 2 ON\n",
+															fe->name);
+										fe->fe_alarm |= WAN_TE_BIT_ALARM_LOF;
+                           			}                                                         
+                       		}else{
+                           			sdla_ds_te1_in_frame_align(fe);
+									if (!silent) DEBUG_EVENT("%s: LOF alarm is  1 OFF\n",
+															fe->name);
+									fe->fe_alarm &= ~WAN_TE_BIT_ALARM_LOF;
+                       		}                                        
+            		}else if (rls2 & BIT_RLS2_E1_FASRC){
+                		sdla_ds_te1_lost_frame_align(fe);
+						if (!silent) DEBUG_EVENT("%s: LOF alarm is 4 ON\n",
+												fe->name);
+						fe->fe_alarm |= WAN_TE_BIT_ALARM_LOF;
+                	}            		
+        		}else if (rls1 & BIT_RLS1_RLOFC){
+                	sdla_ds_te1_in_frame_align(fe);
+					if (!silent) DEBUG_EVENT("%s: LOF alarm is 2 OFF\n",
+													fe->name);
+					fe->fe_alarm &= ~WAN_TE_BIT_ALARM_LOF;
+        		}
+            }
+        }
+#else
 		if (rim1 & (BIT_RIM1_RLOFC | BIT_RIM1_RLOFD)){
 			if (rls1 & (BIT_RLS1_RLOFC|BIT_RLS1_RLOFD)){
 				if (rrts1 & BIT_RRTS1_RLOF){
@@ -3602,6 +3882,7 @@ static int sdla_ds_te1_fr_rxintr_rls1(sdla_fe_t *fe, int silent)
 				}
 			}
 		}    			
+#endif
 	}
 	WRITE_REG(REG_RLS1, rls1);
 	return 0;
@@ -3920,12 +4201,28 @@ static int sdla_ds_te1_liu_intr(sdla_fe_t *fe, int silent)
     	if (llsr & (BIT_LLSR_LOSC | BIT_LLSR_LOSD)){
     		if (lrsr & BIT_LRSR_LOSS){
     			if (!(fe->fe_alarm & WAN_TE_BIT_ALARM_LIU_LOS)){
+#ifdef FIX_TBR4
+				sdla_t* card = (sdla_t*)fe->card;
+				if(tbr4_verbose) DEBUG_EVENT("%s:  Set Master Clock\n", fe->name);
+				if(WAN_TE1_CLK(&card->fe) == WAN_NORMAL_CLK){
+					WAN_TE1_CLK(&card->fe) = WAN_MASTER_CLK;
+					a104_set_digital_fe_clock(fe->card);
+					WAN_TE1_CLK(&card->fe) = WAN_NORMAL_CLK;
+				}
+#endif
     				if (!silent) DEBUG_EVENT("%s: Lost of Signal is detected!\n",
     					fe->name);
     				fe->fe_alarm |= WAN_TE_BIT_ALARM_LIU_LOS;
     			}
     		}else{
     			if (fe->fe_alarm & WAN_TE_BIT_ALARM_LIU_LOS){
+#ifdef FIX_TBR4
+				sdla_t* card = (sdla_t*)fe->card;
+				if(tbr4_verbose) DEBUG_EVENT("%s:  Clear Master Clock\n", fe->name);
+				if(WAN_TE1_CLK(&card->fe) == WAN_NORMAL_CLK){
+					a104_set_digital_fe_clock(fe->card);
+				}
+#endif
     				if (!silent) DEBUG_EVENT("%s: Lost of Signal is cleared!\n",
     					fe->name);
     				fe->fe_alarm &= ~WAN_TE_BIT_ALARM_LIU_LOS;	
@@ -4904,6 +5201,7 @@ static int sdla_ds_te1_pmon(sdla_fe_t *fe, int action)
 	WAN_ASSERT(fe->write_fe_reg == NULL);
 	WAN_ASSERT(fe->read_fe_reg == NULL);
 
+#if defined(ERCNT_MANUAL)
 	if (IS_FE_PMON_UPDATE(action)){
 		unsigned char	ercnt = READ_REG(REG_ERCNT);
 		WRITE_REG(REG_ERCNT, ercnt & ~BIT_ERCNT_MECU);
@@ -4912,6 +5210,7 @@ static int sdla_ds_te1_pmon(sdla_fe_t *fe, int action)
 		WP_DELAY(250);
 		WRITE_REG(REG_ERCNT, ercnt);
 	}
+#endif
 
 	if (IS_FE_PMON_READ(action)){
 		pmon->mask = 0x00;
