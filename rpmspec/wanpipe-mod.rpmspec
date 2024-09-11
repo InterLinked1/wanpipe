@@ -1,6 +1,6 @@
 %define WANPIPE_VER	  wanpipe-modules
 %define name              %{WANPIPE_VER}
-%define version           7.0.38
+%define version           7.0.38.1
 %define release           0
 %define	serial	 	  1
 %define MODULES_DIR	  /lib/modules
@@ -58,6 +58,10 @@ fi
 
 
 %changelog
+* Mon Feb 05 2024 Pushkar Singh <psingh@sangoma.com> - 7.0.38
+==================================================================
+- Support for Rocky Linux 9.x
+
 * Wed Dec 13 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.37
 ==================================================================
 - Support for ppp mode on kernel 6.1.x

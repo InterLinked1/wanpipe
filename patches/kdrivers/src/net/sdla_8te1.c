@@ -3105,8 +3105,12 @@ static unsigned char sdla_ds_te1_read_rbsbits(sdla_fe_t* fe, int channo, int mod
 	int		rs_offset = 0, range = 0;
 	unsigned char	rbsbits = 0x00, status = 0x00;
 
-	if (wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOS, (void*)&fe->swirq_map) || 
-	    wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOF, (void*)&fe->swirq_map)){
+	/* Force FE POll mode. Stop using front end interrupts as they
+	 * are known to cause parity errors on modern systems.
+	 * Also , donot worry about the software intrupts */
+        if ( (fe->fe_cfg.cfg.te_cfg.ignore_poll_mode == WANOPT_NO) &&
+	     (wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOS, (void*)&fe->swirq_map) || 
+	       wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOF, (void*)&fe->swirq_map)) ) {
 		/* Keep the original values */
 		return 0;
 	}
@@ -3160,8 +3164,12 @@ sdla_ds_te1_check_rbsbits(sdla_fe_t* fe, int ch_base, unsigned int ts_map, int r
 	int		rs_reg = 0, rs_offset = 0;
 	int		i = 0, channel, range = 12;
 
-	if (wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOS, (void*)&fe->swirq_map) || 
-	    wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOF, (void*)&fe->swirq_map)){
+	/* Force FE POll mode. Stop using front end interrupts as they
+	 * are known to cause parity errors on modern systems.
+	 * Also , donot worry about the software intrupts */
+        if ( (fe->fe_cfg.cfg.te_cfg.ignore_poll_mode == WANOPT_NO) &&
+	     (wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOS, (void*)&fe->swirq_map) || 
+	    wan_test_bit(WAN_TE1_SWIRQ_TYPE_ALARM_LOF, (void*)&fe->swirq_map)) ) {
 		/* Keep the original values */
 		return 0;
 	}

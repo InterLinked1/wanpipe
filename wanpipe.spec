@@ -25,7 +25,7 @@
 #
 
 %define NAME			wanpipe
-%define VERSION           7.0.38
+%define VERSION           7.0.38.1
 %define RELEASE			0
 %define KVERSION		%{?kernel}
 %define KSRC			%{?ksrc}
@@ -262,6 +262,10 @@ fi
 ################################################################################
 
 %changelog
+* Mon Feb 05 2024 Pushkar Singh <psingh@sangoma.com> - 7.0.38
+==================================================================
+- Support for Rocky Linux 9.x
+
 * Wed Dec 13 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.37
 ==================================================================
 - Support for ppp mode on kernel 6.1.x

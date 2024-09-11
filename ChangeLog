@@ -7,6 +7,10 @@ Copyright (c) 1995-2023 Sangoma Technologies Inc.
 For more info visit: http://wiki.sangoma.com
 ------------------------------------------------------------------------------
 
+* Mon Feb 05 2024 Pushkar Singh <psingh@sangoma.com> - 7.0.38
+==================================================================
+- Support for Rocky Linux 9.x
+
 * Wed Dec 13 2023 Pushkar Singh <psingh@sangoma.com> - 7.0.37
 ==================================================================
 - Support for ppp mode on kernel 6.1.x
